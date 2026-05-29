@@ -4,7 +4,6 @@ import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { activeServers } from "./sockets.js";
 import { main as startGame } from "./game.js";
-import { v4 as uuidv4 } from "uuid";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,7 +30,7 @@ wss.on("connection", (ws, req) => {
         if (gameServer) {
             let clientId = urlParams.get("token");
             if (!clientId || clientId === "null" || clientId === "undefined") {
-                clientId = uuidv4();
+                clientId = crypto.randomUUID();
             }
             gameServer.onConnection(ws, clientId);
         } else {
