@@ -5,7 +5,7 @@ echo "Starting Monopoly Server..."
 cd "$(dirname "$0")"
 
 echo "Installing dependencies..."
-npm install
+npm install --registry="https://mirror-npm.runflare.com"
 
 echo "Building frontend..."
 npm run build
