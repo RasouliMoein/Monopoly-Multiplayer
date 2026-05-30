@@ -63,6 +63,29 @@ export default function Home() {
     const [server, SetServer] = useState<Server | undefined>(undefined);
     const [serverPCount, SetServerPCount] = useState<number>(6);
 
+    function resetSavedGameSession() {
+        const keysToRemove: string[] = [];
+
+        for (let index = 0; index < sessionStorage.length; index += 1) {
+            const key = sessionStorage.key(index);
+            if (key === null) continue;
+            if (key === "current_room" || key === "current_name" || key.startsWith("monopoly_token_")) {
+                keysToRemove.push(key);
+            }
+        }
+
+        for (const key of keysToRemove) {
+            sessionStorage.removeItem(key);
+        }
+
+        SetDisabled(false);
+        SetSocket(undefined);
+        SetName("");
+        SetAddress("");
+        notifyRef.current?.message("Saved game session cleared", "info", 2);
+        document.location.reload();
+    }
+
     useEffect(() => {
         document.title = "Monopoly";
         // const _firebase = initializeApp(ENV.firebase);
@@ -518,6 +541,17 @@ export default function Home() {
                                 addr={addr}
                                 name={name}
                             />
+                            <center>
+                                <button
+                                    style={{
+                                        backgroundColor: "#444",
+                                        marginTop: 10,
+                                    }}
+                                    onClick={resetSavedGameSession}
+                                >
+                                    Reset saved game session
+                                </button>
+                            </center>
                         </>
                     )}
                 </main>
