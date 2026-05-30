@@ -40,13 +40,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
     useEffect(() => {
         const settings_interval = setInterval(() => {
-            const parsedCookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string))["monopolySettings"];
+            const parsedCookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)).settings;
             SetSettings(parsedCookie);
         }, 1000);
         return () => {
             clearInterval(settings_interval);
         };
-    }, [document.cookie]);
+    }, []);
 
     useEffect(() => {
         if (globalSettings !== undefined) {
@@ -78,7 +78,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         let settings: MonopolySettings | undefined = undefined;
 
         const settings_interval = setInterval(() => {
-            settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string))["monopolySettings"];
+            settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)).settings;
         }, 1000);
 
         function mouseMove(e: MouseEvent) {
@@ -1415,9 +1415,7 @@ which is ${payment_ammount}
                     server={server}
                     Morgage={{
                         onCanc: (a, prpName: string) => {
-                            var settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string))[
-                                "monopolySettings"
-                            ] as MonopolySettings;
+                            var settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)).settings as MonopolySettings;
                             const localPlayer = clients.get(socket.id);
                             if (localPlayer === undefined) return;
                             if (settings !== undefined && settings.notifications === true)
@@ -1439,9 +1437,7 @@ which is ${payment_ammount}
                             SetClients(new Map(clients.set(socket.id, localPlayer)));
                         },
                         onMort: (a, prpName) => {
-                            var settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string))[
-                                "monopolySettings"
-                            ] as MonopolySettings;
+                            var settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)).settings as MonopolySettings;
                             const localPlayer = clients.get(socket.id);
                             if (localPlayer === undefined) return;
                             if (settings !== undefined && settings.notifications === true)
