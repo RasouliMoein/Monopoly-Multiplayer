@@ -77,7 +77,7 @@ export interface historyAction {
 export function history(action: string): historyAction {
     const time = new Date().toJSON();
     return {
-        action,
+        action: action.replace(/\s+/g, " ").replace(/\bpayed\b/gi, "paid").trim(),
         time,
     } as historyAction;
 }

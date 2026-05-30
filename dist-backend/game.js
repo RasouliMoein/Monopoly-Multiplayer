@@ -194,12 +194,21 @@ async function main(playersCount, f) {
                         player.from_json(playerInfo);
                         if (currentId != socket.id)
                             return;
-                        const arr = Array.from(Clients.values())
-                            .filter((v) => v.player.balance > 0)
-                            .map((v) => v.player.id);
+                        if (player.balance < 0) {
+                            Clients.delete(socket.id);
+                        }
+                        const activeClients = Array.from(Clients.values()).filter((v) => v.player.balance > 0);
+                        const arr = activeClients.map((v) => v.player.id);
                         var i = arr.indexOf(socket.id);
-                        i = (i + 1) % arr.length;
-                        currentId = arr[i];
+                        i = arr.length > 0 ? (i + 1) % arr.length : -1;
+                        currentId = i === -1 ? "" : arr[i];
+                        if (activeClients.length <= 1) {
+                            for (const client of Array.from(Clients.values())) {
+                                client.ready = false;
+                            }
+                            gameStarted = false;
+                            currentId = activeClients[0]?.player.id ?? "";
+                        }
                         EmitAll("turn-finished", {
                             from: socket.id,
                             turnId: currentId,

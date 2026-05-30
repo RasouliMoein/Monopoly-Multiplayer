@@ -540,7 +540,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                     if (b === "buy") {
                                         if (settings !== undefined && settings.notifications === true)
                                             notifyRef.current?.message(
-                                                `${(proprety?.price ?? 0) * 1} of money is deducted from the account`,
+                                                `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
+                                                    (proprety?.price ?? 0) * 1
+                                                }`,
                                                 "info",
                                                 2,
                                                 () => {},
@@ -581,7 +583,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                         if (_info.state === 5) {
                                             if (settings !== undefined && settings.notifications === true)
                                                 notifyRef.current?.message(
-                                                    `${proprety.ohousecost ?? 0} of money is deducted from the account`,
+                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${proprety.ohousecost ?? 0} to build a hotel on ${
+                                                        proprety.name ?? "a property"
+                                                    }`,
                                                     "info",
                                                     2,
                                                     () => {},
@@ -592,7 +596,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                         } else {
                                             if (settings !== undefined && settings.notifications === true)
                                                 notifyRef.current?.message(
-                                                    `${proprety.housecost ?? 0} of money is deducted from the account`,
+                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${(proprety.housecost ?? 0) * _info.money} to build ${
+                                                        _info.money
+                                                    } house${_info.money > 1 ? "s" : ""} on ${proprety.name ?? "a property"}`,
                                                     "info",
                                                     2,
                                                     () => {},
@@ -633,7 +639,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                                     }
                                                     if (settings !== undefined && settings.notifications === true)
                                                         notifyRef.current?.message(
-                                                            `${payment_ammount} of money is deducted from the account`,
+                                                            `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} rent to ${
+                                                                clients.get(p.id)?.username ?? "unknown user"
+                                                            } for ${proprety?.name ?? "a property"}`,
                                                             "info",
                                                             2,
                                                             () => {},
@@ -656,9 +664,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                                     socket.emit(
                                                         "history",
                                                         history(`
-                                                    ${clients.get(socket.id)?.username ?? "unknown user"} pay ${payment_ammount} to ${
+                                                    ${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} rent to ${
                                                             clients.get(p.id)?.username ?? "unknown user"
-                                                        }
+                                                        } for ${proprety?.name ?? "a property"}
                                                     `)
                                                     );
                                                 }
@@ -680,7 +688,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                             localPlayer.balance -= 200;
                                             if (settings !== undefined && settings.notifications === true)
                                                 notifyRef.current?.message(
-                                                    `${200} of money is deducted from the account`,
+                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $200 income tax`,
                                                     "info",
                                                     2,
                                                     () => {},
@@ -693,14 +701,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                             engineRef.current?.applyAnimation(1);
                                             socket.emit(
                                                 "history",
-                                                history(`${clients.get(socket.id)?.username ?? "unknown player"} payed income taxes`)
+                                                history(`${clients.get(socket.id)?.username ?? "unknown player"} paid $200 income tax`)
                                             );
                                         }
                                         if (proprety?.id === "luxerytax") {
                                             localPlayer.balance -= 100;
                                             if (settings !== undefined && settings.notifications === true)
                                                 notifyRef.current?.message(
-                                                    `${100} of money is deducted from the account`,
+                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $100 luxury tax`,
                                                     "info",
                                                     2,
                                                     () => {},
@@ -713,13 +721,15 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                             engineRef.current?.applyAnimation(1);
                                             socket.emit(
                                                 "history",
-                                                history(`${clients.get(socket.id)?.username ?? "unknown player"} payed luxery taxes`)
+                                                history(`${clients.get(socket.id)?.username ?? "unknown player"} paid $100 luxury tax`)
                                             );
                                         }
                                     } else if (b === "special_action") {
                                         if (settings !== undefined && settings.notifications === true)
                                             notifyRef.current?.message(
-                                                `${(proprety?.price ?? 0) * 1} of money is deducted from the account`,
+                                                `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
+                                                    (proprety?.price ?? 0) * 1
+                                                }`,
                                                 "info",
                                                 2,
                                                 () => {},
@@ -731,6 +741,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                         audio.play();
                                         localPlayer.balance -= (proprety?.price ?? 0) * 1;
                                         engineRef.current?.applyAnimation(1);
+                                        socket.emit(
+                                            "history",
+                                            history(
+                                                `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
+                                                    (proprety?.price ?? 0) * 1
+                                                }`
+                                            )
+                                        );
 
                                         const _info = info as {
                                             rolls: number;
@@ -796,11 +814,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 } else {
                     x.balance -= 50;
                     if (x.id === socket.id && settings !== undefined && settings.notifications === true)
-                        notifyRef.current?.message(`${50} of money is deducted from the account`, "info", 2, () => {}, false);
+                        notifyRef.current?.message(`${x.username} paid $50 to leave jail`, "info", 2, () => {}, false);
                     var audio = new Audio("./moneyminus.mp3");
                     audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     audio.loop = false;
                     audio.play();
+                    if (x.id === socket.id) {
+                        socket.emit("history", history(`${x.username} paid $50 to leave jail`));
+                    }
                 }
                 x.isInJail = false;
                 x.jailTurnsRemaining = 0;
@@ -866,7 +887,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             socket.emit(
                                 "history",
                                 history(
-                                    `${xplayer.username ?? "unknown user"} gave ${amnout} money to [${other_players
+                                    `${xplayer.username ?? "unknown user"} gave $${amnout} to [${other_players
                                         .map((v) => v.username)
                                         .join(", ")}]`
                                 )
@@ -876,7 +897,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             socket.emit(
                                 "history",
                                 history(
-                                    `${xplayer.username ?? "unknown user"} recieve ${-amnout} money from [${other_players
+                                    `${xplayer.username ?? "unknown user"} received $${-amnout} from [${other_players
                                         .map((v) => v.username)
                                         .join(", ")}]`
                                 )
@@ -913,7 +934,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 socket.emit(
                                     "history",
                                     history(`
-                                ${clients.get(socket.id)?.username ?? "unknown user"} pay ${payment_ammount} to ${
+                                ${clients.get(socket.id)?.username ?? "unknown user"} received $${-payment_ammount} from ${
                                         clients.get(xplayer.id)?.username ?? "unknown user"
                                     }
                                 `)
@@ -987,7 +1008,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         if (xplayer.id === socket.id) {
                             engineRef.current?.applyAnimation(1);
                             if (settings !== undefined && settings.notifications === true)
-                                notifyRef.current?.message(`${c.amount ?? 0} of money is deducted from the account`, "info", 2, () => {}, false);
+                                                notifyRef.current?.message(
+                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${c.amount ?? 0}`,
+                                                    "info",
+                                                    2,
+                                                    () => {},
+                                                    false
+                                                );
                             var audio = new Audio("./moneyminus.mp3");
                             audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             audio.loop = false;
@@ -1050,7 +1077,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                             if (b === "buy") {
                                                 if (settings !== undefined && settings.notifications === true)
                                                     notifyRef.current?.message(
-                                                        `${(proprety?.price ?? 0) * 1} of money is deducted from the account`,
+                                                        `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
+                                                            (proprety?.price ?? 0) * 1
+                                                        }`,
                                                         "info",
                                                         2,
                                                         () => {},
@@ -1088,7 +1117,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                                 console.log(info);
                                                 if (settings !== undefined && settings.notifications === true)
                                                     notifyRef.current?.message(
-                                                        `${(proprety?.price ?? 0) * 1} of money is deducted from the account`,
+                                                        `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
+                                                            (proprety?.price ?? 0) * 1
+                                                        }`,
                                                         "info",
                                                         2,
                                                         () => {},
@@ -1153,7 +1184,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                                                         payment_ammount = (l[0] + l[1]) * (c.rentmultiplier ?? 1);
                                                                         if (settings !== undefined && settings.notifications === true)
                                                                             notifyRef.current?.message(
-                                                                                `${payment_ammount} of money is deducted from the account`,
+                                                                                `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} to ${
+                                                                                    clients.get(p.id)?.username ?? "unknown user"
+                                                                                } for ${proprety.name ?? "rent"}`,
                                                                                 "info",
                                                                                 2,
                                                                                 () => {},
@@ -1176,11 +1209,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                                                         socket.emit(
                                                                             "history",
                                                                             history(
-                                                                                `${
-                                                                                    clients.get(socket.id)?.username ?? "unknown player"
-                                                                                } pay ${payment_ammount} to ${
+                                                                                `${clients.get(socket.id)?.username ?? "unknown player"} paid $${payment_ammount} to ${
                                                                                     clients.get(p.id)?.username ?? "unknown player"
-                                                                                }`
+                                                                                } for ${proprety.name ?? "rent"}`
                                                                             )
                                                                         );
 
@@ -1203,7 +1234,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
                                                                 if (settings !== undefined && settings.notifications === true)
                                                                     notifyRef.current?.message(
-                                                                        `${payment_ammount} of money is deducted from the account`,
+                                                                        `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} to ${
+                                                                            clients.get(p.id)?.username ?? "unknown user"
+                                                                        } for ${proprety.name ?? "rent"}`,
                                                                         "info",
                                                                         2,
                                                                         () => {},
@@ -1225,11 +1258,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                                                 socket.emit(
                                                                     "history",
                                                                     history(
-                                                                        `${
-                                                                            clients.get(socket.id)?.username ?? "unknown player"
-                                                                        } pay ${payment_ammount} to ${
+                                                                        `${clients.get(socket.id)?.username ?? "unknown player"} paid $${payment_ammount} to ${
                                                                             clients.get(p.id)?.username ?? "unknown player"
-                                                                        }`
+                                                                        } for ${proprety.name ?? "rent"}`
                                                                     )
                                                                 );
                                                                 SetClients(new Map(clients.set(socket.id, xplayer)));
@@ -1270,12 +1301,24 @@ which is ${payment_ammount}
                         `);
                         if (xplayer.id === socket.id && payment_ammount > 0) {
                             if (settings !== undefined && settings.notifications === true)
-                                notifyRef.current?.message(`${payment_ammount} of money is deducted from the account`, "info", 2, () => {}, false);
+                                notifyRef.current?.message(
+                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} for house and hotel upkeep`,
+                                    "info",
+                                    2,
+                                    () => {},
+                                    false
+                                );
                             var audio = new Audio("./moneyminus.mp3");
                             audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             audio.loop = false;
                             audio.play();
                             engineRef.current?.applyAnimation(1);
+                            socket.emit(
+                                "history",
+                                history(
+                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} for house and hotel upkeep`
+                                )
+                            );
                         }
                         xplayer.balance -= payment_ammount;
                         SetClients(new Map(clients.set(xplayer.id, xplayer)));
@@ -1432,7 +1475,7 @@ which is ${payment_ammount}
                             if (localPlayer === undefined) return;
                             if (settings !== undefined && settings.notifications === true)
                                 notifyRef.current?.message(
-                                    `${a} of money is deducted from the account for canceling mortgage`,
+                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${a} to cancel the mortgage on ${prpName}`,
                                     "info",
                                     2,
                                     () => {},
@@ -1445,7 +1488,10 @@ which is ${payment_ammount}
                             audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             audio.loop = false;
                             audio.play();
-                            socket.emit("history", history(`${clients.get(socket.id)?.username ?? "unknown player"} cancel mortgage on ${prpName}`));
+                            socket.emit(
+                                "history",
+                                history(`${clients.get(socket.id)?.username ?? "unknown player"} paid $${a} to cancel the mortgage on ${prpName}`)
+                            );
                             SetClients(new Map(clients.set(socket.id, localPlayer)));
                         },
                         onMort: (a, prpName) => {
@@ -1453,14 +1499,23 @@ which is ${payment_ammount}
                             const localPlayer = clients.get(socket.id);
                             if (localPlayer === undefined) return;
                             if (settings !== undefined && settings.notifications === true)
-                                notifyRef.current?.message(`${a} of money is deducted from the account for mortgage`, "info", 2, () => {}, false);
+                                notifyRef.current?.message(
+                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${a} to mortgage ${prpName}`,
+                                    "info",
+                                    2,
+                                    () => {},
+                                    false
+                                );
                             localPlayer.balance -= a;
                             engineRef.current?.applyAnimation(1);
                             var audio = new Audio("./buying1.mp3");
                             audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             audio.loop = false;
                             audio.play();
-                            socket.emit("history", history(`${clients.get(socket.id)?.username ?? "unknown player"} mortgaged ${prpName}`));
+                            socket.emit(
+                                "history",
+                                history(`${clients.get(socket.id)?.username ?? "unknown player"} paid $${a} to mortgage ${prpName}`)
+                            );
                             SetClients(new Map(clients.set(socket.id, localPlayer)));
                         },
                     }}

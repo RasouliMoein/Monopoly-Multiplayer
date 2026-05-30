@@ -258,16 +258,16 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         </h3>
 
                         <div style={{ overflowY: "auto", display: "block", position: "relative" }}>
-                            {prop.history
-                                .sort((a, b) => {
-                                    return new Date(a.time).getTime() - new Date(b.time).getTime();
-                                })
-                                .map((v) => (
-                                    <div className="history-action">
-                                        <p>{getTimeString(v.time)}</p>
-                                        <p>{v.action}</p>
-                                    </div>
-                                ))}
+                                {[...prop.history]
+                                    .sort((a, b) => {
+                                        return new Date(b.time).getTime() - new Date(a.time).getTime();
+                                    })
+                                    .map((v, i) => (
+                                        <div className="history-action" key={`${v.time}-${i}`}>
+                                            <p>{getTimeString(v.time)}</p>
+                                            <p>{v.action.replace(/\s+/g, " ").trim()}</p>
+                                        </div>
+                                    ))}
                         </div>
                     </>
                 ) : tabIndex == 4 ? (
