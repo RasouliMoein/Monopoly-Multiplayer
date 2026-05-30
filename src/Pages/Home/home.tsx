@@ -82,11 +82,17 @@ export default function Home() {
         } catch {}
     }, []);
 
-    const joinButtonClicked = async () => {
-        if (name.replace(" ", "").length === 0) {
+    const joinButtonClicked = async (forceAddress?: string, forceName?: string) => {
+        const joinName = forceName || name;
+        const joinAddr = forceAddress || addr;
+
+        if (joinName.replace(" ", "").length === 0) {
             notifyRef.current?.message("please add your name before joining", "info", 2);
             return;
         }
+
+        sessionStorage.setItem("current_room", joinAddr);
+        sessionStorage.setItem("current_name", joinName);
 
         try {
             const cookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
@@ -109,7 +115,7 @@ export default function Home() {
         }
         SetDisabled(true);
 
-        const address = TranslateCode(addr) as string;
+        const address = TranslateCode(joinAddr) as string;
         var socket: Socket;
         // const address = "localhost"
         try {
@@ -120,6 +126,8 @@ export default function Home() {
                 switch (args) {
                     case 0:
                         SetSocket(socket);
+                        SetName(joinName);
+                        SetAddress(joinAddr);
                         SetSignedIn(true);
                         SetDisabled(false);
                         break;
@@ -156,6 +164,15 @@ export default function Home() {
         if (uriParams.has("ip")) {
             SetAddress(uriParams.get("ip") ?? "");
         }
+
+        const storedRoom = sessionStorage.getItem("current_room");
+        const storedName = sessionStorage.getItem("current_name");
+        if (storedRoom && storedName) {
+            SetAddress(storedRoom);
+            SetName(storedName);
+            joinButtonClicked(storedRoom, storedName);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     async function startButtonClicked(bots: botInitial[]) {
@@ -174,6 +191,9 @@ export default function Home() {
                 });
                 const data = await response.json();
                 if (data.success) {
+                    sessionStorage.setItem("current_room", data.hostCode);
+                    sessionStorage.setItem("current_name", name);
+                    
                     const virtualServer = new Server();
                     virtualServer.code = data.translatedCode; // RAW code
                     
