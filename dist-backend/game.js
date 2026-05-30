@@ -89,23 +89,34 @@ async function main(playersCount, f) {
         f?.(server.code, server);
     }, (socket, server) => {
         // Handle name event
-        console.log("state", Clients.size < maxPlayers && !gameStarted ? 0 : gameStarted ? 1 : 2);
-        socket.emit("state", Clients.size < maxPlayers && !gameStarted ? 0 : gameStarted ? 1 : 2);
+        let isReconnecting = Clients.has(socket.id);
+        console.log("state", Clients.size < maxPlayers && !gameStarted ? 0 : (gameStarted && !isReconnecting) ? 1 : 2);
+        socket.emit("state", isReconnecting ? 0 : (Clients.size < maxPlayers && !gameStarted ? 0 : gameStarted ? 1 : 2));
         socket.on("name", (name) => {
             try {
-                const player = new Player(socket.id, name, Array.from(Clients.keys()).length, selectedMode.startingCash);
-                // handle current id =>
-                if (currentId === "" || !Array.from(Clients.keys()).includes(currentId)) {
-                    currentId = socket.id;
+                let client = Clients.get(socket.id);
+                isReconnecting = client !== undefined;
+                if (!isReconnecting) {
+                    const player = new Player(socket.id, name, Array.from(Clients.keys()).length, selectedMode.startingCash);
+                    if (currentId === "" || !Array.from(Clients.keys()).includes(currentId)) {
+                        currentId = socket.id;
+                    }
+                    client = {
+                        player: player,
+                        socket: socket,
+                        ready: false,
+                        positions: { x: 0, y: 0 },
+                    };
+                    Clients.set(socket.id, client);
                 }
-                Clients.set(socket.id, {
-                    player: player,
-                    socket: socket,
-                    ready: false,
-                    positions: { x: 0, y: 0 },
-                });
-                server.logFunction(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" has connected.`);
-                logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" has connected.`);
+                else {
+                    // RECONNECTING
+                    client.socket = socket;
+                    client.socket.emit("assign_id", socket.id);
+                }
+                const player = client.player;
+                server.logFunction(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" has ${isReconnecting ? 'reconnected' : 'connected'}.`);
+                logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" has ${isReconnecting ? 'reconnected' : 'connected'}.`);
                 const other_players = [];
                 for (const x of Array.from(Clients.values())) {
                     other_players.push(x.player.to_json());
@@ -114,8 +125,14 @@ async function main(playersCount, f) {
                     turn_id: currentId,
                     other_players,
                     selectedMode,
+                    logs: logs_strings,
                 });
-                EmitExcepts(socket.id, "new-player", player.to_json());
+                if (!isReconnecting) {
+                    EmitExcepts(socket.id, "new-player", player.to_json());
+                }
+                else {
+                    EmitExcepts(socket.id, "player_update", { playerId: player.id, pJson: player.to_json() });
+                }
                 // handle all events from here on!
                 // game sockets
                 socket.on("unjail", (option) => {
@@ -320,22 +337,39 @@ async function main(playersCount, f) {
         // Handle disconnect event
         socket.on("disconnect", () => {
             try {
+                let wasInGame = false;
                 if (Clients.has(socket.id)) {
                     server.logFunction(`{${getCurrentTime()}} [${socket.id}] Player "${Clients.get(socket.id)?.player.username}" has disconnected.`);
                     logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${Clients.get(socket.id)?.player.username}" has disconnected.`);
+                    wasInGame = gameStarted;
                 }
-                Clients.delete(socket.id);
-                if (currentId === socket.id) {
-                    const arr = Array.from(Clients.values())
-                        .filter((v) => v.player.balance > 0)
-                        .map((v) => v.player.id);
-                    var i = arr.indexOf(socket.id);
-                    i = (i + 1) % arr.length;
-                    currentId = arr[i];
+                if (!wasInGame) {
+                    Clients.delete(socket.id);
+                    if (currentId === socket.id) {
+                        const arr = Array.from(Clients.values())
+                            .filter((v) => v.player.balance > 0)
+                            .map((v) => v.player.id);
+                        if (arr.length > 0) {
+                            var i = arr.indexOf(socket.id);
+                            i = i === -1 ? 0 : (i + 1) % arr.length;
+                            currentId = arr[i];
+                        }
+                        else {
+                            currentId = "";
+                        }
+                    }
+                }
+                else {
+                    // Mark as disconnected but KEEP in Clients so they can reconnect
+                    let c = Clients.get(socket.id);
+                    if (c) {
+                        c.connected = false;
+                    }
                 }
                 EmitAll("disconnected-player", {
                     id: socket.id,
                     turn: currentId,
+                    wasInGame: wasInGame
                 });
                 if (Array.from(Clients.keys()).length === 0) {
                     if (gameStarted)

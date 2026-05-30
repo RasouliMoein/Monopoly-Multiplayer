@@ -179,7 +179,7 @@ export default function Home() {
                     
                     const socket = await io(TranslateCode(virtualServer.code));
                     for (const x of bots) {
-                        runBot(TranslateCode(virtualServer.code), x, crypto.randomUUID());
+                        runBot(TranslateCode(virtualServer.code), x, Date.now().toString(36) + Math.random().toString(36).substring(2));
                     }
                     socket.on("state", (args: number) => {
                         switch (args) {

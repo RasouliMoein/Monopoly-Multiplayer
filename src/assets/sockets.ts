@@ -4,7 +4,7 @@ export function io(uri: string, forceToken?: string): Promise<Socket> {
                 if (!token) {
                         token = sessionStorage.getItem("monopoly_token_" + uri) || undefined;
                         if (!token) {
-                                token = crypto.randomUUID();
+                                token = Date.now().toString(36) + Math.random().toString(36).substring(2);
                                 sessionStorage.setItem("monopoly_token_" + uri, token);
                         }
                 }

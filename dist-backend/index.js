@@ -9,7 +9,6 @@ const path_1 = __importDefault(require("path"));
 const ws_1 = require("ws");
 const sockets_js_1 = require("./sockets.js");
 const game_js_1 = require("./game.js");
-const uuid_1 = require("uuid");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3001;
 // Serve the built React app
@@ -18,16 +17,25 @@ const server = http_1.default.createServer(app);
 // WebSocket for clients connecting to game rooms
 const wss = new ws_1.WebSocketServer({ server });
 wss.on("connection", (ws, req) => {
-    // Expected URL format for joining: /room/:code
+    // Expected URL format for joining: /room/:code?token=uuid
     const url = req.url || "/";
     if (url.startsWith("/room/")) {
-        const roomCode = url.split("/")[2];
+        const parts = url.split("?");
+        const pathPart = parts[0];
+        const queryPart = parts[1] || "";
+        const urlParams = new URLSearchParams(queryPart);
+        const roomCode = pathPart.split("/")[2];
         const gameServer = sockets_js_1.activeServers.get(roomCode);
         if (gameServer) {
-            const clientId = (0, uuid_1.v4)();
+            let clientId = urlParams.get("token");
+            if (!clientId || clientId === "null" || clientId === "undefined") {
+                clientId = crypto.randomUUID();
+            }
+            console.log(`[WS] Connection accepted for room ${roomCode}`);
             gameServer.onConnection(ws, clientId);
         }
         else {
+            console.log(`[WS] Room not found: ${roomCode}. Active rooms:`, Array.from(sockets_js_1.activeServers.keys()));
             ws.close(1008, "Room not found");
         }
     }
@@ -49,6 +57,6 @@ app.post("/api/create-room", (req, res) => {
 app.get("*", (req, res) => {
     res.sendFile(path_1.default.join(__dirname, "..", "dist", "index.html"));
 });
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
     console.log(`Main Authoritative Server is running on port ${PORT}`);
 });
