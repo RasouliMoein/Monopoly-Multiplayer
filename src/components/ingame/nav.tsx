@@ -21,6 +21,7 @@ interface MonopolyNavProps {
     currentTurn: string;
     server: Server | undefined;
     callServer: () => void;
+    onLeave: () => void;
     Morgage: {
         onMort: (a: number, prpName: string) => void;
         onCanc: (a: number, prpName: string) => void;
@@ -206,7 +207,7 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         className="button color"
                         data-tooltip-hover="leave"
                         onClick={() => {
-                            document.location.reload();
+                            prop.onLeave();
                         }}
                     >
                         <img src={LeaveIcon.replace("public/", "")} alt="" />

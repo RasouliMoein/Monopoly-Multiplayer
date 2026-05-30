@@ -29,7 +29,7 @@ wss.on("connection", (ws, req) => {
         if (gameServer) {
             let clientId = urlParams.get("token");
             if (!clientId || clientId === "null" || clientId === "undefined") {
-                clientId = crypto.randomUUID();
+                clientId = Date.now().toString(36) + Math.random().toString(36).substring(2);
             }
             console.log(`[WS] Connection accepted for room ${roomCode}`);
             gameServer.onConnection(ws, clientId);

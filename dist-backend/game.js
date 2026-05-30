@@ -106,12 +106,14 @@ async function main(playersCount, f) {
                         socket: socket,
                         ready: false,
                         positions: { x: 0, y: 0 },
+                        connected: true,
                     };
                     Clients.set(socket.id, client);
                 }
                 else {
                     // RECONNECTING
                     client.socket = socket;
+                    client.connected = true;
                     client.socket.emit("assign_id", socket.id);
                 }
                 const player = client.player;
@@ -300,6 +302,35 @@ async function main(playersCount, f) {
                         return;
                     EmitAll("trade-update", x);
                 });
+                socket.on("leave-room", () => {
+                    const leavingClient = Clients.get(socket.id);
+                    if (leavingClient === undefined)
+                        return;
+                    server.logFunction(`{${getCurrentTime()}} [${socket.id}] Player "${leavingClient.player.username}" has left the room.`);
+                    logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${leavingClient.player.username}" has left the room.`);
+                    Clients.delete(socket.id);
+                    if (currentId === socket.id) {
+                        const arr = Array.from(Clients.values())
+                            .filter((v) => v.player.balance > 0)
+                            .map((v) => v.player.id);
+                        if (arr.length > 0) {
+                            currentId = arr[0];
+                        }
+                        else {
+                            currentId = "";
+                        }
+                    }
+                    EmitAll("disconnected-player", {
+                        id: socket.id,
+                        turn: currentId,
+                        wasInGame: gameStarted,
+                    });
+                    if (Array.from(Clients.keys()).length === 0) {
+                        if (gameStarted)
+                            server.logFunction("Game has Ended. Server is currently Open to new Players");
+                        gameStarted = false;
+                    }
+                });
             }
             catch (e) {
                 server.logFunction(e);
@@ -343,6 +374,11 @@ async function main(playersCount, f) {
                     logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${Clients.get(socket.id)?.player.username}" has disconnected.`);
                     wasInGame = gameStarted;
                 }
+                const disconnectedClient = Clients.get(socket.id);
+                if (disconnectedClient !== undefined) {
+                    disconnectedClient.ready = false;
+                    disconnectedClient.connected = false;
+                }
                 if (!wasInGame) {
                     Clients.delete(socket.id);
                     if (currentId === socket.id) {
@@ -361,10 +397,6 @@ async function main(playersCount, f) {
                 }
                 else {
                     // Mark as disconnected but KEEP in Clients so they can reconnect
-                    let c = Clients.get(socket.id);
-                    if (c) {
-                        c.connected = false;
-                    }
                 }
                 EmitAll("disconnected-player", {
                     id: socket.id,

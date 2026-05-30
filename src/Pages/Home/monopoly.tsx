@@ -23,6 +23,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const [histories, SetHistories] = useState<Array<historyAction>>([]);
 
     const [currentTrade, setTrade] = useState<GameTrading | boolean | undefined>(undefined);
+    const leavingRoomRef = useRef<boolean>(false);
 
     useEffect(() => {
         if (!gameStartedDisplay) return;
@@ -1301,6 +1302,9 @@ which is ${payment_ammount}
             clients.set(args.id, xplayer);
         }
         function socket_networkDisconnect() {
+            if (leavingRoomRef.current) {
+                return;
+            }
             mainTheme.pause();
             notifyRef.current?.dialog(
                 (close_func, createButton) => ({
@@ -1413,6 +1417,14 @@ which is ${payment_ammount}
                     socket={socket}
                     players={players}
                     server={server}
+                    onLeave={() => {
+                        leavingRoomRef.current = true;
+                        sessionStorage.removeItem("current_room");
+                        sessionStorage.removeItem("current_name");
+                        socket.emit("leave-room");
+                        socket.disconnect();
+                        document.location.reload();
+                    }}
                     Morgage={{
                         onCanc: (a, prpName: string) => {
                             var settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)).settings as MonopolySettings;
