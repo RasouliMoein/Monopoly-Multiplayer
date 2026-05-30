@@ -59,6 +59,6 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
 });
 
-server.listen(PORT, () => {
+server.listen(PORT as number, "0.0.0.0", () => {
     console.log(`Main Authoritative Server is running on port ${PORT}`);
 });
