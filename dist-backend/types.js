@@ -34,11 +34,12 @@ exports.MonopolyModes = [
         turnTimer: 30,
     },
 ];
-function history(action) {
+function history(action, balances) {
     const time = new Date().toJSON();
     return {
         action: action.replace(/\s+/g, " ").replace(/\bpayed\b/gi, "paid").trim(),
         time,
+        balances,
     };
 }
 exports.history = history;

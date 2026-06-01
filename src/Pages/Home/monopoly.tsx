@@ -1024,11 +1024,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                     id: localPlayer.id,
                                     balance: 0,
                                     prop: [],
+                                    accepted: false,
                                 },
                                 againstPlayer: {
                                     id: xplayer.id,
                                     balance: 0,
                                     prop: [],
+                                    accepted: false,
                                 },
                             };
                             socket.emit("trade-update", x);

@@ -1603,6 +1603,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                         } else {
                                                             b.turnPlayer.balance = v;
                                                         }
+                                                        b.turnPlayer.accepted = false;
+                                                        b.againstPlayer.accepted = false;
                                                         prop.socket.emit("trade-update", b);
                                                     }}
                                                     suffix=" M"
@@ -1626,6 +1628,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                 onClick={() => {
                                                                     const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
                                                                     b.againstPlayer.prop.push(v);
+                                                                    b.turnPlayer.accepted = false;
+                                                                    b.againstPlayer.accepted = false;
                                                                     prop.socket.emit("trade-update", b);
                                                                 }}
                                                             >
@@ -1675,6 +1679,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                 onClick={() => {
                                                                     const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
                                                                     b.turnPlayer.prop.push(v);
+                                                                    b.turnPlayer.accepted = false;
+                                                                    b.againstPlayer.accepted = false;
                                                                     prop.socket.emit("trade-update", b);
                                                                 }}
                                                             >
@@ -1720,6 +1726,20 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                         <div className="player">
                                             <h5>
                                                 current player{" "}
+                                                {(prop.tradeObj as GameTrading).turnPlayer.accepted && (
+                                                    <span style={{
+                                                        backgroundColor: "#10b981",
+                                                        color: "white",
+                                                        fontSize: "0.75rem",
+                                                        padding: "2px 6px",
+                                                        borderRadius: "4px",
+                                                        marginLeft: "8px",
+                                                        display: "inline-block",
+                                                        verticalAlign: "middle"
+                                                    }}>
+                                                        ✓ ACCEPTED
+                                                    </span>
+                                                )}
                                                 <h2>
                                                     {prop.players.filter((v) => v.id === (prop.tradeObj as GameTrading).turnPlayer.id)[0].username}
                                                 </h2>
@@ -1742,6 +1762,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                         if (prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id) {
                                                                             const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
                                                                             b.turnPlayer.prop.splice(i, 1);
+                                                                            b.turnPlayer.accepted = false;
+                                                                            b.againstPlayer.accepted = false;
                                                                             prop.socket.emit("trade-update", b);
                                                                         }
                                                                     }}
@@ -1784,7 +1806,21 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                         </div>
                                         <div className="player">
                                             <h5>
-                                                opponent player
+                                                opponent player{" "}
+                                                {(prop.tradeObj as GameTrading).againstPlayer.accepted && (
+                                                    <span style={{
+                                                        backgroundColor: "#10b981",
+                                                        color: "white",
+                                                        fontSize: "0.75rem",
+                                                        padding: "2px 6px",
+                                                        borderRadius: "4px",
+                                                        marginLeft: "8px",
+                                                        display: "inline-block",
+                                                        verticalAlign: "middle"
+                                                     }}>
+                                                         ✓ ACCEPTED
+                                                     </span>
+                                                 )}
                                                 <h2>
                                                     {prop.players.filter((v) => v.id === (prop.tradeObj as GameTrading).againstPlayer.id)[0].username}
                                                 </h2>
@@ -1809,6 +1845,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                         if (prop.socket.id === (prop.tradeObj as GameTrading).againstPlayer.id) {
                                                                             const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
                                                                             b.againstPlayer.prop.splice(i, 1);
+                                                                            b.turnPlayer.accepted = false;
+                                                                            b.againstPlayer.accepted = false;
                                                                             prop.socket.emit("trade-update", b);
                                                                         }
                                                                     }}
@@ -1852,64 +1890,55 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                     </div>
                                     <div className="flexchild"></div>
                                 </div>
-
-                                {prop.myTurn ? (
-                                    <center>
-                                        <div className="trade-craft-buttons">
-                                            <button
-                                                data-selectable={prop.myTurn}
-                                                onClick={() => {
-                                                    if (prop.myTurn) {
-                                                        prop.socket.emit("cancel-trade");
-                                                        SetSended(false);
-                                                    }
-                                                }}
-                                            >
-                                                {" "}
-                                                CANCEL
-                                            </button>
-                                            <button
-                                                data-selectable={prop.myTurn}
-                                                onClick={() => {
-                                                    if (prop.myTurn) {
-                                                        prop.socket.emit("trade");
-                                                    }
-                                                }}
-                                            >
-                                                {" "}
-                                                BACK
-                                            </button>
-                                            <button
-                                                data-selectable={prop.myTurn}
-                                                onClick={() => {
-                                                    if (prop.myTurn) {
-                                                        prop.socket.emit("submit-trade", prop.tradeObj);
-                                                        SetSended(false);
-                                                    }
-                                                }}
-                                            >
-                                                {" "}
-                                                SUBMIT
-                                            </button>
-                                        </div>
-                                    </center>
-                                ) : (prop.tradeObj as GameTrading).againstPlayer.id === prop.socket.id ? (
-                                    <center>
-                                        <div className="trade-craft-buttons">
-                                            <button
-                                                data-selectable={prop.myTurn}
-                                                onClick={() => {
-                                                    prop.socket.emit("trade");
-                                                }}
-                                            >
-                                                {" "}
-                                                CANCEL
-                                            </button>
-                                        </div>
-                                    </center>
-                                ) : (
-                                    <></>
-                                )}
+                                {prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id || prop.socket.id === (prop.tradeObj as GameTrading).againstPlayer.id ? (
+                                     <center>
+                                         <div className="trade-craft-buttons">
+                                             <button
+                                                 onClick={() => {
+                                                     prop.socket.emit("cancel-trade");
+                                                     SetSended(false);
+                                                 }}
+                                             >
+                                                 {prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id ? "CANCEL" : "DECLINE"}
+                                             </button>
+                                             {prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id && (
+                                                 <button
+                                                     onClick={() => {
+                                                         prop.socket.emit("trade");
+                                                     }}
+                                                 >
+                                                     BACK
+                                                 </button>
+                                             )}
+                                             <button
+                                                 style={
+                                                     (prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
+                                                         ? (prop.tradeObj as GameTrading).turnPlayer.accepted
+                                                         : (prop.tradeObj as GameTrading).againstPlayer.accepted)
+                                                         ? { backgroundColor: "#10b981", color: "white" }
+                                                         : {}
+                                                 }
+                                                 onClick={() => {
+                                                     const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
+                                                     if (prop.socket.id === b.turnPlayer.id) {
+                                                         b.turnPlayer.accepted = !b.turnPlayer.accepted;
+                                                     } else {
+                                                         b.againstPlayer.accepted = !b.againstPlayer.accepted;
+                                                     }
+                                                     prop.socket.emit("trade-update", b);
+                                                 }}
+                                             >
+                                                 {(prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
+                                                     ? (prop.tradeObj as GameTrading).turnPlayer.accepted
+                                                     : (prop.tradeObj as GameTrading).againstPlayer.accepted)
+                                                     ? "UNACCEPT"
+                                                     : "ACCEPT OFFER"}
+                                             </button>
+                                         </div>
+                                     </center>
+                                 ) : (
+                                     <></>
+                                 )}
                             </>
                         )}
                     </div>

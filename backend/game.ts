@@ -610,9 +610,41 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     // ── Trade ─────────────────────────────────────────────────
                     socket.on("trade", () => { if (!selectedMode.AllowDeals) return; EmitAll("trade", {}); });
                     socket.on("cancel-trade", () => { if (!selectedMode.AllowDeals) return; EmitAll("cancel-trade", {}); });
-                    socket.on("trade-update", (x: GameTrading) => { if (!selectedMode.AllowDeals) return; EmitAll("trade-update", x); });
+                    socket.on("trade-update", (x: GameTrading) => {
+                        if (!selectedMode.AllowDeals) return;
+                        if (x.turnPlayer.accepted && x.againstPlayer.accepted) {
+                            const tp = Clients.get(x.turnPlayer.id);
+                            const ap = Clients.get(x.againstPlayer.id);
+                            if (!tp || !ap) return;
+
+                            const tGets = ap.player.properties.filter((v1: any) =>
+                                x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                            ap.player.properties = ap.player.properties.filter((v1: any) =>
+                                !x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                            const aGets = tp.player.properties.filter((v1: any) =>
+                                x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                            tp.player.properties = tp.player.properties.filter((v1: any) =>
+                                !x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+
+                            ap.player.balance -= x.againstPlayer.balance;
+                            tp.player.balance -= x.turnPlayer.balance;
+                            tp.player.balance += x.againstPlayer.balance;
+                            ap.player.balance += x.turnPlayer.balance;
+                            tp.player.properties.push(...tGets);
+                            ap.player.properties.push(...aGets);
+
+                            emitServerHistory(`${tp.player.username} done a trade with ${ap.player.username}`);
+                            EmitAll("submit-trade", {
+                                pJsons: [tp.player.to_json(), ap.player.to_json()],
+                                action: `${tp.player.username} done a trade with ${ap.player.username}`,
+                            });
+                        } else {
+                            EmitAll("trade-update", x);
+                        }
+                    });
                     socket.on("submit-trade", (x: GameTrading) => {
                         if (!selectedMode.AllowDeals) return;
+                        if (!x.turnPlayer.accepted || !x.againstPlayer.accepted) return;
                         const tp = Clients.get(x.turnPlayer.id);
                         const ap = Clients.get(x.againstPlayer.id);
                         if (!tp || !ap) return;

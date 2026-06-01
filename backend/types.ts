@@ -89,11 +89,13 @@ export type GameTrading = {
         id: string;
         balance: number;
         prop: PlayerProprety[];
+        accepted: boolean;
     };
     againstPlayer: {
         id: string;
         balance: number;
         prop: PlayerProprety[];
+        accepted: boolean;
     };
 };
 export type botInitial = { name: string; diff: string };

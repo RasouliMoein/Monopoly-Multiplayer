@@ -70,6 +70,35 @@ async function main(playersCount, f) {
         const now = new Date();
         return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     }
+    function getPlayerColor(icon) {
+        switch (icon) {
+            case 0:
+                return "#E0115F";
+            case 1:
+                return "#4169e1";
+            case 2:
+                return "#50C878";
+            case 3:
+                return "#FFC000";
+            case 5:
+                return "#FF7F50";
+            case 4:
+            default:
+                return "#64748b";
+        }
+    }
+    function emitServerHistory(actionText) {
+        const historyObj = {
+            action: actionText.replace(/\s+/g, " ").replace(/\bpayed\b/gi, "paid").trim(),
+            time: new Date().toJSON(),
+            balances: Array.from(Clients.values()).map((c) => ({
+                username: c.player.username,
+                balance: c.player.balance,
+                color: getPlayerColor(c.player.icon),
+            })),
+        };
+        EmitAll("history", historyObj);
+    }
     function EmitAll(event, args) {
         for (const x of Array.from(Clients.values()))
             x.socket.emit(event, args);
@@ -291,10 +320,14 @@ async function main(playersCount, f) {
                 // ── Unjail ────────────────────────────────────────────────
                 socket.on("unjail", (option) => {
                     try {
-                        if (option === "pay")
+                        if (option === "pay") {
                             player.balance -= 50;
-                        else if (option === "card" && player.getoutCards > 0)
+                            emitServerHistory(`${player.username} paid $50 to leave jail`);
+                        }
+                        else if (option === "card" && player.getoutCards > 0) {
                             player.getoutCards -= 1;
+                            emitServerHistory(`${player.username} used a Get Out of Jail Free card to leave jail`);
+                        }
                         player.isInJail = false;
                         player.jailTurnsRemaining = 0;
                         EmitAll("unjail", { to: player.id, option });
@@ -320,6 +353,7 @@ async function main(playersCount, f) {
                             const doubles = d1 === d2;
                             if (!doubles) {
                                 player.jailTurnsRemaining = Math.max(0, player.jailTurnsRemaining - 1);
+                                emitServerHistory(`${player.username} failed doubles roll and stayed in Jail`);
                                 EmitAll("dice_roll_result", {
                                     listOfNums: [d1, d2, player.position],
                                     turnId: currentId,
@@ -334,13 +368,16 @@ async function main(playersCount, f) {
                             // Doubles — escape jail, fall through to normal roll
                             player.isInJail = false;
                             player.jailTurnsRemaining = 0;
+                            emitServerHistory(`${player.username} rolled doubles [${d1}, ${d2}] and escaped Jail!`);
                         }
                         // ── Normal roll ──
                         const oldPos = player.position;
                         const rolledPosition = (oldPos + sum) % 40;
                         const passedGo = (oldPos + sum) >= 40;
-                        if (passedGo)
+                        if (passedGo) {
                             player.balance += 200;
+                            emitServerHistory(`${player.username} passed Go and collected $200`);
+                        }
                         let finalPosition = rolledPosition;
                         let goingToJail = false;
                         let pendingCard = null;
@@ -353,6 +390,7 @@ async function main(playersCount, f) {
                             player.isInJail = true;
                             player.jailTurnsRemaining = 3;
                             goingToJail = true;
+                            emitServerHistory(`${player.username} goes to jail`);
                         }
                         else {
                             player.position = rolledPosition;
@@ -360,6 +398,7 @@ async function main(playersCount, f) {
                             if (prop && CARD_TILES.has(prop.id ?? "")) {
                                 const deck = prop.id === "chance" ? monopoly_json_1.default.chance : monopoly_json_1.default.communitychest;
                                 const card = deck[Math.floor(Math.random() * deck.length)];
+                                const balanceBeforeCard = player.balance;
                                 const result = resolveCard(player, card, sum);
                                 if (result.newPosition !== undefined) {
                                     finalPosition = result.newPosition;
@@ -373,12 +412,33 @@ async function main(playersCount, f) {
                                     extraRoll: result.extraRoll ?? null,
                                 };
                                 requiresPurchaseDecision = result.requiresPurchaseDecision;
+                                emitServerHistory(`${player.username} drew ${prop.id === "chance" ? "Chance" : "Community Chest"}: "${card.title}"`);
+                                // Check if card movement crossed GO
+                                if (player.balance >= balanceBeforeCard + 200 && (card.action === "move" || card.action === "movenearest")) {
+                                    emitServerHistory(`${player.username} passed Go and collected $200`);
+                                }
                             }
                             else {
                                 const landing = processLanding(player, rolledPosition, sum);
                                 requiresPurchaseDecision = landing.requiresPurchaseDecision;
                                 landingNote = landing.landingNote;
+                                if (landingNote.startsWith("incometax")) {
+                                    emitServerHistory(`${player.username} paid $200 Income Tax`);
+                                }
+                                else if (landingNote.startsWith("luxerytax")) {
+                                    emitServerHistory(`${player.username} paid $100 Luxury Tax`);
+                                }
+                                else if (landingNote.startsWith("rent:")) {
+                                    const [, ownerId, rentAmt] = landingNote.split(":");
+                                    const ownerName = Clients.get(ownerId)?.player.username ?? "someone";
+                                    emitServerHistory(`${player.username} paid $${rentAmt} rent to ${ownerName}`);
+                                }
                             }
+                        }
+                        // If not going to jail, and didn't stay/escape jail, log standard roll
+                        if (!goingToJail) {
+                            const propName = propertyByPosition.get(rolledPosition)?.name ?? "";
+                            emitServerHistory(`${player.username} rolled [${d1}, ${d2}] moving to "${propName}"`);
                         }
                         EmitAll("dice_roll_result", {
                             listOfNums: [d1, d2, rolledPosition],
@@ -407,6 +467,7 @@ async function main(playersCount, f) {
                             player.properties.push({ posistion: player.position, count: 0, group: prop.group ?? "" });
                             logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" bought ${prop.name ?? player.position}.`);
                             server.logFunction(`{${getCurrentTime()}} Player "${player.username}" bought ${prop.name ?? player.position}.`);
+                            emitServerHistory(`${player.username} bought ${prop.name ?? "a property"}`);
                         }
                         else if (args.action === "buy-advance") {
                             const idx = player.properties.findIndex((p) => p.posistion === player.position);
@@ -420,6 +481,7 @@ async function main(playersCount, f) {
                                 player.balance -= (prop?.housecost ?? 0) * args.housesAdded;
                                 player.properties[idx].count = args.newCount;
                             }
+                            emitServerHistory(`${player.username} upgraded ${prop.name}`);
                         }
                         // "skip" → no mutations
                         EmitStateUpdate();
@@ -532,10 +594,38 @@ async function main(playersCount, f) {
                     return; EmitAll("trade", {}); });
                 socket.on("cancel-trade", () => { if (!selectedMode.AllowDeals)
                     return; EmitAll("cancel-trade", {}); });
-                socket.on("trade-update", (x) => { if (!selectedMode.AllowDeals)
-                    return; EmitAll("trade-update", x); });
+                socket.on("trade-update", (x) => {
+                    if (!selectedMode.AllowDeals)
+                        return;
+                    if (x.turnPlayer.accepted && x.againstPlayer.accepted) {
+                        const tp = Clients.get(x.turnPlayer.id);
+                        const ap = Clients.get(x.againstPlayer.id);
+                        if (!tp || !ap)
+                            return;
+                        const tGets = ap.player.properties.filter((v1) => x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                        ap.player.properties = ap.player.properties.filter((v1) => !x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                        const aGets = tp.player.properties.filter((v1) => x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                        tp.player.properties = tp.player.properties.filter((v1) => !x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                        ap.player.balance -= x.againstPlayer.balance;
+                        tp.player.balance -= x.turnPlayer.balance;
+                        tp.player.balance += x.againstPlayer.balance;
+                        ap.player.balance += x.turnPlayer.balance;
+                        tp.player.properties.push(...tGets);
+                        ap.player.properties.push(...aGets);
+                        emitServerHistory(`${tp.player.username} done a trade with ${ap.player.username}`);
+                        EmitAll("submit-trade", {
+                            pJsons: [tp.player.to_json(), ap.player.to_json()],
+                            action: `${tp.player.username} done a trade with ${ap.player.username}`,
+                        });
+                    }
+                    else {
+                        EmitAll("trade-update", x);
+                    }
+                });
                 socket.on("submit-trade", (x) => {
                     if (!selectedMode.AllowDeals)
+                        return;
+                    if (!x.turnPlayer.accepted || !x.againstPlayer.accepted)
                         return;
                     const tp = Clients.get(x.turnPlayer.id);
                     const ap = Clients.get(x.againstPlayer.id);
@@ -551,6 +641,7 @@ async function main(playersCount, f) {
                     ap.player.balance += x.turnPlayer.balance;
                     tp.player.properties.push(...tGets);
                     ap.player.properties.push(...aGets);
+                    emitServerHistory(`${tp.player.username} done a trade with ${ap.player.username}`);
                     EmitAll("submit-trade", {
                         pJsons: [tp.player.to_json(), ap.player.to_json()],
                         action: `${tp.player.username} done a trade with ${ap.player.username}`,
