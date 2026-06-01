@@ -1,6 +1,18 @@
 import { Socket, Server } from "./sockets";
 import monopolyJSON from "./monopoly.json";
 import { GameTrading, MonopolyMode, MonopolyModes, historyAction } from "./types";
+
+// ── Static lookup maps ────────────────────────────────────────────────────────
+const propertyByPosition = new Map<number, any>(
+    monopolyJSON.properties.map((p) => [p.posistion ?? 0, p])
+);
+const propertyById = new Map<string, any>(
+    monopolyJSON.properties.map((p) => [p.id ?? "", p])
+);
+const CARD_TILES = new Set(["communitychest", "chance"]);
+const INERT_TILES = new Set(["go", "jail", "freeparking"]);
+
+// ── Player ────────────────────────────────────────────────────────────────────
 class Player {
     public id: string;
     public username: string;
@@ -11,6 +23,7 @@ class Player {
     public isInJail: boolean;
     public jailTurnsRemaining: number;
     public getoutCards: number;
+
     constructor(_id: string, _name: string, _icon: number, cash?: number) {
         this.id = _id;
         this.username = _name;
@@ -38,14 +51,13 @@ class Player {
     }
 
     from_json(json: PlayerJSON) {
-        if (this.id == json.id) {
-            this.position = json.position;
-            this.balance = json.balance;
-            this.properties = json.properties;
-            this.isInJail = json.isInJail;
-            this.jailTurnsRemaining = json.jailTurnsRemaining;
-            this.getoutCards = json.getoutCards;
-        }
+        if (this.id !== json.id) return;
+        this.position = json.position;
+        this.balance = json.balance;
+        this.properties = json.properties;
+        this.isInJail = json.isInJail;
+        this.jailTurnsRemaining = json.jailTurnsRemaining;
+        this.getoutCards = json.getoutCards;
     }
 }
 
@@ -61,8 +73,13 @@ type PlayerJSON = {
     getoutCards: number;
 };
 
-export async function main(playersCount: number, f?: (host: string, Server: Server) => void) {
+type PlayerActionArgs =
+    | { action: "buy" }
+    | { action: "buy-advance"; newCount: 1 | 2 | 3 | 4 | 5; housesAdded: number }
+    | { action: "skip" };
 
+// ── Main ──────────────────────────────────────────────────────────────────────
+export async function main(playersCount: number, f?: (host: string, Server: Server) => void) {
     const maxPlayers = playersCount > 0 ? Math.min(playersCount, 6) : 6;
 
     interface Client {
@@ -75,52 +92,203 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
     const Clients = new Map<string, Client>();
     const logs_strings: Array<string> = [];
-
-    //#region Game Variables!
-    let currentId: string = "";
-    let gameStarted: boolean = false;
+    let currentId = "";
+    let gameStarted = false;
     let selectedMode: MonopolyMode = MonopolyModes[0];
-
-    //#endregion
-    // Io
 
     function getCurrentTime() {
         const now = new Date();
-        const hours = String(now.getHours()).padStart(2, "0");
-        const minutes = String(now.getMinutes()).padStart(2, "0");
-        const currentTime = `${hours}:${minutes}`;
-
-        return currentTime;
+        return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
     }
 
-    //#region emits functions
     function EmitAll(event: string, args: any) {
-        for (const x of Array.from(Clients.values())) {
-            x.socket.emit(event, args);
-        }
+        for (const x of Array.from(Clients.values())) x.socket.emit(event, args);
+    }
+    function EmitExcepts(id: string, event: string, args: any) {
+        for (const [k, x] of Array.from(Clients.entries())) if (k !== id) x.socket.emit(event, args);
     }
 
-    function EmitExcepts(id: string, event: string, args: any) {
-        for (const x of Array.from(Clients.entries())) {
-            if (x[0] != id) {
-                x[1].socket.emit(event, args);
+    /** Broadcast canonical player state to every connected client. */
+    function EmitStateUpdate() {
+        EmitAll("state_update", { players: Array.from(Clients.values()).map((c) => c.player.to_json()) });
+    }
+
+    /**
+     * Compute rent owed at a position (server-authoritative).
+     * Returns { owner, amount }; amount=0 when mortgaged or unowned.
+     */
+    function computeRent(position: number, rolls: number, multiplier = 1): { owner: Player | null; amount: number } {
+        const prop = propertyByPosition.get(position);
+        if (!prop) return { owner: null, amount: 0 };
+
+        for (const { player } of Array.from(Clients.values())) {
+            for (const prp of player.properties) {
+                if (prp.posistion !== position) continue;
+                if (prp.morgage === true) return { owner: player, amount: 0 };
+
+                let amt = 0;
+                if (prop.group === "Utilities") {
+                    const cnt = player.properties.filter((p: any) => p.group === "Utilities").length;
+                    amt = rolls * (cnt === 2 ? 10 : 4) * multiplier;
+                } else if (prop.group === "Railroad") {
+                    const cnt = player.properties
+                        .filter((p: any) => p.group === "Railroad" && p.morgage !== true).length;
+                    amt = ([0, 25, 50, 100, 200][cnt] ?? 0) * multiplier;
+                } else if (prp.count === 0) {
+                    amt = (prop.rent ?? 0) * multiplier;
+                } else if (typeof prp.count === "number" && prp.count > 0) {
+                    amt = ((prop.multpliedrent ?? [])[prp.count - 1] ?? 0) * multiplier;
+                } else if (prp.count === "h") {
+                    amt = ((prop.multpliedrent ?? [])[4] ?? 0) * multiplier;
+                }
+                return { owner: player, amount: amt };
             }
         }
+        return { owner: null, amount: 0 };
     }
-    //#endregion
 
-    //#endregion
-    //#region Game Logic
+    /**
+     * Process landing on a tile — mutates balances in place.
+     * Returns: requiresPurchaseDecision (client should show buy/upgrade UI)
+     *          landingNote (encoded event string for client notifications)
+     */
+    function processLanding(
+        player: Player,
+        position: number,
+        rolls: number,
+        multiplier = 1
+    ): { requiresPurchaseDecision: boolean; landingNote: string } {
+        const prop = propertyByPosition.get(position);
+        if (!prop) return { requiresPurchaseDecision: false, landingNote: "" };
+        if (INERT_TILES.has(prop.id ?? "")) return { requiresPurchaseDecision: false, landingNote: "" };
+        if (CARD_TILES.has(prop.id ?? "")) return { requiresPurchaseDecision: false, landingNote: "" };
+        if (prop.id === "gotojail") return { requiresPurchaseDecision: false, landingNote: "" }; // handled in roll_dice
+
+        if (prop.id === "incometax") { player.balance -= 200; return { requiresPurchaseDecision: false, landingNote: "incometax:200" }; }
+        if (prop.id === "luxerytax") { player.balance -= 100; return { requiresPurchaseDecision: false, landingNote: "luxerytax:100" }; }
+
+        const { owner, amount } = computeRent(position, rolls, multiplier);
+        if (owner !== null) {
+            if (owner.id === player.id) return { requiresPurchaseDecision: true, landingNote: `own:${position}` };
+            if (amount > 0) {
+                player.balance -= amount;
+                owner.balance += amount;
+                return { requiresPurchaseDecision: false, landingNote: `rent:${owner.id}:${amount}` };
+            }
+            return { requiresPurchaseDecision: false, landingNote: "" };
+        }
+
+        if (prop.price !== undefined && prop.group !== "Special") {
+            return { requiresPurchaseDecision: true, landingNote: `unowned:${position}` };
+        }
+        return { requiresPurchaseDecision: false, landingNote: "" };
+    }
+
+    /**
+     * Resolve a Chance / Community Chest card — mutates state in place.
+     */
+    function resolveCard(
+        player: Player,
+        card: any,
+        rolls: number
+    ): { requiresPurchaseDecision: boolean; newPosition?: number; extraRoll?: [number, number] } {
+        switch (card.action) {
+            case "addfunds":
+                player.balance += card.amount ?? 0;
+                return { requiresPurchaseDecision: false };
+
+            case "removefunds":
+                player.balance -= card.amount ?? 0;
+                return { requiresPurchaseDecision: false };
+
+            case "addfundsfromplayers": {
+                for (const { player: p } of Array.from(Clients.values()).filter((c) => c.player.id !== player.id)) {
+                    p.balance -= card.amount ?? 0;
+                    player.balance += card.amount ?? 0;
+                }
+                return { requiresPurchaseDecision: false };
+            }
+
+            case "removefundstoplayers": {
+                for (const { player: p } of Array.from(Clients.values()).filter((c) => c.player.id !== player.id)) {
+                    p.balance += card.amount ?? 0;
+                    player.balance -= card.amount ?? 0;
+                }
+                return { requiresPurchaseDecision: false };
+            }
+
+            case "jail":
+                if (card.subaction === "goto") {
+                    player.position = 10;
+                    player.isInJail = true;
+                    player.jailTurnsRemaining = 3;
+                    return { requiresPurchaseDecision: false, newPosition: 10 };
+                }
+                if (card.subaction === "getout") player.getoutCards += 1;
+                return { requiresPurchaseDecision: false };
+
+            case "move": {
+                let targetPos: number | undefined;
+                let passedGo = false;
+                if (card.tileid) {
+                    targetPos = propertyById.get(card.tileid)?.posistion;
+                    if (targetPos !== undefined && targetPos < player.position) passedGo = true;
+                } else if (card.count !== undefined) {
+                    const raw = player.position + card.count;
+                    targetPos = ((raw % 40) + 40) % 40;
+                    if (card.count > 0 && raw >= 40) passedGo = true;
+                }
+                if (targetPos === undefined) return { requiresPurchaseDecision: false };
+                if (passedGo) player.balance += 200;
+                player.position = targetPos;
+                const landing = processLanding(player, targetPos, rolls);
+                return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: targetPos };
+            }
+
+            case "movenearest": {
+                const group = card.groupid === "utility" ? "Utilities" : "Railroad";
+                const positions = monopolyJSON.properties
+                    .filter((p) => p.group === group)
+                    .map((p) => p.posistion ?? 0)
+                    .sort((a, b) => a - b);
+
+                let nearest = positions[0];
+                for (const pos of positions) { if (pos > player.position) { nearest = pos; break; } }
+                if (nearest <= player.position) player.balance += 200; // wrapped past Go
+
+                player.position = nearest;
+
+                if (group === "Utilities") {
+                    const d1 = Math.floor(Math.random() * 6) + 1;
+                    const d2 = Math.floor(Math.random() * 6) + 1;
+                    const landing = processLanding(player, nearest, d1 + d2, card.rentmultiplier ?? 1);
+                    return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest, extraRoll: [d1, d2] };
+                }
+                const landing = processLanding(player, nearest, rolls, card.rentmultiplier ?? 1);
+                return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest };
+            }
+
+            case "propertycharges": {
+                const houses = player.properties
+                    .filter((p: any) => typeof p.count === "number" && p.count > 0)
+                    .reduce((s: number, p: any) => s + (p.count as number), 0);
+                const hotels = player.properties.filter((p: any) => p.count === "h").length;
+                player.balance -= (card.buildings ?? 0) * houses + (card.hotels ?? 0) * hotels;
+                return { requiresPurchaseDecision: false };
+            }
+
+            default:
+                return { requiresPurchaseDecision: false };
+        }
+    }
+
+    // ── WebSocket server ──────────────────────────────────────────────────────
     new Server(
-        (server) => {
-            f?.(server.code, server);
-        },
+        (server) => { f?.(server.code, server); },
         (socket: Socket, server: Server) => {
-            // Handle name event
             let isReconnecting = Clients.has(socket.id);
-            console.log("state", Clients.size < maxPlayers && !gameStarted ?  0 : (gameStarted && !isReconnecting) ? 1 : 2)
-            socket.emit("state", isReconnecting ? 0 : (Clients.size < maxPlayers && !gameStarted ?  0 : gameStarted ? 1 : 2))
-            
+            socket.emit("state", isReconnecting ? 0 : (Clients.size < maxPlayers && !gameStarted ? 0 : gameStarted ? 1 : 2));
+
             socket.on("name", (name: string) => {
                 try {
                     let client = Clients.get(socket.id);
@@ -128,117 +296,190 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
                     if (!isReconnecting) {
                         const player = new Player(socket.id, name, Array.from(Clients.keys()).length, selectedMode.startingCash);
-                        if (currentId === "" || !Array.from(Clients.keys()).includes(currentId)) {
-                            currentId = socket.id;
-                        }
-                        client = {
-                            player: player,
-                            socket: socket,
-                            ready: false,
-                            positions: { x: 0, y: 0 },
-                            connected: true,
-                        };
+                        if (currentId === "" || !Array.from(Clients.keys()).includes(currentId)) currentId = socket.id;
+                        client = { player, socket, ready: false, positions: { x: 0, y: 0 }, connected: true };
                         Clients.set(socket.id, client);
                     } else {
-                        // RECONNECTING
                         client!.socket = socket;
                         client!.connected = true;
                         client!.socket.emit("assign_id", socket.id);
                     }
 
                     const player = client!.player;
+                    const logMsg = `{${getCurrentTime()}} [${socket.id}] Player "${player.username}" has ${isReconnecting ? "reconnected" : "connected"}.`;
+                    server.logFunction(logMsg);
+                    logs_strings.push(logMsg);
 
-                    server.logFunction(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" has ${isReconnecting ? 'reconnected' : 'connected'}.`);
-                    logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" has ${isReconnecting ? 'reconnected' : 'connected'}.`);
-                    
-                    const other_players = [];
-                    for (const x of Array.from(Clients.values())) {
-                        other_players.push(x.player.to_json());
-                    }
                     socket.emit("initials", {
                         turn_id: currentId,
-                        other_players,
+                        other_players: Array.from(Clients.values()).map((x) => x.player.to_json()),
                         selectedMode,
                         logs: logs_strings,
                     });
-                    
-                    if (!isReconnecting) {
-                        EmitExcepts(socket.id, "new-player", player.to_json());
-                    } else {
-                        EmitExcepts(socket.id, "player_update", { playerId: player.id, pJson: player.to_json() });
-                    }
 
-                    // handle all events from here on!
-                    // game sockets
+                    if (!isReconnecting) EmitExcepts(socket.id, "new-player", player.to_json());
+                    else EmitExcepts(socket.id, "player_update", { playerId: player.id, pJson: player.to_json() });
+
+                    // ── Unjail ────────────────────────────────────────────────
                     socket.on("unjail", (option: "card" | "pay") => {
                         try {
-                            EmitAll("unjail", {
-                                to: player.id,
-                                option,
-                            });
-                        } catch (e) {
-                            server.logFunction(e);
-                        }
+                            if (option === "pay") player.balance -= 50;
+                            else if (option === "card" && player.getoutCards > 0) player.getoutCards -= 1;
+                            player.isInJail = false;
+                            player.jailTurnsRemaining = 0;
+                            EmitAll("unjail", { to: player.id, option });
+                            EmitStateUpdate();
+                        } catch (e) { server.logFunction(e); }
                     });
+
+                    // ── Roll Dice ─────────────────────────────────────────────
                     socket.on("roll_dice", () => {
                         try {
-                            const first = Math.floor(Math.random() * 6) + 1;
-                            const second = Math.floor(Math.random() * 6) + 1;
-                            const x = `{${getCurrentTime()}} [${socket.id}] Player "${player.username}" rolled a [${first},${second}].`;
-                            logs_strings.push(x);
-                            server.logFunction(x);
-                            const sum = first + second;
-                            var pos = (player.position + sum) % 40;
-                            EmitAll("dice_roll_result", {
-                                listOfNums: [first, second, pos],
-                                turnId: currentId,
-                            });
-                        } catch (e) {
-                            server.logFunction(e);
-                        }
-                    });
-                    // chest or chance
-                    socket.on("chorch_roll", (args: { is_chance: boolean; rolls: number }) => {
-                        try {
-                            const arr = args.is_chance ? monopolyJSON.chance : monopolyJSON.communitychest;
-                            const randomElement = arr[Math.floor(Math.random() * arr.length)];
-                            EmitAll("chorch_result", {
-                                element: randomElement,
-                                is_chance: args.is_chance,
-                                rolls: args.rolls,
-                                turnId: currentId,
-                            });
-                        } catch (e) {
-                            server.logFunction(e);
-                        }
-                    });
-                    socket.on("player_update", (args: { playerId: string; pJson: PlayerJSON }) => {
-                        const xplayer = Clients.get(args.playerId);
-                        if (xplayer === undefined) return;
+                            if (currentId !== socket.id) return;
+                            const d1 = Math.floor(Math.random() * 6) + 1;
+                            const d2 = Math.floor(Math.random() * 6) + 1;
+                            const sum = d1 + d2;
+                            const logStr = `{${getCurrentTime()}} [${socket.id}] Player "${player.username}" rolled a [${d1},${d2}].`;
+                            logs_strings.push(logStr);
+                            server.logFunction(logStr);
 
-                        xplayer.player.from_json(args.pJson);
-                        EmitExcepts(args.playerId, "player_update", args);
-                    });
-                    socket.on("finish-turn", (playerInfo: PlayerJSON) => {
-                        try {
-                            player.from_json(playerInfo);
-                            if (currentId != socket.id) return;
-                            if (player.balance < 0) {
-                                Clients.delete(socket.id);
+                            // ── In Jail branch ──
+                            if (player.isInJail) {
+                                const doubles = d1 === d2;
+                                if (!doubles) {
+                                    player.jailTurnsRemaining = Math.max(0, player.jailTurnsRemaining - 1);
+                                    EmitAll("dice_roll_result", {
+                                        listOfNums: [d1, d2, player.position],
+                                        turnId: currentId,
+                                        passedGo: false, goPayment: 0,
+                                        goingToJail: false, jailStayed: true, jailEscape: false,
+                                        rolledPosition: player.position, finalPosition: player.position,
+                                        requiresPurchaseDecision: false, pendingCard: null, landingNote: "",
+                                    });
+                                    EmitStateUpdate();
+                                    return;
+                                }
+                                // Doubles — escape jail, fall through to normal roll
+                                player.isInJail = false;
+                                player.jailTurnsRemaining = 0;
                             }
 
-                            const activeClients = Array.from(Clients.values()).filter((v) => v.player.balance > 0);
-                            const arr = activeClients.map((v) => v.player.id);
-                            var i = arr.indexOf(socket.id);
+                            // ── Normal roll ──
+                            const oldPos = player.position;
+                            const rolledPosition = (oldPos + sum) % 40;
+                            const passedGo = (oldPos + sum) >= 40;
+                            if (passedGo) player.balance += 200;
+
+                            let finalPosition = rolledPosition;
+                            let goingToJail = false;
+                            let pendingCard: any = null;
+                            let requiresPurchaseDecision = false;
+                            let landingNote = "";
+
+                            if (rolledPosition === 30) {
+                                // Go to Jail
+                                finalPosition = 10;
+                                player.position = 10;
+                                player.isInJail = true;
+                                player.jailTurnsRemaining = 3;
+                                goingToJail = true;
+                            } else {
+                                player.position = rolledPosition;
+                                const prop = propertyByPosition.get(rolledPosition);
+
+                                if (prop && CARD_TILES.has(prop.id ?? "")) {
+                                    const deck = prop.id === "chance" ? monopolyJSON.chance : (monopolyJSON as any).communitychest;
+                                    const card = deck[Math.floor(Math.random() * deck.length)];
+                                    const result = resolveCard(player, card, sum);
+                                    if (result.newPosition !== undefined) {
+                                        finalPosition = result.newPosition;
+                                        player.position = finalPosition;
+                                    }
+                                    pendingCard = {
+                                        element: card,
+                                        is_chance: prop.id === "chance",
+                                        requiresPurchaseDecision: result.requiresPurchaseDecision,
+                                        newPosition: result.newPosition,
+                                        extraRoll: result.extraRoll ?? null,
+                                    };
+                                    requiresPurchaseDecision = result.requiresPurchaseDecision;
+                                } else {
+                                    const landing = processLanding(player, rolledPosition, sum);
+                                    requiresPurchaseDecision = landing.requiresPurchaseDecision;
+                                    landingNote = landing.landingNote;
+                                }
+                            }
+
+                            EmitAll("dice_roll_result", {
+                                listOfNums: [d1, d2, rolledPosition],
+                                turnId: currentId,
+                                passedGo, goPayment: passedGo ? 200 : 0,
+                                goingToJail, jailStayed: false, jailEscape: false,
+                                rolledPosition, finalPosition,
+                                requiresPurchaseDecision, pendingCard, landingNote,
+                            });
+                            EmitStateUpdate();
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    // ── Player Action (buy / upgrade / skip) ──────────────────
+                    socket.on("player_action", (args: PlayerActionArgs) => {
+                        try {
+                            if (currentId !== socket.id) return;
+                            const prop = propertyByPosition.get(player.position) as any;
+
+                            if (args.action === "buy") {
+                                if (!prop || prop.price === undefined) return;
+                                player.balance -= prop.price;
+                                player.properties.push({ posistion: player.position, count: 0, group: prop.group ?? "" });
+                                logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" bought ${prop.name ?? player.position}.`);
+                                server.logFunction(`{${getCurrentTime()}} Player "${player.username}" bought ${prop.name ?? player.position}.`);
+                            } else if (args.action === "buy-advance") {
+                                const idx = player.properties.findIndex((p: any) => p.posistion === player.position);
+                                if (idx === -1) return;
+                                if (args.newCount === 5) {
+                                    player.balance -= prop?.ohousecost ?? 0;
+                                    player.properties[idx].count = "h";
+                                } else {
+                                    player.balance -= (prop?.housecost ?? 0) * args.housesAdded;
+                                    player.properties[idx].count = args.newCount;
+                                }
+                            }
+                            // "skip" → no mutations
+                            EmitStateUpdate();
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    // ── Mortgage Action ───────────────────────────────────────
+                    socket.on("mortgage_action", (args: { action: "mortgage" | "unmortgage"; amount: number; propertyPosition: number }) => {
+                        try {
+                            // amount > 0: player pays (unmortgage); amount < 0: player receives (mortgage)
+                            player.balance -= args.amount;
+                            const idx = player.properties.findIndex((p: any) => p.posistion === args.propertyPosition);
+                            if (idx !== -1) player.properties[idx].morgage = args.action === "mortgage";
+                            EmitStateUpdate();
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    // ── Legacy chorch_roll — now handled inside roll_dice ─────
+                    socket.on("chorch_roll", () => { /* no-op: server resolves cards in roll_dice */ });
+
+                    // ── Finish Turn ───────────────────────────────────────────
+                    socket.on("finish-turn", () => {
+                        try {
+                            if (currentId !== socket.id) return;
+                            if (player.balance < 0) Clients.delete(socket.id);
+
+                            const active = Array.from(Clients.values()).filter((v) => v.player.balance > 0);
+                            const arr = active.map((v) => v.player.id);
+                            let i = arr.indexOf(socket.id);
                             i = arr.length > 0 ? (i + 1) % arr.length : -1;
                             currentId = i === -1 ? "" : arr[i];
 
-                            if (activeClients.length <= 1) {
-                                for (const client of Array.from(Clients.values())) {
-                                    client.ready = false;
-                                }
+                            if (active.length <= 1) {
+                                for (const c of Array.from(Clients.values())) c.ready = false;
                                 gameStarted = false;
-                                currentId = activeClients[0]?.player.id ?? "";
+                                currentId = active[0]?.player.id ?? "";
                             }
 
                             EmitAll("turn-finished", {
@@ -247,32 +488,24 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 pJson: player.to_json(),
                                 WinningMode: selectedMode.WinningMode,
                             });
-                        } catch (e) {
-                            server.logFunction(e);
-                        }
+                        } catch (e) { server.logFunction(e); }
                     });
 
+                    // ── Message ───────────────────────────────────────────────
                     socket.on("message", (message: string) => {
                         try {
-                            server.logFunction(
-                                `{${getCurrentTime()}} [${socket.id}] Player "${Clients.get(socket.id)?.player.username}" has messaged "${message}".`
-                            );
-                            EmitAll("message", {
-                                from: player.username,
-                                message: message,
-                            });
-                        } catch (e) {
-                            server.logFunction(e);
-                        }
+                            server.logFunction(`{${getCurrentTime()}} [${socket.id}] "${Clients.get(socket.id)?.player.username}" messaged "${message}".`);
+                            EmitAll("message", { from: player.username, message });
+                        } catch (e) { server.logFunction(e); }
                     });
 
+                    // ── Pay (kept for backward-compat with trade system) ──────
                     socket.on("pay", (args: { balance: number; from: string; to: string }) => {
                         try {
                             const top = Clients.get(args.to)?.player;
                             const fromp = Clients.get(args.from)?.player;
-                            if (top === undefined) return;
+                            if (!top || !fromp) return;
                             top.balance += args.balance;
-                            if (fromp === undefined) return;
                             fromp.balance -= args.balance;
                             EmitAll("member_updating", {
                                 playerId: args.to,
@@ -280,198 +513,128 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 additional_props: [args.from],
                                 pJson: [top.to_json(), fromp.to_json()],
                             });
-                        } catch (e) {
-                            server.logFunction(e);
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    // ── Player Update (property-state sync / mortgage compat) ─
+                    socket.on("player_update", (args: { playerId: string; pJson: PlayerJSON }) => {
+                        const xc = Clients.get(args.playerId);
+                        if (!xc) return;
+                        if (args.playerId === socket.id) {
+                            // Trust own updates (needed for mortgage UI compatibility)
+                            xc.player.from_json(args.pJson);
+                        } else {
+                            xc.player.properties = args.pJson.properties;
                         }
+                        EmitExcepts(args.playerId, "player_update", args);
                     });
 
+                    // ── Mouse ─────────────────────────────────────────────────
                     socket.on("mouse", (args: { x: number; y: number }) => {
-                        const client = Clients.get(socket.id);
-                        if (client === undefined) return;
-                        client.positions = args;
-                        Clients.set(socket.id, client);
-
-                        EmitExcepts(socket.id, "mouse", {
-                            id: socket.id,
-                            x: args.x,
-                            y: args.y,
-                        });
-                    });
-                    socket.on("history", (args: historyAction) => {
-                        EmitAll("history", args);
+                        const c = Clients.get(socket.id);
+                        if (!c) return;
+                        c.positions = args;
+                        EmitExcepts(socket.id, "mouse", { id: socket.id, x: args.x, y: args.y });
                     });
 
-                    socket.on("trade", () => {
-                        if (!selectedMode.AllowDeals) return;
-                        EmitAll("trade", {});
-                    });
-                    socket.on("cancel-trade", () => {
-                        if (!selectedMode.AllowDeals) return;
-                        EmitAll("cancel-trade", {});
-                    });
+                    // ── History ───────────────────────────────────────────────
+                    socket.on("history", (args: historyAction) => { EmitAll("history", args); });
+
+                    // ── Trade ─────────────────────────────────────────────────
+                    socket.on("trade", () => { if (!selectedMode.AllowDeals) return; EmitAll("trade", {}); });
+                    socket.on("cancel-trade", () => { if (!selectedMode.AllowDeals) return; EmitAll("cancel-trade", {}); });
+                    socket.on("trade-update", (x: GameTrading) => { if (!selectedMode.AllowDeals) return; EmitAll("trade-update", x); });
                     socket.on("submit-trade", (x: GameTrading) => {
                         if (!selectedMode.AllowDeals) return;
-                        const turnPlayer = Clients.get(x.turnPlayer.id);
-                        const againstPlayer = Clients.get(x.againstPlayer.id);
-                        if (turnPlayer === undefined || againstPlayer === undefined) return;
+                        const tp = Clients.get(x.turnPlayer.id);
+                        const ap = Clients.get(x.againstPlayer.id);
+                        if (!tp || !ap) return;
 
-                        // Exclude against
-                        const turnGets = againstPlayer.player.properties.filter((v1) =>
-                            x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1))
-                        );
-                        againstPlayer.player.properties = againstPlayer.player.properties.filter(
-                            (v1) => !x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1))
-                        );
+                        const tGets = ap.player.properties.filter((v1: any) =>
+                            x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                        ap.player.properties = ap.player.properties.filter((v1: any) =>
+                            !x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                        const aGets = tp.player.properties.filter((v1: any) =>
+                            x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
+                        tp.player.properties = tp.player.properties.filter((v1: any) =>
+                            !x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
 
-                        // Exclude turn
-                        const againsGets = turnPlayer.player.properties.filter((v1) =>
-                            x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1))
-                        );
-                        turnPlayer.player.properties = turnPlayer.player.properties.filter(
-                            (v1) => !x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1))
-                        );
+                        ap.player.balance -= x.againstPlayer.balance;
+                        tp.player.balance -= x.turnPlayer.balance;
+                        tp.player.balance += x.againstPlayer.balance;
+                        ap.player.balance += x.turnPlayer.balance;
+                        tp.player.properties.push(...tGets);
+                        ap.player.properties.push(...aGets);
 
-                        // Now Balance
-                        againstPlayer.player.balance -= x.againstPlayer.balance;
-                        turnPlayer.player.balance -= x.turnPlayer.balance;
-
-                        turnPlayer.player.balance += x.againstPlayer.balance;
-                        againstPlayer.player.balance += x.turnPlayer.balance;
-
-                        // Exclude switch
-                        turnPlayer.player.properties.push(...turnGets);
-                        againstPlayer.player.properties.push(...againsGets);
-
-                        EmitAll(
-                            "submit-trade",
-
-                            {
-                                pJsons: [turnPlayer.player.to_json(), againstPlayer.player.to_json()],
-                                action: `
-                            ${turnPlayer.player.username} done a trade with ${againstPlayer.player.username}
-                            `,
-                            }
-                        );
+                        EmitAll("submit-trade", {
+                            pJsons: [tp.player.to_json(), ap.player.to_json()],
+                            action: `${tp.player.username} done a trade with ${ap.player.username}`,
+                        });
                     });
-                    socket.on("trade-update", (x: GameTrading) => {
-                        if (!selectedMode.AllowDeals) return;
-                        EmitAll("trade-update", x);
-                    });
+
+                    // ── Leave Room ────────────────────────────────────────────
                     socket.on("leave-room", () => {
-                        const leavingClient = Clients.get(socket.id);
-                        if (leavingClient === undefined) return;
-
-                        server.logFunction(`{${getCurrentTime()}} [${socket.id}] Player "${leavingClient.player.username}" has left the room.`);
-                        logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${leavingClient.player.username}" has left the room.`);
-
+                        const lc = Clients.get(socket.id);
+                        if (!lc) return;
+                        const logMsg = `{${getCurrentTime()}} [${socket.id}] Player "${lc.player.username}" has left the room.`;
+                        server.logFunction(logMsg); logs_strings.push(logMsg);
                         Clients.delete(socket.id);
                         if (currentId === socket.id) {
-                            const arr = Array.from(Clients.values())
-                                .filter((v) => v.player.balance > 0)
-                                .map((v) => v.player.id);
-                            if (arr.length > 0) {
-                                currentId = arr[0];
-                            } else {
-                                currentId = "";
-                            }
+                            const arr = Array.from(Clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
+                            currentId = arr.length > 0 ? arr[0] : "";
                         }
-
-                        EmitAll("disconnected-player", {
-                            id: socket.id,
-                            turn: currentId,
-                            wasInGame: gameStarted,
-                        });
-
-                        if (Array.from(Clients.keys()).length === 0) {
-                            if (gameStarted) server.logFunction("Game has Ended. Server is currently Open to new Players");
-                            gameStarted = false;
-                        }
+                        EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame: gameStarted });
+                        if (Array.from(Clients.keys()).length === 0) { if (gameStarted) server.logFunction("Game has Ended."); gameStarted = false; }
                     });
-                } catch (e) {
-                    server.logFunction(e);
-                }
+
+                } catch (e) { server.logFunction(e); }
             });
+
+            // ── Ready ─────────────────────────────────────────────────────────
             socket.on("ready", (args: { ready?: boolean; mode?: MonopolyMode }) => {
                 try {
                     const client = Clients.get(socket.id);
-                    if (client === undefined) return;
-                    if (args.ready !== undefined) {
-                        client.ready = args.ready;
-                    }
-                    if (args.mode !== undefined) {
-                        selectedMode = args.mode;
-                    }
+                    if (!client) return;
+                    if (args.ready !== undefined) client.ready = args.ready;
+                    if (args.mode !== undefined) selectedMode = args.mode;
                     Clients.set(socket.id, client);
-
-                    // Check if everyone Ready!
-
+                    EmitAll("ready", { id: socket.id, state: client.ready, selectedMode });
                     const readys = Array.from(Clients.values()).map((v) => v.ready);
-                    EmitAll("ready", {
-                        id: socket.id,
-                        state: client.ready,
-                        selectedMode,
-                    });
                     if (!readys.includes(false)) {
-                        server.logFunction(`Game has Started, No more Players can join the Server`);
+                        server.logFunction("Game has Started, No more Players can join the Server");
                         gameStarted = true;
                         EmitAll("start-game", {});
                     }
-                } catch (e) {
-                    server.logFunction(e);
-                }
+                } catch (e) { server.logFunction(e); }
             });
 
-            // Handle disconnect event
+            // ── Disconnect ────────────────────────────────────────────────────
             socket.on("disconnect", () => {
                 try {
                     let wasInGame = false;
                     if (Clients.has(socket.id)) {
-                        server.logFunction(
-                            `{${getCurrentTime()}} [${socket.id}] Player "${Clients.get(socket.id)?.player.username}" has disconnected.`
-                        );
-                        logs_strings.push(
-                            `{${getCurrentTime()}} [${socket.id}] Player "${Clients.get(socket.id)?.player.username}" has disconnected.`
-                        );
+                        const logMsg = `{${getCurrentTime()}} [${socket.id}] Player "${Clients.get(socket.id)?.player.username}" has disconnected.`;
+                        server.logFunction(logMsg); logs_strings.push(logMsg);
                         wasInGame = gameStarted;
                     }
-
-                    const disconnectedClient = Clients.get(socket.id);
-                    if (disconnectedClient !== undefined) {
-                        disconnectedClient.ready = false;
-                        disconnectedClient.connected = false;
-                    }
-                    
+                    const dc = Clients.get(socket.id);
+                    if (dc) { dc.ready = false; dc.connected = false; }
                     if (!wasInGame) {
                         Clients.delete(socket.id);
                         if (currentId === socket.id) {
-                            const arr = Array.from(Clients.values())
-                                .filter((v) => v.player.balance > 0)
-                                .map((v) => v.player.id);
+                            const arr = Array.from(Clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
                             if (arr.length > 0) {
-                                var i = arr.indexOf(socket.id);
-                                i = i === -1 ? 0 : (i + 1) % arr.length;
-                                currentId = arr[i];
-                            } else {
-                                currentId = "";
-                            }
+                                let i = arr.indexOf(socket.id);
+                                currentId = arr[i === -1 ? 0 : (i + 1) % arr.length];
+                            } else currentId = "";
                         }
-                    } else {
-                        // Mark as disconnected but KEEP in Clients so they can reconnect
                     }
-
-                    EmitAll("disconnected-player", {
-                        id: socket.id,
-                        turn: currentId,
-                        wasInGame: wasInGame
-                    });
-
+                    EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame });
                     if (Array.from(Clients.keys()).length === 0) {
                         if (gameStarted) server.logFunction("Game has Ended. Server is currently Open to new Players");
                         gameStarted = false;
                     }
-                } catch (e) {
-                    server.logFunction(e);
-                }
+                } catch (e) { server.logFunction(e); }
             });
         }
     );

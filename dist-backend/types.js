@@ -37,7 +37,7 @@ exports.MonopolyModes = [
 function history(action) {
     const time = new Date().toJSON();
     return {
-        action,
+        action: action.replace(/\s+/g, " ").replace(/\bpayed\b/gi, "paid").trim(),
         time,
     };
 }
