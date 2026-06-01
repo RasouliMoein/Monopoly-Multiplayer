@@ -986,7 +986,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                     () => {},
                                     false
                                 );
-                            localPlayer.balance -= a;
+                            localPlayer.balance += a; // Mortgaging GIVES cash!
                             engineRef.current?.applyAnimation(1);
                             var audio = new Audio("./buying1.mp3");
                             audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);

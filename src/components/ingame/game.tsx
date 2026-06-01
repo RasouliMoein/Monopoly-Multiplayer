@@ -377,6 +377,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                     title: x.name ?? "error",
                                 } as UtilitiesDisplayInfo;
                                 SetStreetDisplay(streetInfo);
+                                SetAdvancedStreet(false);
                                 swipeSound();
                                 ShowStreet(true);
                                 requestAnimationFrame(searchForButtons(false, args.location));

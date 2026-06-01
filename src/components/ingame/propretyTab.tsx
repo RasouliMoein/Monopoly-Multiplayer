@@ -27,30 +27,35 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
     );
 
     const mortgageApi = {
-        isRailroad: (location: number) => {
+        canMortgage: (location: number) => {
             const x = propretyMap.get(location);
             const localP = props.players.filter((v) => v.id === props.socket.id)[0];
 
             return (
                 x !== undefined &&
-                x.group === "Railroad" &&
-                localP.properties.filter((v) => v.group === "Railroad" && v.posistion === location).length > 0
+                x.group !== "Special" &&
+                localP.properties.some((v) => v.posistion === location)
             );
         },
         isMortaged: (location: number) => {
             const localP = props.players.filter((v) => v.id === props.socket.id)[0];
-            const a = localP.properties.filter((v) => v.group === "Railroad" && v.posistion === location)[0];
-            return a.morgage !== undefined && a.morgage === true;
+            const a = localP.properties.find((v) => v.posistion === location);
+            return a !== undefined && a.morgage === true;
         },
         buttons: {
             cancel: () => {
                 const location = currentCardPosition;
                 const localP = props.players.filter((v) => v.id === props.socket.id)[0];
-                const prp = localP.properties.filter((v) => v.group === "Railroad" && v.posistion === location)[0];
+                const prp = localP.properties.find((v) => v.posistion === location);
+                if (!prp) return;
+
+                const propData = propretyMap.get(location);
+                if (!propData || propData.price === undefined) return;
+
+                const cost = Math.round(propData.price * 0.55);
                 prp.morgage = false;
 
-                props.Morgage.onCanc(10, propretyMap.get(prp.posistion)?.name ?? "");
-                localP;
+                props.Morgage.onCanc(cost, propData.name ?? "");
 
                 SetCardPos(-1);
                 props.socket.emit("player_update", { playerId: props.socket.id, pJson: localP.toJson() });
@@ -58,10 +63,21 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
             pay: () => {
                 const location = currentCardPosition;
                 const localP = props.players.filter((v) => v.id === props.socket.id)[0];
-                const prp = localP.properties.filter((v) => v.group === "Railroad" && v.posistion === location)[0];
+                const prp = localP.properties.find((v) => v.posistion === location);
+                if (!prp) return;
+
+                if (prp.count !== 0 && prp.count !== undefined) {
+                    alert("You must sell all houses/hotels on this property before mortgaging it!");
+                    return;
+                }
+
+                const propData = propretyMap.get(location);
+                if (!propData || propData.price === undefined) return;
+
+                const mortgageVal = Math.round(propData.price * 0.5);
                 prp.morgage = true;
 
-                props.Morgage.onMort(100, propretyMap.get(prp.posistion)?.name ?? "");
+                props.Morgage.onMort(mortgageVal, propData.name ?? "");
 
                 SetCardPos(-1);
                 props.socket.emit("player_update", { playerId: props.socket.id, pJson: localP.toJson() });
@@ -202,18 +218,18 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
                                     SetCardPos(-1);
                                 }}
                             />
-                            {mortgageApi.isRailroad(currentCardPosition) && props.allowMortgage ? (
+                            {mortgageApi.canMortgage(currentCardPosition) && props.allowMortgage ? (
                                 <>
                                     {" "}
                                     <h2>Actions</h2>
                                     {mortgageApi.isMortaged(currentCardPosition) ? (
                                         <button className="railroads-actions" onClick={mortgageApi.buttons.cancel}>
-                                            Cancel Mortgage [Pay 10M]
+                                            Cancel Mortgage [Pay {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.55)}M]
                                         </button>
                                     ) : (
                                         <button className="railroads-actions" onClick={mortgageApi.buttons.pay}>
                                             {" "}
-                                            Mortgage [Pay 100M]
+                                            Mortgage [Get {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.5)}M]
                                         </button>
                                     )}
                                 </>
