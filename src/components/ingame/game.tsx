@@ -548,7 +548,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
             for (const x of prop.players.filter((v) => v.balance >= 0)) {
                 const location = x.position;
                 const icon = x.icon + 1;
-                const injail = x.isInJail;
+                const injail = x.isInJail && x.position === 10;
 
                 const elementSearch = document.querySelector(`div.player[player-id="${x.id}"]`);
                 if (elementSearch !== null) {
