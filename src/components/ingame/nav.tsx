@@ -13,6 +13,306 @@ import PropretyTab, { PropretyTabRef } from "./propretyTab.tsx";
 import PlayersTab, { PlayersTabRef } from "./playersTab.tsx";
 import SettingsNav from "../settingsNav.tsx";
 import { MonopolyMode, historyAction } from "../../assets/types.ts";
+import monopolyJSON from "../../assets/monopoly.json";
+
+const PROPERTY_COLORS = new Map<string, string>(
+    monopolyJSON.properties.map(p => {
+        const group = p.group || "Special";
+        const colors: Record<string, string> = {
+            "purple": "#8e44ad",
+            "lightgreen": "#2ecc71",
+            "violet": "#e040fb",
+            "orange": "#e67e22",
+            "red": "#e74c3c",
+            "yellow": "#f1c40f",
+            "darkgreen": "#27ae60",
+            "darkblue": "#2980b9",
+            "utilities": "#7f8c8d",
+            "railroad": "#34495e",
+        };
+        const c = colors[group.toLowerCase()] || "#7f8c8d";
+        return [p.name, c];
+    })
+);
+
+interface ParsedHistory {
+    type: string;
+    emoji: string;
+    player: string;
+    details: string;
+    amount?: string;
+    details2?: string;
+    targetPlayer?: string;
+    target?: string;
+    cardText?: string;
+    bgClass: string;
+}
+
+function parseHistoryAction(action: string): ParsedHistory {
+    const text = action.trim();
+    
+    // 1. Roll: "chrome rolled [6, 5] moving to "St. Charles Place""
+    if (text.includes("rolled [") && text.includes("] moving to")) {
+        const rollMatch = text.match(/(.*?) rolled \[(.*?)] moving to "(.*?)"/);
+        if (rollMatch) {
+            return {
+                type: "roll",
+                emoji: "🎲",
+                player: rollMatch[1],
+                details: `rolled [${rollMatch[2]}] and moved to `,
+                target: rollMatch[3],
+                bgClass: "hist-roll",
+            };
+        }
+    }
+    
+    // Escaped jail with doubles: "chrome rolled doubles [d1, d2] and escaped Jail!"
+    if (text.includes("rolled doubles [") && text.includes("escaped Jail")) {
+        const escMatch = text.match(/(.*?) rolled doubles \[(.*?)] and escaped Jail!/);
+        if (escMatch) {
+            return {
+                type: "unjail",
+                emoji: "🔓",
+                player: escMatch[1],
+                details: `rolled doubles [${escMatch[2]}] and escaped Jail! 🏃‍♂️`,
+                bgClass: "hist-unjail",
+            };
+        }
+    }
+    
+    // Failed doubles in jail: "chrome failed doubles roll and stayed in Jail"
+    if (text.includes("failed doubles roll and stayed in Jail")) {
+        const stayMatch = text.match(/(.*?) failed doubles roll and stayed in Jail/);
+        if (stayMatch) {
+            return {
+                type: "jail",
+                emoji: "⛓️",
+                player: stayMatch[1],
+                details: "failed doubles roll and stayed in Jail 🔒",
+                bgClass: "hist-jail-stay",
+            };
+        }
+    }
+    
+    // 2. Buy: "edge bought St. Charles Place"
+    if (text.includes(" bought ")) {
+        const buyMatch = text.match(/(.*?) bought (.*)/);
+        if (buyMatch) {
+            return {
+                type: "buy",
+                emoji: "🏠",
+                player: buyMatch[1],
+                details: "bought ",
+                target: buyMatch[2],
+                bgClass: "hist-buy",
+            };
+        }
+    }
+    
+    // 3. Upgrade: "edge upgraded St. Charles Place"
+    if (text.includes(" upgraded ")) {
+        const upgradeMatch = text.match(/(.*?) upgraded (.*)/);
+        if (upgradeMatch) {
+            return {
+                type: "upgrade",
+                emoji: "🏘️",
+                player: upgradeMatch[1],
+                details: "upgraded ",
+                target: upgradeMatch[2],
+                bgClass: "hist-upgrade",
+            };
+        }
+    }
+    
+    // 4. Rent: "edge paid $26 rent to chrome"
+    if (text.includes(" paid $") && text.includes(" rent to ")) {
+        const rentMatch = text.match(/(.*?) paid \$(.*?) rent to (.*)/);
+        if (rentMatch) {
+            return {
+                type: "rent",
+                emoji: "💸",
+                player: rentMatch[1],
+                details: `paid `,
+                amount: `$${rentMatch[2]} rent`,
+                details2: ` to `,
+                targetPlayer: rentMatch[3],
+                bgClass: "hist-rent",
+            };
+        }
+    }
+    
+    // 5. Tax: "chrome paid $200 Income Tax" or "chrome paid $100 Luxury Tax"
+    if (text.includes(" paid $") && text.toLowerCase().includes("tax")) {
+        const taxMatch = text.match(/(.*?) paid \$(.*?) (Income Tax|Luxury Tax)/i);
+        if (taxMatch) {
+            return {
+                type: "tax",
+                emoji: "🏛️",
+                player: taxMatch[1],
+                details: `paid `,
+                amount: `$${taxMatch[2]}`,
+                details2: ` to ${taxMatch[3]}`,
+                bgClass: "hist-tax",
+            };
+        }
+    }
+    
+    // 6. Jail: "chrome goes to jail"
+    if (text.includes(" goes to jail")) {
+        const jailMatch = text.match(/(.*?) goes to jail/);
+        if (jailMatch) {
+            return {
+                type: "jail",
+                emoji: "👮",
+                player: jailMatch[1],
+                details: "was sent to Jail! 🚔",
+                bgClass: "hist-jail",
+            };
+        }
+    }
+    
+    // 7. Unjail pay: "chrome paid $50 to leave jail"
+    if (text.includes(" paid $50 to leave jail")) {
+        const unjailMatch = text.match(/(.*?) paid \$50 to leave jail/);
+        if (unjailMatch) {
+            return {
+                type: "unjail",
+                emoji: "🔓",
+                player: unjailMatch[1],
+                details: "paid $50 and left Jail 🔓",
+                bgClass: "hist-unjail",
+            };
+        }
+    }
+    
+    // Unjail card: "chrome used a Get Out of Jail Free card to leave jail"
+    if (text.includes("used a Get Out of Jail Free card to leave jail")) {
+        const cardUnjailMatch = text.match(/(.*?) used a Get Out of Jail Free card to leave jail/);
+        if (cardUnjailMatch) {
+            return {
+                type: "unjail",
+                emoji: "🔓",
+                player: cardUnjailMatch[1],
+                details: "used a Get Out of Jail Free card to escape Jail 🕊️",
+                bgClass: "hist-unjail",
+            };
+        }
+    }
+    
+    // 8. Mortgage: unmortgage / mortgage
+    if (text.includes("mortgage")) {
+        if (text.includes("cancel the mortgage on")) {
+            const match = text.match(/(.*?) paid \$(.*?) to cancel the mortgage on (.*)/);
+            if (match) {
+                return {
+                    type: "unmortgage",
+                    emoji: "🔓",
+                    player: match[1],
+                    details: "unmortgaged ",
+                    target: match[3],
+                    amount: ` for $${match[2]}`,
+                    bgClass: "hist-unmortgage",
+                };
+            }
+        } else if (text.includes("paid $") && text.includes(" to mortgage ")) {
+            const match = text.match(/(.*?) paid \$(.*?) to mortgage (.*)/);
+            if (match) {
+                return {
+                    type: "mortgage",
+                    emoji: "💰",
+                    player: match[1],
+                    details: "mortgaged ",
+                    target: match[3],
+                    amount: ` for $${match[2]}`,
+                    bgClass: "hist-mortgage",
+                };
+            }
+        }
+        
+        // Also check nicer direct strings
+        const mortgagedMatch = text.match(/(.*?) mortgaged (.*?) for \$(.*)/);
+        if (mortgagedMatch) {
+            return {
+                type: "mortgage",
+                emoji: "💰",
+                player: mortgagedMatch[1],
+                details: "mortgaged ",
+                target: mortgagedMatch[2],
+                amount: ` for $${mortgagedMatch[3]}`,
+                bgClass: "hist-mortgage",
+            };
+        }
+        
+        const unmortgagedMatch = text.match(/(.*?) unmortgaged (.*?) for \$(.*)/);
+        if (unmortgagedMatch) {
+            return {
+                type: "unmortgage",
+                emoji: "🔓",
+                player: unmortgagedMatch[1],
+                details: "unmortgaged ",
+                target: unmortgagedMatch[2],
+                amount: ` for $${unmortgagedMatch[3]}`,
+                bgClass: "hist-unmortgage",
+            };
+        }
+    }
+    
+    // 9. Card drew: Chance or Community Chest
+    if (text.includes(" drew Chance:") || text.includes(" drew Community Chest:")) {
+        const cardMatch = text.match(/(.*?) drew (Chance|Community Chest): "(.*?)"/);
+        if (cardMatch) {
+            const isChance = cardMatch[2] === "Chance";
+            return {
+                type: isChance ? "chance" : "chest",
+                emoji: isChance ? "❓" : "📦",
+                player: cardMatch[1],
+                details: `drew a ${cardMatch[2]} card: `,
+                cardText: `"${cardMatch[3]}"`,
+                bgClass: isChance ? "hist-chance" : "hist-chest",
+            };
+        }
+    }
+    
+    // 10. Pass Go: "chrome passed Go and collected $200"
+    if (text.includes("passed Go and collected")) {
+        const goMatch = text.match(/(.*?) passed Go and collected \$(.*)/);
+        if (goMatch) {
+            return {
+                type: "go",
+                emoji: "🏁",
+                player: goMatch[1],
+                details: "passed Go and collected ",
+                amount: `$${goMatch[2]} 💵`,
+                bgClass: "hist-go",
+            };
+        }
+    }
+    
+    // 11. Trade: "chrome done a trade with edge"
+    if (text.includes(" done a trade with ")) {
+        const tradeMatch = text.match(/(.*?) done a trade with (.*)/);
+        if (tradeMatch) {
+            return {
+                type: "trade",
+                emoji: "🤝",
+                player: tradeMatch[1],
+                details: "completed a deal with ",
+                targetPlayer: tradeMatch[2],
+                bgClass: "hist-trade",
+            };
+        }
+    }
+    
+    // Default fallback
+    return {
+        type: "event",
+        emoji: "📝",
+        player: "",
+        details: text,
+        bgClass: "hist-default",
+    };
+}
+
 
 interface MonopolyNavProps {
     name: string;
@@ -257,17 +557,70 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                             History <h2>{calculateTimeDifference(prop.time, currentTime)}</h2>
                         </h3>
 
-                        <div style={{ overflowY: "auto", display: "block", position: "relative" }}>
+                        <div className="history-list">
                                 {[...prop.history]
                                     .sort((a, b) => {
                                         return new Date(b.time).getTime() - new Date(a.time).getTime();
                                     })
-                                    .map((v, i) => (
-                                        <div className="history-action" key={`${v.time}-${i}`}>
-                                            <p>{getTimeString(v.time)}</p>
-                                            <p>{v.action.replace(/\s+/g, " ").trim()}</p>
-                                        </div>
-                                    ))}
+                                    .map((v, i) => {
+                                        const parsed = parseHistoryAction(v.action);
+                                        
+                                        const getPlayerColor = (username: string) => {
+                                            const p = prop.players.find(pl => pl.username === username);
+                                            return p ? p.color : "#38bdf8";
+                                        };
+                                        
+                                        const playerColor = getPlayerColor(parsed.player);
+                                        const targetColor = parsed.target ? PROPERTY_COLORS.get(parsed.target) : undefined;
+                                        const targetPlayerColor = parsed.targetPlayer ? getPlayerColor(parsed.targetPlayer) : undefined;
+                                        
+                                        return (
+                                            <div className={`history-action ${parsed.bgClass}`} key={`${v.time}-${i}`}>
+                                                <div className="history-action-header">
+                                                    <div className="history-action-type">
+                                                        <span>{parsed.emoji}</span>
+                                                        <span>{parsed.type}</span>
+                                                    </div>
+                                                    <div className="history-action-time">{getTimeString(v.time)}</div>
+                                                </div>
+                                                <div className="history-action-body">
+                                                    {parsed.player && (
+                                                        <span className="history-player" style={{ color: playerColor || "#fff" }}>
+                                                            {parsed.player}
+                                                        </span>
+                                                    )}
+                                                    <span>{parsed.details}</span>
+                                                    {parsed.amount && (
+                                                        <span className="history-amount">
+                                                            {parsed.amount}
+                                                        </span>
+                                                    )}
+                                                    {parsed.details2 && <span>{parsed.details2}</span>}
+                                                    {parsed.targetPlayer && (
+                                                        <span className="history-player" style={{ color: targetPlayerColor || "#fff" }}>
+                                                            {parsed.targetPlayer}
+                                                        </span>
+                                                    )}
+                                                    {parsed.target && (
+                                                        <span 
+                                                            className="history-target" 
+                                                            style={{ 
+                                                                color: targetColor || "#fff",
+                                                                borderBottom: `2px solid ${targetColor || "rgba(255,255,255,0.2)"}`
+                                                            }}
+                                                        >
+                                                            {parsed.target}
+                                                        </span>
+                                                    )}
+                                                    {parsed.cardText && (
+                                                        <span className="history-card-text">
+                                                            {parsed.cardText}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                         </div>
                     </>
                 ) : tabIndex == 4 ? (

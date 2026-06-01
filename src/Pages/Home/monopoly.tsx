@@ -58,6 +58,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const engineRef = useRef<MonopolyGameRef>(null);
     const navRef = useRef<MonopolyNavRef>(null);
     const notifyRef = useRef<NotificatorRef>(null);
+    const animatingPlayersRef = useRef<Set<string>>(new Set());
 
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
@@ -132,6 +133,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             afterFinished?: () => void,
             adding: boolean = true
         ) {
+            animatingPlayersRef.current.add(_xplayer.id);
             var sum_moves = (final_position - _xplayer.position) % 40;
             if ((final_position < _xplayer.position || sum_moves < 0) && adding) {
                 sum_moves = 40 - _xplayer.position + final_position;
@@ -169,16 +171,11 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         audio.play();
                         _xplayer.position = (_xplayer.position + (adding ? 1 : -1)) % 40;
                         if (_xplayer.position == 0 && get200whengo) {
-                            _xplayer.balance += 200;
+                            // Go payment is handled server-side — just play audio/animation
                             var audio = new Audio("./moneyplus.mp3");
                             audio.volume = 1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             audio.loop = false;
                             audio.play();
-                            if (_xplayer.id === socket.id) {
-                                if (settings !== undefined && settings.notifications === true)
-                                    notifyRef.current?.message(`${200} of money is added to the account`, "info", 2, () => {}, false);
-                                engineRef.current?.applyAnimation(2);
-                            }
                             addedMoney = true;
                             SetClients(new Map(clients.set(_xplayer.id, _xplayer)));
                         }
@@ -190,20 +187,15 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             }, 900);
 
                             if (!addedMoney && firstPosition > _xplayer.position && get200whengo) {
+                                // Go payment is handled server-side — just play audio
                                 var audio = new Audio("./moneyplus.mp3");
                                 audio.volume = 1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                                 audio.loop = false;
                                 audio.play();
-                                _xplayer.balance += 200;
-                                if (_xplayer.id === socket.id) {
-                                    if (settings !== undefined && settings.notifications === true)
-                                        notifyRef.current?.message(`${200} of money is added to the account`, "info", 2, () => {}, false);
-                                    engineRef.current?.applyAnimation(2);
-                                }
                                 addedMoney = true;
-
                                 SetClients(new Map(clients.set(_xplayer.id, _xplayer)));
                             }
+                            animatingPlayersRef.current.delete(_xplayer.id);
                             if (afterFinished) afterFinished();
                         } else {
                             element.style.animation = "jumpstreet 0.35s cubic-bezier(.26,1.5,.65,1.02)";
@@ -486,335 +478,279 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         const socket_Message = (message: { from: string; message: string }) => {
             navRef.current?.addMessage(message);
         };
-        const socket_DiceRollResult = (args: { listOfNums: [number, number, number]; turnId: string }) => {
-            SetHistories((old) => [
-                ...old,
-                history(
-                    `${clients.get(args.turnId)?.username ?? "unknown player"} rolled [${args.listOfNums[0]}, ${args.listOfNums[1]}] moving to "${
-                        propretyMap.get(args.listOfNums[2])?.name ?? ""
-                    }"`
-                ),
-            ]);
+        const socket_DiceRollResult = (args: {
+            listOfNums: [number, number, number];
+            turnId: string;
+            passedGo?: boolean;
+            goPayment?: number;
+            goingToJail?: boolean;
+            jailStayed?: boolean;
+            rolledPosition?: number;
+            finalPosition?: number;
+            requiresPurchaseDecision?: boolean;
+            pendingCard?: any;
+            landingNote?: string;
+        }) => {
+            const xplayer = clients.get(args.turnId) as Player;
+            const wasInJail = xplayer?.isInJail;
+            if (wasInJail) {
+                if (args.jailStayed) {
+                    SetHistories((old) => [
+                        ...old,
+                        history(`${clients.get(args.turnId)?.username ?? "player"} failed doubles roll and stayed in Jail`)
+                    ]);
+                } else {
+                    SetHistories((old) => [
+                        ...old,
+                        history(`${clients.get(args.turnId)?.username ?? "player"} rolled doubles [${args.listOfNums[0]}, ${args.listOfNums[1]}] and escaped Jail!`)
+                    ]);
+                }
+            } else {
+                SetHistories((old) => [
+                    ...old,
+                    history(
+                        `${clients.get(args.turnId)?.username ?? "unknown player"} rolled [${args.listOfNums[0]}, ${args.listOfNums[1]}] moving to "${
+                            propretyMap.get(args.listOfNums[2])?.name ?? ""
+                        }"`
+                    ),
+                ]);
+            }
             var audio = new Audio("./rolling.mp3");
             audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
             audio.loop = false;
             audio.play();
-            // const sumTimes = args.listOfNums[0] + args.listOfNums[1];
-            const localPlayer = clients.get(socket.id) as Player;
-            const xplayer = clients.get(args.turnId) as Player;
-            const dice_generatorResults = playerMoveGENERATOR(args.listOfNums[2], xplayer, true, () => {
-                if (args.turnId != socket.id && args.listOfNums[2] === 30) {
+
+            const isActivePlayer = args.turnId === socket.id;
+            const rolls = args.listOfNums[0] + args.listOfNums[1];
+            const rolledPosition = args.listOfNums[2]; // position before jail correction
+
+            // ── Go notification (balance already applied server-side) ──
+            if (args.passedGo) {
+                var goAudio = new Audio("./moneyplus.mp3");
+                goAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                goAudio.loop = false;
+                goAudio.play();
+                if (isActivePlayer) {
+                    if (settings?.notifications === true)
+                        notifyRef.current?.message(`$200 added for passing Go!`, "info", 2, () => {}, false);
+                    engineRef.current?.applyAnimation(2);
+                }
+                SetHistories((old) => [
+                    ...old,
+                    history(`${clients.get(args.turnId)?.username ?? "player"} passed Go and collected $200`)
+                ]);
+            }
+
+            // ── Landing notifications (taxes / rent — applied server-side) ──
+            if (args.landingNote && isActivePlayer) {
+                const note = args.landingNote;
+                if (note.startsWith("incometax")) {
+                    if (settings?.notifications === true)
+                        notifyRef.current?.message(`Paid $200 income tax`, "info", 2, () => {}, false);
+                    var taxAudio = new Audio("./moneyminus.mp3");
+                    taxAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                    taxAudio.play();
+                    engineRef.current?.applyAnimation(1);
+                    socket.emit("history", history(`${clients.get(socket.id)?.username ?? "player"} paid $200 Income Tax`));
+                } else if (note.startsWith("luxerytax")) {
+                    if (settings?.notifications === true)
+                        notifyRef.current?.message(`Paid $100 luxury tax`, "info", 2, () => {}, false);
+                    var taxAudio2 = new Audio("./moneyminus.mp3");
+                    taxAudio2.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                    taxAudio2.play();
+                    engineRef.current?.applyAnimation(1);
+                    socket.emit("history", history(`${clients.get(socket.id)?.username ?? "player"} paid $100 Luxury Tax`));
+                } else if (note.startsWith("rent:")) {
+                    const [, ownerId, rentAmt] = note.split(":");
+                    const ownerName = clients.get(ownerId)?.username ?? "someone";
+                    if (settings?.notifications === true)
+                        notifyRef.current?.message(`Paid $${rentAmt} rent to ${ownerName}`, "info", 2, () => {}, false);
+                    var rentAudio = new Audio("./moneyminus.mp3");
+                    rentAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                    rentAudio.play();
+                    engineRef.current?.applyAnimation(1);
+                    socket.emit("history", history(`${clients.get(socket.id)?.username ?? "player"} paid $${rentAmt} rent to ${ownerName}`));
+                }
+            }
+            // Notify owner on rent received
+            if (args.landingNote?.startsWith("rent:")) {
+                const ownerId = args.landingNote.split(":")[1];
+                const rentAmt = args.landingNote.split(":")[2];
+                if (ownerId === socket.id && !isActivePlayer) {
+                    if (settings?.notifications === true)
+                        notifyRef.current?.message(`Received $${rentAmt} rent`, "info", 2, () => {}, false);
+                    var rentRecAudio = new Audio("./moneyplus.mp3");
+                    rentRecAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                    rentRecAudio.play();
+                    engineRef.current?.applyAnimation(2);
+                }
+            }
+
+            // ── Helper: show property buy/upgrade UI and emit player_action ──
+            const showBuyUI = (location: number) => {
+                const proprety = propretyMap.get(location);
+                if (!proprety) { engineRef.current?.freeDice(); socket.emit("finish-turn"); return; }
+                engineRef.current?.setStreet({
+                    location,
+                    rolls,
+                    onResponse: (b: string, info: any) => {
+                        let time_till_free = 0;
+                        if (b === "buy" || b === "special_action") {
+                            socket.emit("player_action", { action: "buy" });
+                            if (settings?.notifications === true)
+                                notifyRef.current?.message(
+                                    `${clients.get(socket.id)?.username ?? "you"} bought ${proprety?.name ?? "a property"} for $${proprety?.price ?? 0}`,
+                                    "info", 2, () => {}, false
+                                );
+                            var buyAudio = new Audio("./buying1.mp3");
+                            buyAudio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                            buyAudio.play();
+                            engineRef.current?.applyAnimation(1);
+                            socket.emit("history", history(`${clients.get(socket.id)?.username ?? "player"} bought ${proprety?.name ?? "a property"}`));
+                        } else if (b === "advance-buy") {
+                            const _info = info as { state: 1 | 2 | 3 | 4 | 5; money: number };
+                            socket.emit("player_action", { action: "buy-advance", newCount: _info.state, housesAdded: _info.money });
+                            if (_info.state === 5) {
+                                if (settings?.notifications === true)
+                                    notifyRef.current?.message(`Built a hotel on ${proprety?.name}`, "info", 2, () => {}, false);
+                            } else {
+                                if (settings?.notifications === true)
+                                    notifyRef.current?.message(`Built ${_info.money} house${_info.money > 1 ? "s" : ""} on ${proprety?.name}`, "info", 2, () => {}, false);
+                            }
+                            var houseAudio = new Audio("./buying1.mp3");
+                            houseAudio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                            houseAudio.play();
+                            engineRef.current?.applyAnimation(1);
+                            socket.emit("history", history(`${clients.get(socket.id)?.username ?? "player"} upgraded ${proprety?.name}`));
+                        }
+                        // "someones" is now fully server-side — no client action needed
+                        // "nothing" / skip — just end turn
+                        setTimeout(() => {
+                            engineRef.current?.freeDice();
+                            socket.emit("finish-turn");
+                        }, time_till_free);
+                    },
+                });
+            };
+
+            // ── afterFinished for playerMoveGENERATOR (jail animation) ──
+            const afterMovementFinished = () => {
+                if (args.goingToJail) {
                     setTimeout(() => {
-                        SetHistories((old) => [...old, history(`${clients.get(args.turnId)?.username ?? "unknown player"} goes to jail`)]);
-                        const generatorResults = playerMoveGENERATOR(10, xplayer, false, () => {
+                        SetHistories((old) => [...old, history(`${clients.get(args.turnId)?.username ?? "player"} goes to jail`)]);
+                        const jailGen = playerMoveGENERATOR(10, xplayer, false, () => {
                             xplayer.position = 10;
-                            xplayer.isInJail = true;
-                            var audio = new Audio("./jail.mp3");
-                            audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            audio.loop = false;
-                            audio.play();
-                            xplayer.jailTurnsRemaining = 3;
+                            var jailAudio = new Audio("./jail.mp3");
+                            jailAudio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                            jailAudio.play();
+                            // isInJail/jailTurnsRemaining set by server via state_update
+                            if (isActivePlayer) {
+                                setTimeout(() => { engineRef.current?.freeDice(); socket.emit("finish-turn"); }, 500);
+                            }
                         });
-                        generatorResults.func();
+                        jailGen.func();
                     }, 800);
                 }
-            });
+            };
+
+            const dice_generatorResults = playerMoveGENERATOR(rolledPosition, xplayer, true, afterMovementFinished);
+
+            // ── diceResults onDone — handle turn end for ALL clients ──
+            const handleOnDone = () => {
+                if (args.jailStayed) {
+                    // Stayed in jail (non-doubles) — server decremented turns, just end
+                    if (isActivePlayer) {
+                        engineRef.current?.freeDice();
+                        socket.emit("finish-turn");
+                    }
+                    return;
+                }
+                if (args.goingToJail) return; // handled in afterMovementFinished
+
+                if (args.pendingCard) {
+                    // Show card animation for ALL clients
+                    const numOfTime = 3000;
+                    engineRef.current?.chorch(args.pendingCard.element, args.pendingCard.is_chance, numOfTime);
+                    if (isActivePlayer && settings?.notifications === true)
+                        notifyRef.current?.message(
+                            `${args.pendingCard.is_chance ? "Chance" : "Community Chest"}: "${args.pendingCard.element?.title ?? ""}"`,
+                            "info", 3, () => {}, false
+                        );
+                    SetHistories((old) => [
+                        ...old,
+                        history(`${clients.get(args.turnId)?.username ?? "player"} drew ${args.pendingCard.is_chance ? "Chance" : "Community Chest"}: "${args.pendingCard.element?.title ?? ""}"`)
+                    ]);
+
+                    setTimeout(() => {
+                        // If card triggers a movement, animate it for ALL clients
+                        if (args.pendingCard.newPosition !== undefined && args.pendingCard.newPosition !== rolledPosition) {
+                            const cardMoveGen = playerMoveGENERATOR(args.pendingCard.newPosition, xplayer, true, () => {
+                                // After card movement finishes
+                                xplayer.position = args.pendingCard.newPosition;
+                                SetClients(new Map(clients.set(args.turnId, xplayer)));
+                                if (isActivePlayer) {
+                                    if (args.pendingCard.requiresPurchaseDecision) {
+                                        showBuyUI(args.pendingCard.newPosition);
+                                    } else {
+                                        engineRef.current?.freeDice();
+                                        socket.emit("finish-turn");
+                                    }
+                                }
+                            });
+                            cardMoveGen.func();
+                        } else {
+                            // No movement from card (e.g. addfunds, removefunds, getout-of-jail-free)
+                            if (isActivePlayer) {
+                                if (args.pendingCard.requiresPurchaseDecision && args.pendingCard.newPosition !== undefined) {
+                                    showBuyUI(args.pendingCard.newPosition);
+                                } else {
+                                    engineRef.current?.freeDice();
+                                    socket.emit("finish-turn");
+                                }
+                            }
+                        }
+                    }, numOfTime);
+                } else if (isActivePlayer) {
+                    if (args.requiresPurchaseDecision) {
+                        showBuyUI(args.finalPosition ?? rolledPosition);
+                    } else {
+                        // Rent/tax/free-parking etc. — all handled server-side already
+                        engineRef.current?.freeDice();
+                        socket.emit("finish-turn");
+                    }
+                }
+            };
+
+            // Determine dice display time
+            const jailEscape = wasInJail && !args.jailStayed;
+            const diceDisplayTime = (wasInJail && args.jailStayed) ? 2000 : dice_generatorResults.time + 2000 + 800;
 
             engineRef.current?.diceResults({
                 l: [args.listOfNums[0], args.listOfNums[1]],
-                time: localPlayer.isInJail ? 2000 : dice_generatorResults.time + 2000 + 800,
-                onDone: () => {
-                    if (socket.id !== args.turnId) return;
-
-                    const location = clients.get(socket.id)?.position ?? -1;
-                    const proprety = propretyMap.get(location);
-                    if (proprety != undefined) {
-                        if (proprety.id === "communitychest" || proprety.id === "chance") {
-                            socket.emit("chorch_roll", { is_chance: proprety.id === "chance", rolls: args.listOfNums[0] + args.listOfNums[1] });
-                        } else {
-                            engineRef.current?.setStreet({
-                                location,
-                                rolls: args.listOfNums[1] + args.listOfNums[0],
-                                onResponse: (b, info) => {
-                                    var time_till_free = 0;
-                                    if (b === "buy") {
-                                        if (settings !== undefined && settings.notifications === true)
-                                            notifyRef.current?.message(
-                                                `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
-                                                    (proprety?.price ?? 0) * 1
-                                                }`,
-                                                "info",
-                                                2,
-                                                () => {},
-                                                false
-                                            );
-                                        localPlayer.balance -= (proprety?.price ?? 0) * 1;
-                                        engineRef.current?.applyAnimation(1);
-                                        localPlayer.properties.push({
-                                            posistion: localPlayer.position,
-                                            count: 0,
-                                            group: propretyMap.get(localPlayer.position)?.group ?? "",
-                                        });
-                                        var audio = new Audio("./buying1.mp3");
-                                        audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                        audio.loop = false;
-                                        audio.play();
-
-                                        socket.emit(
-                                            "history",
-                                            history(`${clients.get(socket.id)?.username ?? "unknown player"} bought ${proprety.name}`)
-                                        );
-                                    } else if (b === "advance-buy") {
-                                        var audio = new Audio("./buying1.mp3");
-                                        audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                        audio.loop = false;
-                                        audio.play();
-                                        const propId = Array.from(new Map(localPlayer.properties.map((v, i) => [i, v])).entries()).filter(
-                                            (v) => v[1].posistion === location
-                                        )[0][0];
-
-                                        const _info = info as {
-                                            state: 1 | 2 | 3 | 4 | 5;
-                                            money: number;
-                                        };
-
-                                        localPlayer.properties[propId].count = _info.state === 5 ? "h" : _info.state;
-
-                                        if (_info.state === 5) {
-                                            if (settings !== undefined && settings.notifications === true)
-                                                notifyRef.current?.message(
-                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${proprety.ohousecost ?? 0} to build a hotel on ${
-                                                        proprety.name ?? "a property"
-                                                    }`,
-                                                    "info",
-                                                    2,
-                                                    () => {},
-                                                    false
-                                                );
-                                            localPlayer.balance -= proprety.ohousecost ?? 0;
-                                            engineRef.current?.applyAnimation(1);
-                                        } else {
-                                            if (settings !== undefined && settings.notifications === true)
-                                                notifyRef.current?.message(
-                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${(proprety.housecost ?? 0) * _info.money} to build ${
-                                                        _info.money
-                                                    } house${_info.money > 1 ? "s" : ""} on ${proprety.name ?? "a property"}`,
-                                                    "info",
-                                                    2,
-                                                    () => {},
-                                                    false
-                                                );
-                                            localPlayer.balance -= (proprety.housecost ?? 0) * _info.money;
-                                            engineRef.current?.applyAnimation(1);
-                                        }
-
-                                        socket.emit(
-                                            "history",
-                                            history(`${clients.get(socket.id)?.username ?? "unknown player"} advanced ${proprety.name}`)
-                                        );
-                                    } else if (b === "someones") {
-                                        const players = Array.from(clients.values());
-                                        for (const p of players) {
-                                            for (const prp of p.properties) {
-                                                if (prp.posistion === location) {
-                                                    var payment_ammount = 0;
-
-                                                    if (proprety.group === "Utilities" && prp.rent) {
-                                                        const multy_ = p.properties.filter((v) => v.group === "Utilities").length === 2 ? 10 : 4;
-                                                        payment_ammount = prp.rent * multy_;
-                                                    } else if (proprety.group === "Railroad") {
-                                                        const count = p.properties
-                                                            .filter((v) => v.group === "Railroad")
-                                                            .filter(
-                                                                (v) => v.morgage === undefined || (v.morgage !== undefined && v.morgage === false)
-                                                            ).length;
-                                                        const rents = [0, 25, 50, 100, 200];
-                                                        payment_ammount = rents[count];
-                                                    } else if (prp.count === 0) {
-                                                        payment_ammount = proprety?.rent ?? 0;
-                                                    } else if (typeof prp.count === "number" && prp.count > 0) {
-                                                        payment_ammount = (proprety?.multpliedrent ?? [0, 0, 0, 0])[prp.count - 1] ?? 0;
-                                                    } else if (prp.count === "h") {
-                                                        payment_ammount = (proprety?.multpliedrent ?? [0, 0, 0, 0, 0])[4] ?? 0;
-                                                    }
-                                                    if (settings !== undefined && settings.notifications === true)
-                                                        notifyRef.current?.message(
-                                                            `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} rent to ${
-                                                                clients.get(p.id)?.username ?? "unknown user"
-                                                            } for ${proprety?.name ?? "a property"}`,
-                                                            "info",
-                                                            2,
-                                                            () => {},
-                                                            false
-                                                        );
-                                                    var audio = new Audio("./moneyminus.mp3");
-                                                    audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                                    audio.loop = false;
-                                                    audio.play();
-                                                    if (prp.morgage === undefined || (prp.morgage !== undefined && prp.morgage === false))
-                                                        localPlayer.balance -= payment_ammount;
-                                                    engineRef.current?.applyAnimation(1);
-                                                    socket.emit("pay", {
-                                                        balance: payment_ammount,
-                                                        from: socket.id,
-                                                        to: p.id,
-                                                    });
-                                                    engineRef.current?.applyAnimation(1);
-
-                                                    socket.emit(
-                                                        "history",
-                                                        history(`
-                                                    ${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} rent to ${
-                                                            clients.get(p.id)?.username ?? "unknown user"
-                                                        } for ${proprety?.name ?? "a property"}
-                                                    `)
-                                                    );
-                                                }
-                                            }
-                                        }
-                                    } else if (b === "nothing") {
-                                        if ((proprety?.id ?? "") == "gotojail") {
-                                            const generatorResults = playerMoveGENERATOR(10, xplayer, false, () => {
-                                                xplayer.position = 10;
-                                                xplayer.isInJail = true;
-                                                xplayer.jailTurnsRemaining = 3;
-                                            });
-
-                                            time_till_free = generatorResults.time;
-                                            generatorResults.func();
-                                        }
-
-                                        if (proprety?.id === "incometax") {
-                                            localPlayer.balance -= 200;
-                                            if (settings !== undefined && settings.notifications === true)
-                                                notifyRef.current?.message(
-                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $200 income tax`,
-                                                    "info",
-                                                    2,
-                                                    () => {},
-                                                    false
-                                                );
-                                            var audio = new Audio("./moneyminus.mp3");
-                                            audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                            audio.loop = false;
-                                            audio.play();
-                                            engineRef.current?.applyAnimation(1);
-                                            socket.emit(
-                                                "history",
-                                                history(`${clients.get(socket.id)?.username ?? "unknown player"} paid $200 income tax`)
-                                            );
-                                        }
-                                        if (proprety?.id === "luxerytax") {
-                                            localPlayer.balance -= 100;
-                                            if (settings !== undefined && settings.notifications === true)
-                                                notifyRef.current?.message(
-                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $100 luxury tax`,
-                                                    "info",
-                                                    2,
-                                                    () => {},
-                                                    false
-                                                );
-                                            var audio = new Audio("./moneyminus.mp3");
-                                            audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                            audio.loop = false;
-                                            audio.play();
-                                            engineRef.current?.applyAnimation(1);
-                                            socket.emit(
-                                                "history",
-                                                history(`${clients.get(socket.id)?.username ?? "unknown player"} paid $100 luxury tax`)
-                                            );
-                                        }
-                                    } else if (b === "special_action") {
-                                        if (settings !== undefined && settings.notifications === true)
-                                            notifyRef.current?.message(
-                                                `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
-                                                    (proprety?.price ?? 0) * 1
-                                                }`,
-                                                "info",
-                                                2,
-                                                () => {},
-                                                false
-                                            );
-                                        var audio = new Audio("./buying1.mp3");
-                                        audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                        audio.loop = false;
-                                        audio.play();
-                                        localPlayer.balance -= (proprety?.price ?? 0) * 1;
-                                        engineRef.current?.applyAnimation(1);
-                                        socket.emit(
-                                            "history",
-                                            history(
-                                                `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
-                                                    (proprety?.price ?? 0) * 1
-                                                }`
-                                            )
-                                        );
-
-                                        const _info = info as {
-                                            rolls: number;
-                                        };
-                                        const prp = propretyMap.get(localPlayer.position);
-                                        const calculateRent = _info.rolls;
-                                        localPlayer.properties.push({
-                                            posistion: localPlayer.position,
-                                            count: 0,
-                                            rent: calculateRent,
-                                            group: prp?.group ?? "",
-                                        });
-
-                                        socket.emit(
-                                            "history",
-                                            history(
-                                                `${clients.get(socket.id)?.username ?? "unknown player"} bought ${
-                                                    prp?.name ?? "unkown place"
-                                                } with rent of ${calculateRent}`
-                                            )
-                                        );
-                                    }
-
-                                    setTimeout(() => {
-                                        SetClients(new Map(clients.set(socket.id, localPlayer)));
-                                        engineRef.current?.freeDice();
-                                        const json = (clients.get(socket.id) as Player).toJson();
-                                        socket.emit("finish-turn", json);
-                                    }, time_till_free);
-                                },
-                            });
-                        }
-                    }
-                },
+                time: diceDisplayTime,
+                onDone: handleOnDone,
             });
 
-            if (xplayer.isInJail) {
+            // ── Start movement animation ──
+            if (wasInJail) {
                 setTimeout(() => {
-                    if (args.listOfNums[0] == args.listOfNums[1]) {
-                        xplayer.isInJail = false;
-                        setTimeout(() => {
-                            dice_generatorResults.func();
-                        }, 2000);
-                    } else if (xplayer.jailTurnsRemaining > 0) {
-                        xplayer.jailTurnsRemaining -= 1;
-                        if (xplayer.jailTurnsRemaining === 0) {
-                            xplayer.isInJail = false;
-                        }
+                    if (jailEscape) {
+                        // Escaped with doubles — start movement after dice shown
+                        setTimeout(() => { dice_generatorResults.func(); }, 2000);
                     }
                     SetClients(new Map(clients.set(args.turnId, xplayer)));
                 }, 1500);
             } else {
-                setTimeout(() => {
-                    dice_generatorResults.func();
-                }, 2000);
+                setTimeout(() => { dice_generatorResults.func(); }, 2000);
             }
         };
+
         const socket_Unjail = (args: { to: string; option: "card" | "pay" }) => {
+            // Balance and jail state are updated server-side via state_update.
+            // Only play audio/log here.
             const x = clients.get(args.to);
             if (x) {
-                if (args.option === "card") {
-                    x.getoutCards -= 1;
-                } else {
-                    x.balance -= 50;
-                    if (x.id === socket.id && settings !== undefined && settings.notifications === true)
-                        notifyRef.current?.message(`${x.username} paid $50 to leave jail`, "info", 2, () => {}, false);
+                if (args.option === "pay") {
                     var audio = new Audio("./moneyminus.mp3");
                     audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     audio.loop = false;
@@ -822,10 +758,15 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     if (x.id === socket.id) {
                         socket.emit("history", history(`${x.username} paid $50 to leave jail`));
                     }
+                } else {
+                    var cardAudio = new Audio("./moneyplus.mp3");
+                    cardAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                    cardAudio.loop = false;
+                    cardAudio.play();
+                    if (x.id === socket.id) {
+                        socket.emit("history", history(`${x.username} used a Get Out of Jail Free card to leave jail`));
+                    }
                 }
-                x.isInJail = false;
-                x.jailTurnsRemaining = 0;
-                SetClients(new Map(clients.set(args.to, x)));
             }
         };
         const socket_MemberUpdating = (args: {
@@ -844,500 +785,10 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 engineRef.current?.applyAnimation(2);
             }
         };
-        const socket_ChorchResult = (args: {
-            element: {
-                title: string;
-                action: string;
-                tileid: string;
-                groupid?: undefined;
-                rentmultiplier?: undefined;
-                amount?: undefined;
-                subaction?: undefined;
-                count?: undefined;
-                buildings?: undefined;
-                hotels?: undefined;
-            };
-            rolls: number;
-            is_chance: boolean;
-            turnId: string;
-        }) => {
-            SetHistories((old) => [
-                ...old,
-                history(
-                    `${clients.get(args.turnId)?.username ?? "unknown player"} got ${
-                        args.is_chance ? "chance" : "community chest "
-                    } card that said "${args.element.title}"`
-                ),
-            ]);
-            const numOfTime = 3000;
-            engineRef.current?.chorch(args.element, args.is_chance, numOfTime);
-
-            setTimeout(() => {
-                const c = args.element;
-                const xplayer = clients.get(args.turnId);
-                if (xplayer === undefined) return;
-                function addBalanceToOthers(amnout: number) {
-                    if (xplayer === undefined) return 0;
-
-                    const other_players = Array.from(clients.values()).filter((v) => v.id !== xplayer.id);
-
-                    if (xplayer.id === socket.id) {
-                        if (amnout > 0) {
-                            // give money
-                            socket.emit(
-                                "history",
-                                history(
-                                    `${xplayer.username ?? "unknown user"} gave $${amnout} to [${other_players
-                                        .map((v) => v.username)
-                                        .join(", ")}]`
-                                )
-                            );
-                        } else {
-                            // get money!
-                            socket.emit(
-                                "history",
-                                history(
-                                    `${xplayer.username ?? "unknown user"} received $${-amnout} from [${other_players
-                                        .map((v) => v.username)
-                                        .join(", ")}]`
-                                )
-                            );
-                        }
-                    }
-
-                    for (const p of other_players) {
-                        p.balance += amnout;
-                        if (p.id === socket.id && settings !== undefined && settings.notifications === true) {
-                            notifyRef.current?.message(`${amnout} of money is added to the account`, "info", 2, () => {}, false);
-                            var audio = new Audio("./moneyplus.mp3");
-                            audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            audio.loop = false;
-                            audio.play();
-                        }
-                        SetClients(new Map(clients.set(p.id, p)));
-
-                        if (xplayer.id === socket.id) {
-                            if (amnout > 0) {
-                                socket.emit("pay", {
-                                    balance: amnout,
-                                    from: socket.id,
-                                    to: p.id,
-                                });
-                            } else {
-                                // recieve money
-                                socket.emit("pay", {
-                                    balance: amnout,
-                                    from: p.id,
-                                    to: socket.id,
-                                });
-
-                                socket.emit(
-                                    "history",
-                                    history(`
-                                ${clients.get(socket.id)?.username ?? "unknown user"} received $${-payment_ammount} from ${
-                                        clients.get(xplayer.id)?.username ?? "unknown user"
-                                    }
-                                `)
-                                );
-                            }
-                        }
-                    }
-                    return other_players.length;
-                }
-
-                var time_till_finish = 0;
-                switch (c.action) {
-                    case "move":
-                        if (c.tileid) {
-                            const p = new Map(
-                                monopolyJSON.properties.map((obj) => {
-                                    return [obj.id, obj];
-                                })
-                            );
-                            const targetPos = p.get(c.tileid)?.posistion;
-                            if (targetPos === undefined) break;
-
-                            const _generatorResults = playerMoveGENERATOR(targetPos, xplayer);
-                            time_till_finish = _generatorResults.time;
-                            _generatorResults.func();
-                        } else if (c.count) {
-                            const _generatorResults = playerMoveGENERATOR((xplayer.position + c.count) % 40, xplayer, true, () => {}, c.count >= 0);
-                            time_till_finish = _generatorResults.time;
-                            _generatorResults.func();
-                        }
-                        break;
-
-                    case "addfunds":
-                        xplayer.balance += c.amount ?? 0;
-                        if (xplayer.id === socket.id) {
-                            if (settings !== undefined && settings.notifications === true)
-                                notifyRef.current?.message(`${c.amount ?? 0} of money is added to the account`, "info", 2, () => {}, false);
-                            var audio = new Audio("./moneyplus.mp3");
-                            audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            audio.loop = false;
-                            audio.play();
-                            engineRef.current?.applyAnimation(2);
-                        }
-                        break;
-                    case "jail":
-                        if (c.subaction !== undefined) {
-                            switch (c.subaction) {
-                                case "getout":
-                                    xplayer.getoutCards += 1;
-                                    break;
-                                case "goto":
-                                    const _generatorResults = playerMoveGENERATOR(10, xplayer, false, () => {
-                                        xplayer.position = 10;
-                                        xplayer.isInJail = true;
-                                        var audio = new Audio("./jail.mp3");
-                                        audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                        audio.loop = false;
-                                        audio.play();
-                                        xplayer.jailTurnsRemaining = 3;
-                                    });
-                                    time_till_finish = _generatorResults.time;
-                                    _generatorResults.func();
-                                    break;
-                            }
-                            SetClients(new Map(clients.set(xplayer.id, xplayer)));
-                        }
-                        break;
-
-                    case "removefunds":
-                        xplayer.balance -= c.amount ?? 0;
-                        if (xplayer.id === socket.id) {
-                            engineRef.current?.applyAnimation(1);
-                            if (settings !== undefined && settings.notifications === true)
-                                                notifyRef.current?.message(
-                                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${c.amount ?? 0}`,
-                                                    "info",
-                                                    2,
-                                                    () => {},
-                                                    false
-                                                );
-                            var audio = new Audio("./moneyminus.mp3");
-                            audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            audio.loop = false;
-                            audio.play();
-                        }
-                        break;
-                    // amount
-                    case "removefundstoplayers":
-                        addBalanceToOthers(c.amount ?? 0);
-                        // xplayer.balance -= (c.amount ?? 0) * l;
-                        if (xplayer.id === socket.id) engineRef.current?.applyAnimation(1);
-                        break;
-
-                    case "addfundsfromplayers":
-                        addBalanceToOthers(-(c.amount ?? 0));
-                        // xplayer.balance += (c.amount ?? 0) * l;
-                        // if (xplayer.id === socket.id)
-                        //     engineRef.current?.applyAnimation(2);
-                        break;
-
-                    case "movenearest":
-                        if (!c.groupid) return;
-
-                        function findNextValue(arr: number[], X: number) {
-                            // Sort the array in ascending order
-                            arr.sort((a, b) => a - b);
-
-                            // Loop through the array to find the next value
-                            for (let i = 0; i < arr.length; i++) {
-                                if (arr[i] > X) {
-                                    return arr[i];
-                                }
-                            }
-
-                            // If no value greater than X is found, return the first element (wrap around)
-                            return arr[0];
-                        }
-
-                        var p = "";
-
-                        if (c.groupid === "utility") {
-                            p = "Utilities";
-                        } else {
-                            p = "Railroad";
-                        }
-                        const arr = monopolyJSON.properties.filter((v) => v.group === p).map((v) => v.posistion);
-                        const ongoingLocation = findNextValue(arr, xplayer.position);
-                        const _generatorResults = playerMoveGENERATOR(ongoingLocation, xplayer);
-                        time_till_finish = -1;
-                        _generatorResults.func();
-                        setTimeout(() => {
-                            if (xplayer.id === socket.id) {
-                                const location = xplayer?.position ?? -1;
-                                const proprety = propretyMap.get(location);
-                                if (proprety !== undefined) {
-                                    engineRef.current?.setStreet({
-                                        location,
-                                        rolls: args.rolls,
-                                        onResponse: (b, info) => {
-                                            if (b === "buy") {
-                                                if (settings !== undefined && settings.notifications === true)
-                                                    notifyRef.current?.message(
-                                                        `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
-                                                            (proprety?.price ?? 0) * 1
-                                                        }`,
-                                                        "info",
-                                                        2,
-                                                        () => {},
-                                                        false
-                                                    );
-                                                xplayer.balance -= (proprety?.price ?? 0) * 1;
-
-                                                engineRef.current?.applyAnimation(1);
-                                                const prp = propretyMap.get(xplayer.position);
-                                                xplayer.properties.push({
-                                                    posistion: xplayer.position,
-                                                    count: 0,
-                                                    group: prp?.group ?? "",
-                                                });
-
-                                                var audio = new Audio("./buying1.mp3");
-                                                audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                                audio.loop = false;
-                                                audio.play();
-
-                                                SetClients(new Map(clients.set(socket.id, xplayer)));
-                                                engineRef.current?.freeDice();
-                                                const json = (clients.get(socket.id) as Player).toJson();
-                                                socket.emit("finish-turn", json);
-
-                                                socket.emit(
-                                                    "history",
-                                                    history(
-                                                        `${clients.get(socket.id)?.username ?? "unknown player"} bought ${
-                                                            prp?.name ?? "unkown place"
-                                                        }`
-                                                    )
-                                                );
-                                            } else if (b === "special_action") {
-                                                console.log(info);
-                                                if (settings !== undefined && settings.notifications === true)
-                                                    notifyRef.current?.message(
-                                                        `${clients.get(socket.id)?.username ?? "unknown user"} bought ${proprety?.name ?? "a property"} for $${
-                                                            (proprety?.price ?? 0) * 1
-                                                        }`,
-                                                        "info",
-                                                        2,
-                                                        () => {},
-                                                        false
-                                                    );
-                                                xplayer.balance -= (proprety?.price ?? 0) * 1;
-
-                                                const _info = info as {
-                                                    rolls: number;
-                                                };
-
-                                                const calculateRent = _info.rolls;
-                                                engineRef.current?.applyAnimation(1);
-                                                const prp = propretyMap.get(xplayer.position);
-                                                xplayer.properties.push({
-                                                    posistion: xplayer.position,
-                                                    count: 0,
-                                                    rent: calculateRent,
-                                                    group: prp?.group ?? "",
-                                                });
-                                                var audio = new Audio("./buying1.mp3");
-                                                audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                                audio.loop = false;
-                                                audio.play();
-
-                                                SetClients(new Map(clients.set(socket.id, xplayer)));
-                                                engineRef.current?.freeDice();
-                                                const json = (clients.get(socket.id) as Player).toJson();
-                                                socket.emit("finish-turn", json);
-
-                                                socket.emit(
-                                                    "history",
-                                                    history(
-                                                        `${clients.get(socket.id)?.username ?? "unknown player"} bought ${
-                                                            prp?.name ?? "unkown place"
-                                                        } with rent of ${calculateRent}`
-                                                    )
-                                                );
-                                            } else if (b === "someones") {
-                                                const players = Array.from(clients.values());
-
-                                                for (const p of players) {
-                                                    for (const prp of p.properties) {
-                                                        if (prp.posistion === location) {
-                                                            var payment_ammount = 0;
-
-                                                            if (proprety.group === "Utilities" && prp.rent) {
-                                                                const l = [Math.floor(Math.random() * 6) + 1, Math.floor(Math.random() * 6) + 1];
-                                                                socket.emit(
-                                                                    "history",
-                                                                    history(
-                                                                        `${clients.get(socket.id)?.username ?? "unknown player"} rolled [${l[0]}, ${
-                                                                            l[1]
-                                                                        }]`
-                                                                    )
-                                                                );
-
-                                                                engineRef.current?.diceResults({
-                                                                    l: [l[0], l[1]],
-                                                                    time: 2000,
-                                                                    onDone: () => {
-                                                                        payment_ammount = (l[0] + l[1]) * (c.rentmultiplier ?? 1);
-                                                                        if (settings !== undefined && settings.notifications === true)
-                                                                            notifyRef.current?.message(
-                                                                                `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} to ${
-                                                                                    clients.get(p.id)?.username ?? "unknown user"
-                                                                                } for ${proprety.name ?? "rent"}`,
-                                                                                "info",
-                                                                                2,
-                                                                                () => {},
-                                                                                false
-                                                                            );
-                                                                        var audio = new Audio("./moneyminus.mp3");
-                                                                        audio.volume =
-                                                                            ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                                                        audio.loop = false;
-                                                                        audio.play();
-
-                                                                        xplayer.balance -= payment_ammount;
-                                                                        engineRef.current?.applyAnimation(1);
-                                                                        socket.emit("pay", {
-                                                                            balance: payment_ammount,
-                                                                            from: socket.id,
-                                                                            to: p.id,
-                                                                        });
-
-                                                                        socket.emit(
-                                                                            "history",
-                                                                            history(
-                                                                                `${clients.get(socket.id)?.username ?? "unknown player"} paid $${payment_ammount} to ${
-                                                                                    clients.get(p.id)?.username ?? "unknown player"
-                                                                                } for ${proprety.name ?? "rent"}`
-                                                                            )
-                                                                        );
-
-                                                                        SetClients(new Map(clients.set(socket.id, xplayer)));
-                                                                        engineRef.current?.freeDice();
-                                                                        const json = (clients.get(socket.id) as Player).toJson();
-                                                                        socket.emit("finish-turn", json);
-                                                                    },
-                                                                });
-                                                            } else if (proprety.group === "Railroad") {
-                                                                const count = p.properties
-                                                                    .filter((v) => v.group === "Railroad")
-                                                                    .filter(
-                                                                        (v) =>
-                                                                            v.morgage === undefined ||
-                                                                            (v.morgage !== undefined && v.morgage === false)
-                                                                    ).length;
-                                                                const rents = [0, 25, 50, 100, 200];
-                                                                payment_ammount = rents[count] * (c.rentmultiplier ?? 1);
-
-                                                                if (settings !== undefined && settings.notifications === true)
-                                                                    notifyRef.current?.message(
-                                                                        `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} to ${
-                                                                            clients.get(p.id)?.username ?? "unknown user"
-                                                                        } for ${proprety.name ?? "rent"}`,
-                                                                        "info",
-                                                                        2,
-                                                                        () => {},
-                                                                        false
-                                                                    );
-                                                                var audio = new Audio("./moneyminus.mp3");
-                                                                audio.volume =
-                                                                    ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                                                audio.loop = false;
-                                                                audio.play();
-                                                                if (prp.morgage === undefined || (prp.morgage !== undefined && prp.morgage === false))
-                                                                    xplayer.balance -= payment_ammount;
-                                                                engineRef.current?.applyAnimation(1);
-                                                                socket.emit("pay", {
-                                                                    balance: payment_ammount,
-                                                                    from: socket.id,
-                                                                    to: p.id,
-                                                                });
-                                                                socket.emit(
-                                                                    "history",
-                                                                    history(
-                                                                        `${clients.get(socket.id)?.username ?? "unknown player"} paid $${payment_ammount} to ${
-                                                                            clients.get(p.id)?.username ?? "unknown player"
-                                                                        } for ${proprety.name ?? "rent"}`
-                                                                    )
-                                                                );
-                                                                SetClients(new Map(clients.set(socket.id, xplayer)));
-                                                                engineRef.current?.freeDice();
-                                                                const json = (clients.get(socket.id) as Player).toJson();
-                                                                socket.emit("finish-turn", json);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                engineRef.current?.freeDice();
-                                                const json = (clients.get(socket.id) as Player).toJson();
-                                                socket.emit("finish-turn", json);
-                                            }
-                                        },
-                                    });
-                                }
-                            }
-                        }, _generatorResults.time);
-                        break;
-
-                    case "propertycharges":
-                        function sum(b: number[]) {
-                            var s = 0;
-                            for (const x of b) {
-                                s += x;
-                            }
-                            return 1;
-                        }
-                        var payment_ammount =
-                            (c.buildings ?? 1) * sum(xplayer.properties.filter((v) => typeof v.count === "number").map((v) => v.count as number)) +
-                            (c.hotels ?? 1) * xplayer.properties.filter((v) => v.count === "h").length;
-                        console.log(`
-${(c.buildings ?? 1) * sum(xplayer.properties.filter((v) => typeof v.count === "number").map((v) => v.count as number))} + 
-${(c.hotels ?? 1) * xplayer.properties.filter((v) => v.count === "h").length} 
-which is ${payment_ammount}
-                        `);
-                        if (xplayer.id === socket.id && payment_ammount > 0) {
-                            if (settings !== undefined && settings.notifications === true)
-                                notifyRef.current?.message(
-                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} for house and hotel upkeep`,
-                                    "info",
-                                    2,
-                                    () => {},
-                                    false
-                                );
-                            var audio = new Audio("./moneyminus.mp3");
-                            audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            audio.loop = false;
-                            audio.play();
-                            engineRef.current?.applyAnimation(1);
-                            socket.emit(
-                                "history",
-                                history(
-                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${payment_ammount} for house and hotel upkeep`
-                                )
-                            );
-                        }
-                        xplayer.balance -= payment_ammount;
-                        SetClients(new Map(clients.set(xplayer.id, xplayer)));
-                        break;
-                    default:
-                        break;
-                }
-
-                if (time_till_finish >= 0) {
-                    setTimeout(() => {
-                        SetClients(new Map(clients.set(xplayer.id, xplayer)));
-                        if (xplayer.id === socket.id) {
-                            engineRef.current?.freeDice();
-                            socket.emit("finish-turn", (clients.get(socket.id) as Player).toJson());
-                        }
-                    }, time_till_finish);
-                }
-            }, numOfTime);
-        };
+        // socket_ChorchResult: cards are now resolved server-side in roll_dice.
+        // The card data arrives as pendingCard in dice_roll_result.
+        // This handler is kept for backwards compatibility but does nothing.
+        const socket_ChorchResult = (_args: any) => { /* no-op: handled server-side */ };
         function socket_Mouse(args: { id: string; x: number; y: number }) {
             const xplayer = clients.get(args.id);
             if (xplayer === undefined) return;
@@ -1388,6 +839,27 @@ which is ${payment_ammount}
         socket.on("disconnect", socket_networkDisconnect);
         socket.on("player_update", socket_playerUpdate);
         socket.on("history", socket_history);
+
+        // state_update: server-authoritative balance/status sync.
+        // Only preserve position for the player currently being animated.
+        // Everyone else accepts the server's authoritative position.
+        socket.on("state_update", (args: { players: PlayerJSON[] }) => {
+            for (const pJson of args.players) {
+                const p = clients.get(pJson.id);
+                if (p) {
+                    // Only preserve animated position for players currently animating
+                    // (their piece is mid-animation via playerMoveGENERATOR)
+                    const isBeingAnimated = animatingPlayersRef.current.has(pJson.id);
+                    const savedPos = p.position;
+                    p.recieveJson(pJson);
+                    if (isBeingAnimated) {
+                        p.position = savedPos;
+                    }
+                }
+            }
+            SetClients(new Map(clients));
+            navRef.current?.reRenderPlayerList();
+        });
 
         // Trade
         socket.on("trade", () => {
@@ -1475,7 +947,7 @@ which is ${payment_ammount}
                             if (localPlayer === undefined) return;
                             if (settings !== undefined && settings.notifications === true)
                                 notifyRef.current?.message(
-                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${a} to cancel the mortgage on ${prpName}`,
+                                    `${clients.get(socket.id)?.username ?? "unknown user"} unmortgaged ${prpName} for $${a}`,
                                     "info",
                                     2,
                                     () => {},
@@ -1490,7 +962,7 @@ which is ${payment_ammount}
                             audio.play();
                             socket.emit(
                                 "history",
-                                history(`${clients.get(socket.id)?.username ?? "unknown player"} paid $${a} to cancel the mortgage on ${prpName}`)
+                                history(`${clients.get(socket.id)?.username ?? "unknown player"} unmortgaged ${prpName} for $${a}`)
                             );
                             SetClients(new Map(clients.set(socket.id, localPlayer)));
                         },
@@ -1500,7 +972,7 @@ which is ${payment_ammount}
                             if (localPlayer === undefined) return;
                             if (settings !== undefined && settings.notifications === true)
                                 notifyRef.current?.message(
-                                    `${clients.get(socket.id)?.username ?? "unknown user"} paid $${a} to mortgage ${prpName}`,
+                                    `${clients.get(socket.id)?.username ?? "unknown user"} mortgaged ${prpName} for $${a}`,
                                     "info",
                                     2,
                                     () => {},
@@ -1514,7 +986,7 @@ which is ${payment_ammount}
                             audio.play();
                             socket.emit(
                                 "history",
-                                history(`${clients.get(socket.id)?.username ?? "unknown player"} paid $${a} to mortgage ${prpName}`)
+                                history(`${clients.get(socket.id)?.username ?? "unknown player"} mortgaged ${prpName} for $${a}`)
                             );
                             SetClients(new Map(clients.set(socket.id, localPlayer)));
                         },
