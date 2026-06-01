@@ -54,8 +54,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         return {
             gameEngine: "2d",
             accessibility: [45, 5, false, false, true],
-            audio: [100, 100, 25],
-            notifications: false
+            audio: [100, 100, 5],
+            notifications: true
         };
     });
     const [mainTheme, SetTheme] = useState(new Audio("./main-theme.mp3"));

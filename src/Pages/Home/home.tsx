@@ -28,8 +28,8 @@ export default function Home() {
             cookie.settings = {
                 gameEngine: "2d",
                 accessibility: [45, 5, false, false, true],
-                audio: [100, 100, 25],
-                notifications: false
+                audio: [100, 100, 5],
+                notifications: true
             };
             CookieManager.set("monopolySettings", encodeURIComponent(JSON.stringify(cookie as MonopolyCookie)));
         }
@@ -42,8 +42,8 @@ export default function Home() {
             settings: {
                 gameEngine: "2d",
                 accessibility: [45, 5, false, false, true],
-                audio: [100, 100, 25],
-                notifications: false
+                audio: [100, 100, 5],
+                notifications: true
             }
         } as MonopolyCookie;
 

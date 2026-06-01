@@ -26,7 +26,7 @@ export default function settingsNav() {
             ),
             useState<number>(cookie.settings ? cookie.settings.audio[0] : 100),
             useState<number>(cookie.settings ? cookie.settings.audio[1] : 100),
-            useState<number>(cookie.settings ? cookie.settings.audio[2] : 25),
+            useState<number>(cookie.settings ? cookie.settings.audio[2] : 5),
         ],
         booleans: [
             useState<boolean>(
@@ -37,7 +37,9 @@ export default function settingsNav() {
             ),
             useState<boolean>(true),
             useState<boolean>(
-                cookie.settings ? cookie.settings.notifications : false
+                (cookie.settings && cookie.settings.notifications !== undefined)
+                    ? cookie.settings.notifications
+                    : true
             ),
         ],
     };

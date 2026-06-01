@@ -81,8 +81,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         return {
             gameEngine: "2d",
             accessibility: [45, 5, false, false, true],
-            audio: [100, 100, 25],
-            notifications: false
+            audio: [100, 100, 5],
+            notifications: true
         };
     });
     const [timer, SetTimer] = useState<number>(0);
