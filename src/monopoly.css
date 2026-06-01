@@ -1998,3 +1998,81 @@ div.game div.trade-table div.trade-craft-buttons button:hover {
         height: 23px;
     }
 }
+
+/* History player balances dropdown styles */
+.history-action-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.history-balances-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    font-size: 8px;
+    transition: all 0.2s ease;
+}
+
+.history-balances-toggle:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    transform: scale(1.1);
+}
+
+.history-balances-toggle.expanded {
+    transform: rotate(180deg);
+}
+
+.history-balances-toggle.expanded:hover {
+    transform: rotate(180deg) scale(1.1);
+}
+
+.history-action-balances {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: slideDownBalances 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.history-balance-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.15);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.history-balance-row .balance-username {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.history-balance-row .balance-value {
+    font-family: monospace;
+    font-size: 11px;
+    color: #34d399; /* emerald-400 */
+}
+
+@keyframes slideDownBalances {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

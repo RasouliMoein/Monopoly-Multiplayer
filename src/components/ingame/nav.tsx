@@ -340,6 +340,10 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
     const [tabIndex, SetTab] = useState<number>(0);
     const [messages, SetMessages] = useState<Array<{ from: string; message: string }>>([]);
     const [currentTime, setCurrentTime] = useState<Date>(new Date());
+    const [expandedIndex, setExpandedIndex] = useState<Record<string, boolean>>({});
+    const toggleExpand = (key: string) => {
+        setExpandedIndex((old) => ({ ...old, [key]: !old[key] }));
+    };
     function reRenderPlayerList() {
         SetDisplays(prop.players);
     }
@@ -574,14 +578,30 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                         const targetColor = parsed.target ? PROPERTY_COLORS.get(parsed.target) : undefined;
                                         const targetPlayerColor = parsed.targetPlayer ? getPlayerColor(parsed.targetPlayer) : undefined;
                                         
+                                        const key = `${v.time}-${i}`;
+                                        const isExpanded = !!expandedIndex[key];
                                         return (
-                                            <div className={`history-action ${parsed.bgClass}`} key={`${v.time}-${i}`}>
+                                            <div className={`history-action ${parsed.bgClass}`} key={key}>
                                                 <div className="history-action-header">
                                                     <div className="history-action-type">
                                                         <span>{parsed.emoji}</span>
                                                         <span>{parsed.type}</span>
                                                     </div>
-                                                    <div className="history-action-time">{getTimeString(v.time)}</div>
+                                                    <div className="history-action-header-right">
+                                                        <div className="history-action-time">{getTimeString(v.time)}</div>
+                                                        {v.balances && v.balances.length > 0 && (
+                                                            <button 
+                                                                className={`history-balances-toggle ${isExpanded ? "expanded" : ""}`}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    toggleExpand(key);
+                                                                }}
+                                                                title="Show player balances"
+                                                            >
+                                                                ▼
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="history-action-body">
                                                     {parsed.player && (
@@ -618,6 +638,16 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                                         </span>
                                                     )}
                                                 </div>
+                                                {isExpanded && v.balances && (
+                                                    <div className="history-action-balances">
+                                                        {v.balances.map((pl, idx) => (
+                                                            <div key={idx} className="history-balance-row" style={{ borderLeft: `3px solid ${pl.color || "#64748b"}` }}>
+                                                                <span className="balance-username">{pl.username}</span>
+                                                                <span className="balance-value">{pl.balance}M</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
