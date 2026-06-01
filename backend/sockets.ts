@@ -61,6 +61,15 @@ public renderFunction: (v: Array<any[]>) => void;
 public logs: Array<any[]> = [];
 public code: string;
 
+// Dynamic fields to expose game loop state to outer index API
+public clientsCount?: () => number;
+public maxPlayers?: number;
+public gameStarted?: () => boolean;
+public hostName?: () => string;
+public hostId?: () => string;
+public setHostId?: (id: string) => void;
+
+
 constructor(
 idf?: (thisobj: Server) => void,
 onf?: (s: Socket, server: Server) => void

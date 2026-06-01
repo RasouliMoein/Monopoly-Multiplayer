@@ -329,6 +329,7 @@ interface MonopolyNavProps {
     history: Array<historyAction>;
     time: Date;
     selectedMode: MonopolyMode;
+    hostId: string;
 }
 export interface MonopolyNavRef {
     addMessage: (arg: { from: string; message: string }) => void;
@@ -670,6 +671,7 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         players={displayPlayers}
                         socket={prop.socket}
                         currentTurn={prop.currentTurn}
+                        hostId={prop.hostId}
                     />
                 )}
             </nav>

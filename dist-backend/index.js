@@ -44,6 +44,20 @@ wss.on("connection", (ws, req) => {
     }
 });
 app.use(express_1.default.json());
+// API Endpoint to Get Active Rooms
+app.get("/api/rooms", (req, res) => {
+    const list = Array.from(sockets_js_1.activeServers.entries()).map(([translatedCode, gameServer]) => {
+        return {
+            code: gameServer.code,
+            translatedCode: translatedCode,
+            clientsCount: gameServer.clientsCount ? gameServer.clientsCount() : 0,
+            maxPlayers: gameServer.maxPlayers ?? 6,
+            gameStarted: gameServer.gameStarted ? gameServer.gameStarted() : false,
+            hostName: gameServer.hostName ? gameServer.hostName() : "Unknown",
+        };
+    });
+    res.json(list);
+});
 // API Endpoint to Create a Room
 // The front-end will call this instead of running main() locally
 app.post("/api/create-room", (req, res) => {

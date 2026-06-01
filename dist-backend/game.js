@@ -23,6 +23,7 @@ class Player {
     isInJail;
     jailTurnsRemaining;
     getoutCards;
+    connected;
     constructor(_id, _name, _icon, cash) {
         this.id = _id;
         this.username = _name;
@@ -33,6 +34,7 @@ class Player {
         this.isInJail = false;
         this.jailTurnsRemaining = 0;
         this.getoutCards = 0;
+        this.connected = true;
     }
     to_json() {
         return {
@@ -45,6 +47,7 @@ class Player {
             isInJail: this.isInJail,
             jailTurnsRemaining: this.jailTurnsRemaining,
             getoutCards: this.getoutCards,
+            connected: this.connected,
         };
     }
     from_json(json) {
@@ -56,6 +59,7 @@ class Player {
         this.isInJail = json.isInJail;
         this.jailTurnsRemaining = json.jailTurnsRemaining;
         this.getoutCards = json.getoutCards;
+        this.connected = json.connected ?? true;
     }
 }
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -66,6 +70,7 @@ async function main(playersCount, f) {
     let currentId = "";
     let gameStarted = false;
     let selectedMode = types_1.MonopolyModes[0];
+    let hostId = "";
     function getCurrentTime() {
         const now = new Date();
         return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -110,7 +115,10 @@ async function main(playersCount, f) {
     }
     /** Broadcast canonical player state to every connected client. */
     function EmitStateUpdate() {
-        EmitAll("state_update", { players: Array.from(Clients.values()).map((c) => c.player.to_json()) });
+        EmitAll("state_update", {
+            players: Array.from(Clients.values()).map((c) => c.player.to_json()),
+            hostId: hostId
+        });
     }
     /**
      * Compute rent owed at a position (server-authoritative).
@@ -284,7 +292,18 @@ async function main(playersCount, f) {
         }
     }
     // ── WebSocket server ──────────────────────────────────────────────────────
-    new sockets_1.Server((server) => { f?.(server.code, server); }, (socket, server) => {
+    const gameServer = new sockets_1.Server((server) => {
+        server.clientsCount = () => Clients.size;
+        server.maxPlayers = maxPlayers;
+        server.gameStarted = () => gameStarted;
+        server.hostName = () => {
+            const hostClient = Clients.get(hostId);
+            return hostClient ? hostClient.player.username : "Unknown";
+        };
+        server.hostId = () => hostId;
+        server.setHostId = (id) => { hostId = id; };
+        f?.(server.code, server);
+    }, (socket, server) => {
         let isReconnecting = Clients.has(socket.id);
         socket.emit("state", isReconnecting ? 0 : (Clients.size < maxPlayers && !gameStarted ? 0 : gameStarted ? 1 : 2));
         socket.on("name", (name) => {
@@ -297,10 +316,14 @@ async function main(playersCount, f) {
                         currentId = socket.id;
                     client = { player, socket, ready: false, positions: { x: 0, y: 0 }, connected: true };
                     Clients.set(socket.id, client);
+                    if (hostId === "") {
+                        hostId = socket.id;
+                    }
                 }
                 else {
                     client.socket = socket;
                     client.connected = true;
+                    client.player.connected = true;
                     client.socket.emit("assign_id", socket.id);
                 }
                 const player = client.player;
@@ -312,11 +335,35 @@ async function main(playersCount, f) {
                     other_players: Array.from(Clients.values()).map((x) => x.player.to_json()),
                     selectedMode,
                     logs: logs_strings,
+                    gameStarted: gameStarted,
+                    hostId: hostId,
                 });
                 if (!isReconnecting)
                     EmitExcepts(socket.id, "new-player", player.to_json());
                 else
                     EmitExcepts(socket.id, "player_update", { playerId: player.id, pJson: player.to_json() });
+                // ── Kick Player (Host only) ──
+                socket.on("kick-player", (targetId) => {
+                    try {
+                        if (socket.id !== hostId)
+                            return;
+                        const target = Clients.get(targetId);
+                        if (target) {
+                            target.socket.emit("kicked");
+                            target.socket.disconnect();
+                            Clients.delete(targetId);
+                            if (currentId === targetId) {
+                                const arr = Array.from(Clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
+                                currentId = arr.length > 0 ? arr[0] : "";
+                            }
+                            EmitAll("disconnected-player", { id: targetId, turn: currentId, wasInGame: gameStarted });
+                            EmitStateUpdate();
+                        }
+                    }
+                    catch (e) {
+                        server.logFunction(e);
+                    }
+                });
                 // ── Unjail ────────────────────────────────────────────────
                 socket.on("unjail", (option) => {
                     try {
@@ -656,11 +703,16 @@ async function main(playersCount, f) {
                     server.logFunction(logMsg);
                     logs_strings.push(logMsg);
                     Clients.delete(socket.id);
+                    if (hostId === socket.id) {
+                        const remaining = Array.from(Clients.keys());
+                        hostId = remaining.length > 0 ? remaining[0] : "";
+                    }
                     if (currentId === socket.id) {
                         const arr = Array.from(Clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
                         currentId = arr.length > 0 ? arr[0] : "";
                     }
                     EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame: gameStarted });
+                    EmitStateUpdate();
                     if (Array.from(Clients.keys()).length === 0) {
                         if (gameStarted)
                             server.logFunction("Game has Ended.");
@@ -680,7 +732,7 @@ async function main(playersCount, f) {
                     return;
                 if (args.ready !== undefined)
                     client.ready = args.ready;
-                if (args.mode !== undefined)
+                if (args.mode !== undefined && socket.id === hostId)
                     selectedMode = args.mode;
                 Clients.set(socket.id, client);
                 EmitAll("ready", { id: socket.id, state: client.ready, selectedMode });
@@ -709,21 +761,20 @@ async function main(playersCount, f) {
                 if (dc) {
                     dc.ready = false;
                     dc.connected = false;
+                    dc.player.connected = false;
                 }
-                if (!wasInGame) {
-                    Clients.delete(socket.id);
-                    if (currentId === socket.id) {
-                        const arr = Array.from(Clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
-                        if (arr.length > 0) {
-                            let i = arr.indexOf(socket.id);
-                            currentId = arr[i === -1 ? 0 : (i + 1) % arr.length];
-                        }
-                        else
-                            currentId = "";
+                if (hostId === socket.id && !gameStarted) {
+                    const nextHost = Array.from(Clients.values()).find((c) => c.connected && c.player.id !== socket.id);
+                    if (nextHost) {
+                        hostId = nextHost.player.id;
+                        const logMsg = `[Host promoted] Player "${nextHost.player.username}" is now the host.`;
+                        server.logFunction(logMsg);
+                        logs_strings.push(logMsg);
                     }
                 }
                 EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame });
-                if (Array.from(Clients.keys()).length === 0) {
+                EmitStateUpdate();
+                if (Array.from(Clients.values()).filter((c) => c.connected).length === 0) {
                     if (gameStarted)
                         server.logFunction("Game has Ended. Server is currently Open to new Players");
                     gameStarted = false;

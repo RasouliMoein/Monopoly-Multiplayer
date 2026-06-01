@@ -14,6 +14,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const clientsRef = useRef(clients);
     clientsRef.current = clients;
 
+    const leaveGameSession = () => {
+        sessionStorage.removeItem("current_room");
+        sessionStorage.removeItem("current_name");
+        document.location.reload();
+    };
+
     const getBalancesSnapshot = () => {
         return Array.from(clientsRef.current.values()).map((p) => ({
             username: p.username,
@@ -31,6 +37,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const [gameStartedDisplay, SetGameStartedDisplay] = useState<boolean>(false);
     const [imReady, SetReady] = useState<boolean>(false);
     const [selectedMode, SetMode] = useState<MonopolyMode>(MonopolyModes[0]);
+    const [hostId, SetHostId] = useState<string>("");
+    const [reconnectAttempt, SetReconnectAttempt] = useState<number | null>(null);
     const [globalSettings, SetSettings] = useState<MonopolySettings>(() => {
         try {
             const cookieStr = CookieManager.get("monopolySettings");
@@ -264,12 +272,19 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         }
 
         //#region socket handeling
-        const socket_Initials = (args: { turn_id: string; other_players: Array<PlayerJSON>; selectedMode: MonopolyMode }) => {
+        const socket_Initials = (args: { turn_id: string; other_players: Array<PlayerJSON>; selectedMode: MonopolyMode; gameStarted?: boolean; hostId?: string }) => {
             SetCurrent(args.turn_id.toString());
             for (const x of args.other_players) {
                 SetClients(clients.set(x.id, new Player(x.id, x.username).recieveJson(x)));
             }
             SetMode(args.selectedMode);
+            if (args.gameStarted) {
+                SetGameStarted(true);
+                SetGameStartedDisplay(true);
+            }
+            if (args.hostId) {
+                SetHostId(args.hostId);
+            }
         };
 
         const socket_NewPlayer = (args: PlayerJSON) => {
@@ -319,9 +334,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             clients.get(socket.id)?.balance ?? 0
                         } </p>`,
                         buttons: [
-                            createButton("PLAY ANOTHER GAME", () => {
+                            createButton("LEAVE GAME", () => {
                                 close_func();
-                                document.location.reload();
+                                leaveGameSession();
                             }),
                         ],
                     }),
@@ -361,9 +376,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                         clients.get(socket.id)?.balance ?? 0
                                     } </p>`,
                                     buttons: [
-                                        createButton("PLAY ANOTHER GAME", () => {
+                                        createButton("LEAVE GAME", () => {
                                             close_func();
-                                            document.location.reload();
+                                            leaveGameSession();
                                         }),
                                     ],
                                 }),
@@ -379,9 +394,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                         clients.get(socket.id)?.balance ?? 0
                                     } </p>`,
                                     buttons: [
-                                        createButton("PLAY ANOTHER GAME", () => {
+                                        createButton("LEAVE GAME", () => {
                                             close_func();
-                                            document.location.reload();
+                                            leaveGameSession();
                                         }),
                                     ],
                                 }),
@@ -400,9 +415,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 createButton("CONTINUE WATCHING", () => {
                                     close_func();
                                 }),
-                                createButton("PLAY ANOTHER GAME", () => {
+                                createButton("LEAVE GAME", () => {
                                     close_func();
-                                    document.location.reload();
+                                    leaveGameSession();
                                 }),
                             ],
                         }),
@@ -451,9 +466,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 (close_func, createButton) => ({
                                     innerHTML: `<h3> YOU WON! </h3> <p> you have 3 sets! </p>`,
                                     buttons: [
-                                        createButton("PLAY ANOTHER GAME", () => {
+                                        createButton("LEAVE GAME", () => {
                                             close_func();
-                                            document.location.reload();
+                                            leaveGameSession();
                                         }),
                                     ],
                                 }),
@@ -464,9 +479,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 (close_func, createButton) => ({
                                     innerHTML: `<h3> ${p.username} WON! </h3> <p> got 3 sets! </p>`,
                                     buttons: [
-                                        createButton("PLAY ANOTHER GAME", () => {
+                                        createButton("LEAVE GAME", () => {
                                             close_func();
-                                            document.location.reload();
+                                            leaveGameSession();
                                         }),
                                     ],
                                 }),
@@ -487,9 +502,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                     (close_func, createButton) => ({
                                         innerHTML: `<h3> YOU WON! </h3> <p> you have 4 railroads! </p>`,
                                         buttons: [
-                                            createButton("PLAY ANOTHER GAME", () => {
+                                            createButton("LEAVE GAME", () => {
                                                 close_func();
-                                                document.location.reload();
+                                                leaveGameSession();
                                             }),
                                         ],
                                     }),
@@ -500,9 +515,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                     (close_func, createButton) => ({
                                         innerHTML: `<h3> ${p.username} WON! </h3> <p> got 4 railroads! </p>`,
                                         buttons: [
-                                            createButton("PLAY ANOTHER GAME", () => {
+                                            createButton("LEAVE GAME", () => {
                                                 close_func();
-                                                document.location.reload();
+                                                leaveGameSession();
                                             }),
                                         ],
                                     }),
@@ -813,9 +828,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 (close_func, createButton) => ({
                     innerHTML: `<h3> LOST CONNECTION </h3> <p> you were disconnected from the game </p>`,
                     buttons: [
-                        createButton("PLAY ANOTHER GAME", () => {
+                        createButton("RETURN TO MAIN MENU", () => {
                             close_func();
-                            document.location.reload();
+                            leaveGameSession();
                         }),
                     ],
                 }),
@@ -852,10 +867,36 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         socket.on("player_update", socket_playerUpdate);
         socket.on("history", socket_history);
 
+        socket.on("reconnecting", (attempt: number) => {
+            SetReconnectAttempt(attempt);
+        });
+        socket.on("reconnected", () => {
+            SetReconnectAttempt(null);
+            notifyRef.current?.message("Reconnected successfully!", "info", 2);
+        });
+        socket.on("kicked", () => {
+            mainTheme.pause();
+            notifyRef.current?.dialog(
+                (close_func, createButton) => ({
+                    innerHTML: `<h3> KICKED </h3> <p> You have been kicked from the lobby by the host. </p>`,
+                    buttons: [
+                        createButton("RETURN TO MAIN MENU", () => {
+                            close_func();
+                            leaveGameSession();
+                        }),
+                    ],
+                }),
+                "loosing"
+            );
+        });
+
         // state_update: server-authoritative balance/status sync.
         // Only preserve position for the player currently being animated.
         // Everyone else accepts the server's authoritative position.
-        socket.on("state_update", (args: { players: PlayerJSON[] }) => {
+        socket.on("state_update", (args: { players: PlayerJSON[]; hostId?: string }) => {
+            if (args.hostId) {
+                SetHostId(args.hostId);
+            }
             for (const pJson of args.players) {
                 const p = clients.get(pJson.id);
                 if (p) {
@@ -913,8 +954,10 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         navRef.current?.reRenderPlayerList();
     }, [clients]);
 
-    return gameStartedDisplay ? (
+    return (
         <>
+            {gameStartedDisplay ? (
+                <>
             {globalSettings !== undefined && globalSettings.accessibility[3] ? (
                 <div className="cursors">
                     {Array.from(clients.values())
@@ -1003,6 +1046,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     history={histories}
                     time={startTIme}
                     selectedMode={selectedMode}
+                    hostId={hostId}
                 />
 
                 <MonopolyGame
@@ -1069,21 +1113,70 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             </div>
         </>
     ) : (
-        <div className="lobby">
-            <main>
+        <div className="lobby" style={{
+            background: 'rgba(25, 25, 25, 0.75)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+            padding: '24px 36px',
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            minWidth: '550px',
+            maxWidth: '750px',
+            boxSizing: 'border-box'
+        }}>
+            <main style={{ all: 'unset', display: 'flex', gap: '60px', justifyContent: 'space-between', width: '100%' }}>
                 <section>
                     <div>
                         <h3>Hello there {name}</h3>
                         the players that are currently in the lobby are
-                        <div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                             {Array.from(clients.values()).map((v, i) => {
+                                const isHost = v.id === hostId;
+                                const isLocal = v.id === socket.id;
                                 return (
-                                    <p style={v.ready ? { backgroundColor: "#32a852" } : {}} className="lobby-players" key={i}>
-                                        {v.username}
-                                    </p>
+                                    <div 
+                                        style={{
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center', 
+                                            width: '100%',
+                                            boxSizing: 'border-box',
+                                            ...(v.ready ? { backgroundColor: "#32a852" } : {})
+                                        }} 
+                                        className="lobby-players" 
+                                        key={i}
+                                    >
+                                        <span>
+                                            {v.username} {isHost && "👑"} {!v.connected && " (Offline)"}
+                                        </span>
+                                        {hostId === socket.id && !isLocal && (
+                                            <button 
+                                                onClick={() => socket.emit("kick-player", v.id)}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#ff4444',
+                                                    cursor: 'pointer',
+                                                    fontSize: '20px',
+                                                    padding: '0 5px',
+                                                    lineHeight: 1,
+                                                    marginTop: 0,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                                title="Kick Player"
+                                            >
+                                                &times;
+                                            </button>
+                                        )}
+                                    </div>
                                 );
                             })}
-                            <center>
+                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '20px', width: '100%' }}>
                                 <button
                                     disabled={gameStarted}
                                     onClick={() => {
@@ -1092,10 +1185,23 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                         });
                                         SetReady(!imReady);
                                     }}
+                                    style={{ margin: 0, flex: 1, paddingBlock: '8px' }}
                                 >
                                     {!imReady ? "Ready" : "Not Ready"}
                                 </button>
-                            </center>
+                                <button
+                                    onClick={() => {
+                                        sessionStorage.removeItem("current_room");
+                                        sessionStorage.removeItem("current_name");
+                                        socket.emit("leave-room");
+                                        socket.disconnect();
+                                        document.location.reload();
+                                    }}
+                                    style={{ backgroundColor: '#ff4444', margin: 0, flex: 1, paddingBlock: '8px' }}
+                                >
+                                    Leave Lobby
+                                </button>
+                            </div>
                         </div>
                         <br />
                     </div>
@@ -1204,6 +1310,56 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
             <p id="floating-clock"></p>
         </div>
+    )}
+
+    {reconnectAttempt !== null && (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(10px)',
+            zIndex: 9999999999,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            color: 'white',
+            fontFamily: 'system-ui, sans-serif'
+        }}>
+            <div style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '16px',
+                padding: '40px',
+                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '20px'
+            }}>
+                <div className="spinner" style={{
+                    width: '50px',
+                    height: '50px',
+                    border: '5px solid rgba(255, 255, 255, 0.1)',
+                    borderTop: '5px solid #0075ff',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                }}></div>
+                <style>{`
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                `}</style>
+                <h3 style={{ margin: 0, fontSize: '24px', fontWeight: '600' }}>Lost Connection</h3>
+                <p style={{ margin: 0, opacity: 0.8 }}>Attempting to reconnect... [Attempt {reconnectAttempt}/5]</p>
+            </div>
+        </div>
+    )}
+    </>
     );
 }
 

@@ -14,6 +14,7 @@ interface PlayersTabProps {
     players: Array<Player>;
     currentTurn: string;
     clickedOnPlayer: (position: number) => void;
+    hostId: string;
 }
 export interface PlayersTabRef {
     clickdOnPlayer: (playerId: string) => void;
@@ -186,8 +187,37 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                         SetCurrentPlayer(v);
                                     }}
                                 >
-                                    <p key={60}>
-                                        {settings?.accessibility[2] ? `[${v.id}]` : ""} {v.username}
+                                    <p key={60} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                                        <span>
+                                            {settings?.accessibility[2] ? `[${v.id}]` : ""} {v.username} {v.id === props.hostId && "👑"}
+                                        </span>
+                                        {props.hostId === props.socket.id && v.id !== props.socket.id && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (window.confirm(`Are you sure you want to kick ${v.username}?`)) {
+                                                        props.socket.emit("kick-player", v.id);
+                                                    }
+                                                }}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#ff4444',
+                                                    cursor: 'pointer',
+                                                    fontSize: '18px',
+                                                    padding: '0 5px',
+                                                    lineHeight: 1,
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    verticalAlign: 'middle',
+                                                    marginLeft: '5px'
+                                                }}
+                                                title="Kick Player"
+                                            >
+                                                &times;
+                                            </button>
+                                        )}
                                     </p>
                                     {v.id === props.currentTurn ? <img src={DiceIcon.replace("public/", "")} /> : <></>}
                                     {v.getoutCards > 0 ? (

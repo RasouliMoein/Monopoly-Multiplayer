@@ -23,6 +23,7 @@ class Player {
     public isInJail: boolean;
     public jailTurnsRemaining: number;
     public getoutCards: number;
+    public connected?: boolean;
 
     constructor(_id: string, _name: string, _icon: number, cash?: number) {
         this.id = _id;
@@ -34,6 +35,7 @@ class Player {
         this.isInJail = false;
         this.jailTurnsRemaining = 0;
         this.getoutCards = 0;
+        this.connected = true;
     }
 
     to_json(): PlayerJSON {
@@ -47,6 +49,7 @@ class Player {
             isInJail: this.isInJail,
             jailTurnsRemaining: this.jailTurnsRemaining,
             getoutCards: this.getoutCards,
+            connected: this.connected,
         };
     }
 
@@ -58,6 +61,7 @@ class Player {
         this.isInJail = json.isInJail;
         this.jailTurnsRemaining = json.jailTurnsRemaining;
         this.getoutCards = json.getoutCards;
+        this.connected = json.connected ?? true;
     }
 }
 
@@ -71,6 +75,7 @@ type PlayerJSON = {
     isInJail: boolean;
     jailTurnsRemaining: number;
     getoutCards: number;
+    connected?: boolean;
 };
 
 type PlayerActionArgs =
@@ -95,6 +100,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
     let currentId = "";
     let gameStarted = false;
     let selectedMode: MonopolyMode = MonopolyModes[0];
+    let hostId = "";
 
     function getCurrentTime() {
         const now = new Date();
@@ -141,7 +147,10 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
     /** Broadcast canonical player state to every connected client. */
     function EmitStateUpdate() {
-        EmitAll("state_update", { players: Array.from(Clients.values()).map((c) => c.player.to_json()) });
+        EmitAll("state_update", { 
+            players: Array.from(Clients.values()).map((c) => c.player.to_json()),
+            hostId: hostId
+        });
     }
 
     /**
@@ -314,8 +323,19 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
     }
 
     // ── WebSocket server ──────────────────────────────────────────────────────
-    new Server(
-        (server) => { f?.(server.code, server); },
+    const gameServer = new Server(
+        (server) => {
+            server.clientsCount = () => Clients.size;
+            server.maxPlayers = maxPlayers;
+            server.gameStarted = () => gameStarted;
+            server.hostName = () => {
+                const hostClient = Clients.get(hostId);
+                return hostClient ? hostClient.player.username : "Unknown";
+            };
+            server.hostId = () => hostId;
+            server.setHostId = (id: string) => { hostId = id; };
+            f?.(server.code, server);
+        },
         (socket: Socket, server: Server) => {
             let isReconnecting = Clients.has(socket.id);
             socket.emit("state", isReconnecting ? 0 : (Clients.size < maxPlayers && !gameStarted ? 0 : gameStarted ? 1 : 2));
@@ -330,9 +350,14 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         if (currentId === "" || !Array.from(Clients.keys()).includes(currentId)) currentId = socket.id;
                         client = { player, socket, ready: false, positions: { x: 0, y: 0 }, connected: true };
                         Clients.set(socket.id, client);
+                        
+                        if (hostId === "") {
+                            hostId = socket.id;
+                        }
                     } else {
                         client!.socket = socket;
                         client!.connected = true;
+                        client!.player.connected = true;
                         client!.socket.emit("assign_id", socket.id);
                     }
 
@@ -346,10 +371,31 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         other_players: Array.from(Clients.values()).map((x) => x.player.to_json()),
                         selectedMode,
                         logs: logs_strings,
+                        gameStarted: gameStarted,
+                        hostId: hostId,
                     });
 
                     if (!isReconnecting) EmitExcepts(socket.id, "new-player", player.to_json());
                     else EmitExcepts(socket.id, "player_update", { playerId: player.id, pJson: player.to_json() });
+
+                    // ── Kick Player (Host only) ──
+                    socket.on("kick-player", (targetId: string) => {
+                        try {
+                            if (socket.id !== hostId) return;
+                            const target = Clients.get(targetId);
+                            if (target) {
+                                target.socket.emit("kicked");
+                                target.socket.disconnect();
+                                Clients.delete(targetId);
+                                if (currentId === targetId) {
+                                    const arr = Array.from(Clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
+                                    currentId = arr.length > 0 ? arr[0] : "";
+                                }
+                                EmitAll("disconnected-player", { id: targetId, turn: currentId, wasInGame: gameStarted });
+                                EmitStateUpdate();
+                            }
+                        } catch (e) { server.logFunction(e); }
+                    });
 
                     // ── Unjail ────────────────────────────────────────────────
                     socket.on("unjail", (option: "card" | "pay") => {
@@ -679,11 +725,18 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         const logMsg = `{${getCurrentTime()}} [${socket.id}] Player "${lc.player.username}" has left the room.`;
                         server.logFunction(logMsg); logs_strings.push(logMsg);
                         Clients.delete(socket.id);
+                        
+                        if (hostId === socket.id) {
+                            const remaining = Array.from(Clients.keys());
+                            hostId = remaining.length > 0 ? remaining[0] : "";
+                        }
+
                         if (currentId === socket.id) {
                             const arr = Array.from(Clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
                             currentId = arr.length > 0 ? arr[0] : "";
                         }
                         EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame: gameStarted });
+                        EmitStateUpdate();
                         if (Array.from(Clients.keys()).length === 0) { if (gameStarted) server.logFunction("Game has Ended."); gameStarted = false; }
                     });
 
@@ -696,7 +749,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     const client = Clients.get(socket.id);
                     if (!client) return;
                     if (args.ready !== undefined) client.ready = args.ready;
-                    if (args.mode !== undefined) selectedMode = args.mode;
+                    if (args.mode !== undefined && socket.id === hostId) selectedMode = args.mode;
                     Clients.set(socket.id, client);
                     EmitAll("ready", { id: socket.id, state: client.ready, selectedMode });
                     const readys = Array.from(Clients.values()).map((v) => v.ready);
@@ -718,19 +771,24 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         wasInGame = gameStarted;
                     }
                     const dc = Clients.get(socket.id);
-                    if (dc) { dc.ready = false; dc.connected = false; }
-                    if (!wasInGame) {
-                        Clients.delete(socket.id);
-                        if (currentId === socket.id) {
-                            const arr = Array.from(Clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
-                            if (arr.length > 0) {
-                                let i = arr.indexOf(socket.id);
-                                currentId = arr[i === -1 ? 0 : (i + 1) % arr.length];
-                            } else currentId = "";
+                    if (dc) { 
+                        dc.ready = false; 
+                        dc.connected = false; 
+                        dc.player.connected = false;
+                    }
+                    
+                    if (hostId === socket.id && !gameStarted) {
+                        const nextHost = Array.from(Clients.values()).find((c) => c.connected && c.player.id !== socket.id);
+                        if (nextHost) {
+                            hostId = nextHost.player.id;
+                            const logMsg = `[Host promoted] Player "${nextHost.player.username}" is now the host.`;
+                            server.logFunction(logMsg); logs_strings.push(logMsg);
                         }
                     }
+
                     EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame });
-                    if (Array.from(Clients.keys()).length === 0) {
+                    EmitStateUpdate();
+                    if (Array.from(Clients.values()).filter((c) => c.connected).length === 0) {
                         if (gameStarted) server.logFunction("Game has Ended. Server is currently Open to new Players");
                         gameStarted = false;
                     }

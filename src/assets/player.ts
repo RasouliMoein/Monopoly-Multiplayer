@@ -13,6 +13,8 @@ export class Player {
     public getoutCards: number;
     public ready: boolean;
     public positions: { x: number; y: number };
+    public connected?: boolean;
+
     constructor(_id: string, _name: string) {
         this.id = _id;
         this.username = _name;
@@ -25,6 +27,7 @@ export class Player {
         this.getoutCards = 0;
         this.ready = false;
         this.positions = { x: 0, y: 0 };
+        this.connected = true;
     }
     recieveJson(json: PlayerJSON) {
         this.username = json.username;
@@ -35,6 +38,7 @@ export class Player {
         this.isInJail = json.isInJail;
         this.jailTurnsRemaining = json.jailTurnsRemaining;
         this.getoutCards = json.getoutCards;
+        this.connected = json.connected ?? true;
         return this;
     }
 
@@ -49,6 +53,7 @@ export class Player {
             properties: this.properties,
             username: this.username,
             getoutCards: this.getoutCards,
+            connected: this.connected,
         } as PlayerJSON;
     }
 
@@ -80,4 +85,5 @@ export type PlayerJSON = {
     isInJail: boolean;
     jailTurnsRemaining: number;
     getoutCards: number;
+    connected?: boolean;
 };

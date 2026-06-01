@@ -56,6 +56,13 @@ class Server {
     renderFunction;
     logs = [];
     code;
+    // Dynamic fields to expose game loop state to outer index API
+    clientsCount;
+    maxPlayers;
+    gameStarted;
+    hostName;
+    hostId;
+    setHostId;
     constructor(idf, onf) {
         this.code = (0, code_1.code)();
         exports.activeServers.set((0, code_1.TranslateCode)(this.code), this);

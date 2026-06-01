@@ -73,24 +73,33 @@ div.entry {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translateX(-50%) translateY(-50%);
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: row;
-    gap: 20px;
+    gap: 24px;
+    background: rgba(25, 25, 25, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 24px 36px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    box-sizing: border-box;
 }
 
 div.entry nav {
-    background-color: rgba(30, 30, 30, 100%);
-    width: 40px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    width: 48px;
     height: fit-content;
-    padding-block: 10px;
+    padding: 12px 6px;
     display: flex;
     flex-direction: column;
-    border-radius: 10px;
-    gap: 10px;
+    border-radius: 12px;
+    gap: 12px;
     justify-content: flex-start;
-    position: initial;
-    height: 100%;
+    align-items: center;
+    box-sizing: border-box;
 }
 
 img#landscape {
@@ -102,18 +111,22 @@ img#landscape {
 }
 
 div.entry nav button {
-    width: 40px;
-    aspect-ratio: 1;
-    display: block;
-    background-color: rgb(0, 0, 0, 0%);
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
     border: 0;
     outline: 0;
-    transition: transform 0.3s cubic-bezier(0.21, 1.57, 0.55, 1);
+    border-radius: 8px;
+    transition: transform 0.2s, background-color 0.2s, opacity 0.2s;
     cursor: pointer;
 }
 
 div.entry nav button:hover {
-    transform: scale(0.9);
+    transform: scale(1.05);
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
 div.entry nav button img {
@@ -122,6 +135,12 @@ div.entry nav button img {
 
 div.entry nav button[data-select="false"] {
     opacity: 0.5;
+}
+
+div.entry nav button[data-select="true"] {
+    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
 }
 
 div.entry nav button[data-select="false"]:hover {
@@ -194,39 +213,44 @@ div.entry main h5 input {
 }
 
 div.entry main button {
-    font-size: 20px;
+    font-size: 15px;
+    font-weight: 600;
     color: white;
-    background-color: #0075ff;
+    background: linear-gradient(135deg, #0075ff, #005bc5);
     display: block;
-    padding-inline: 40px;
-    border-radius: 5px;
-    margin-top: 25px;
+    padding: 8px 24px;
+    border-radius: 8px;
+    margin-top: 20px;
     cursor: pointer;
-    padding-block: 3px;
     border: 0;
     outline: 0;
-    transition: scale 0.35s cubic-bezier(0, 0.6, 0.28, 1.47);
+    box-shadow: 0 4px 12px rgba(0, 117, 255, 0.2);
+    transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
 div.entry main button:hover {
-    scale: 0.85;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 117, 255, 0.3);
 }
 
 div.entry main button:active {
-    scale: 0.925;
+    transform: translateY(0);
 }
 
 div.entry main button:disabled {
     animation: disabledAnim 1s ease-out infinite;
     cursor: wait;
+    opacity: 0.7;
+    box-shadow: none;
 }
 
 div.entry main button:disabled:hover {
-    scale: 1;
+    transform: none;
+    box-shadow: none;
 }
 
 div.entry main button:disabled:active {
-    scale: 1;
+    transform: none;
 }
 
 @keyframes disabledAnim {
@@ -272,39 +296,69 @@ div.lobby section {
 }
 
 div.lobby button {
-    font-size: 20px;
+    font-size: 15px;
+    font-weight: 600;
     color: white;
-    background-color: rgb(35, 35, 35);
+    background: linear-gradient(135deg, #232323, #1a1a1a);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     display: block;
-    padding-inline: 40px;
-    border-radius: 5px;
-    margin-top: 50px;
+    padding: 8px 24px;
+    border-radius: 8px;
+    margin-top: 20px;
     cursor: pointer;
-    padding-block: 3px;
-    border: 0;
     outline: 0;
-    transition: scale 0.35s cubic-bezier(0, 0.6, 0.28, 1.47);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
 div.lobby button:hover {
-    scale: 0.85;
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, #2a2a2a, #202020);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 div.lobby button:active {
-    scale: 0.925;
+    transform: translateY(0);
 }
 
 div.lobby button:disabled {
-    filter: grayscale(1);
-    cursor: wait;
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 div.lobby button:disabled:hover {
-    scale: 1;
+    transform: none;
+    box-shadow: none;
 }
 
-div.lobby button:disabled:active {
-    scale: 1;
+/* Specific lobby action overrides */
+div.lobby button:first-of-type {
+    background: linear-gradient(135deg, #0075ff, #005bc5);
+    box-shadow: 0 4px 12px rgba(0, 117, 255, 0.2);
+    border: none;
+}
+div.lobby button:first-of-type:hover {
+    background: linear-gradient(135deg, #0080ff, #0066de);
+    box-shadow: 0 6px 16px rgba(0, 117, 255, 0.3);
+}
+
+div.lobby button[style*="backgroundColor: #ff4444"],
+div.lobby button[style*="background-color: #ff4444"],
+div.lobby button[style*="backgroundColor: rgb(255, 68, 68)"],
+div.lobby button[style*="background-color: rgb(255, 68, 68)"] {
+    background: linear-gradient(135deg, #ff4444, #cc3333) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(255, 68, 68, 0.2) !important;
+}
+
+div.lobby button[style*="backgroundColor: #ff4444"]:hover,
+div.lobby button[style*="background-color: #ff4444"]:hover,
+div.lobby button[style*="backgroundColor: rgb(255, 68, 68)"]:hover,
+div.lobby button[style*="background-color: rgb(255, 68, 68)"]:hover {
+    background: linear-gradient(135deg, #ff5555, #dd3333) !important;
+    box-shadow: 0 6px 16px rgba(255, 68, 68, 0.3) !important;
 }
 
 p.lobby-players {

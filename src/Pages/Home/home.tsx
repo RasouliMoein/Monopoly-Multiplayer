@@ -14,7 +14,6 @@ import JoinScreen from "../../components/menu/joinScreen.tsx";
 
 // import { main as botServer } from "../../assets/bot/server.ts";
 import { main as runBot } from "../../assets/bot/bot.ts";
-import Slider from "../../components/utils/slider.tsx";
 import { TranslateCode } from "../../assets/code.ts";
 import { CookieManager } from "../../assets/cookieManager.ts";
 
@@ -76,7 +75,6 @@ export default function Home() {
 
     // Server Stuff
     const [server, SetServer] = useState<Server | undefined>(undefined);
-    const [serverPCount, SetServerPCount] = useState<number>(6);
 
     function resetSavedGameSession() {
         const keysToRemove: string[] = [];
@@ -213,6 +211,53 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    async function createRoomAndJoin(playersCount: number) {
+        try {
+            if (name.replace(" ", "").length === 0) {
+                notifyRef.current?.message("please add your name before joining", "info", 2);
+                return;
+            }
+
+            SetDisabled(true);
+            try {
+                const response = await fetch("/api/create-room", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ playersCount })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    sessionStorage.setItem("current_room", data.hostCode);
+                    sessionStorage.setItem("current_name", name);
+                    
+                    const virtualServer = new Server();
+                    virtualServer.code = data.translatedCode; // RAW code
+                    
+                    const socket = await io(TranslateCode(virtualServer.code));
+                    socket.on("state", (args: number) => {
+                        switch (args) {
+                            case 0:
+                                SetSocket(socket);
+                                SetSignedIn(true);
+                                SetServer(virtualServer);
+                                SetDisabled(false);
+                                break;
+                            default:
+                                socket.disconnect();
+                                SetDisabled(false);
+                                break;
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+                SetDisabled(false);
+            }
+        } catch {
+            SetDisabled(false);
+        }
+    }
+
     async function startButtonClicked(bots: botInitial[]) {
         try {
             if (name.replace(" ", "").length === 0) {
@@ -294,15 +339,6 @@ export default function Home() {
                         data-tooltip-hover="play"
                     >
                         <img src="./icon.png" alt="" />
-                    </button>
-                    <button
-                        data-select={tabIndex === 1}
-                        onClick={() => {
-                            SetTab(1);
-                        }}
-                        data-tooltip-hover="server"
-                    >
-                        <img src="./server.png" alt="" />
                     </button>
                     <button
                         data-select={tabIndex === 2}
@@ -433,102 +469,7 @@ export default function Home() {
                     //         />
                     //     </>
                     // ) :
-                    tabIndex === 1 ? (
-                        <>
-                            <header>
-                                <p
-                                    style={{
-                                        fontSize: 12,
-                                        marginBottom: 0,
-                                    }}
-                                >
-                                    peerjs hosting
-                                </p>
-                                <h3>Run A Server</h3>
-                            </header>
-                            {server !== undefined ? (
-                                <>
-                                    <p>server is already running, check the console.</p>
-                                    <table>
-                                        <tr>
-                                            <td>Code</td>
-                                            <td style={{ userSelect: "all" }}>{server.code}</td>
-                                        </tr>
-                                    </table>
-                                    <center>
-                                        {" "}
-                                        <button
-                                            key={"kllserver-button"}
-                                            style={{
-                                                backgroundColor: "red",
-                                                marginTop: 12,
-                                            }}
-                                            onClick={() => {
-                                                server.stop();
-                                                SetServer(undefined);
-                                            }}
-                                        >
-                                            Kill Server
-                                        </button>
-                                    </center>
-                                </>
-                            ) : (
-                                <>
-                                    <p>all the servers logs will can be seen in the console</p>
-                                    <table>
-                                        <tr>
-                                            <td>PlayersCount</td>
-                                            <td>
-                                                <Slider
-                                                    onChange={(e) => {
-                                                        SetServerPCount(parseInt(e.currentTarget.value));
-                                                    }}
-                                                    max={6}
-                                                    min={1}
-                                                    defaultValue={serverPCount}
-                                                    step={1}
-                                                />
-                                            </td>
-                                        </tr>
-                                    </table>
-                                    <center>
-                                        {" "}
-                                        <button
-                                            key={"startserver-button"}
-                                            style={{
-                                                marginTop: 13,
-                                            }}
-                                            onClick={async (e) => {
-                                                e.currentTarget.disabled = true;
-                                                e.currentTarget.innerHTML = "Starting Server";
-                                                try {
-                                                    const response = await fetch("/api/create-room", {
-                                                        method: "POST",
-                                                        headers: { "Content-Type": "application/json" },
-                                                        body: JSON.stringify({ playersCount: serverPCount })
-                                                    });
-                                                    const data = await response.json();
-                                                    if (data.success) {
-                                                        const virtualServer = new Server();
-                                                        virtualServer.code = data.translatedCode;
-                                                        SetAddress(data.translatedCode);
-                                                        SetServer(virtualServer);
-                                                    }
-                                                } catch (err) {
-                                                    console.error(err);
-                                                } finally {
-                                                    e.currentTarget.disabled = false;
-                                                    e.currentTarget.innerHTML = "Run Server";
-                                                }
-                                            }}
-                                        >
-                                            Run Server
-                                        </button>
-                                    </center>
-                                </>
-                            )}
-                        </>
-                    ) : (
+                    (
                         <>
                             <header>
                                 Welcome to the <h3>MONOPOLY</h3>{" "}
@@ -542,7 +483,7 @@ export default function Home() {
                                 </p>{" "}
                                 Game
                             </header>
-                            <JoinScreen
+                             <JoinScreen
                                 disabled={disabled}
                                 fbUser={fbUser}
                                 joinBots={(x) => {
@@ -550,6 +491,9 @@ export default function Home() {
                                 }}
                                 joinViaCode={() => {
                                     joinButtonClicked();
+                                }}
+                                createRoom={(count) => {
+                                    createRoomAndJoin(count);
                                 }}
                                 SetAddress={SetAddress}
                                 SetName={SetName}
