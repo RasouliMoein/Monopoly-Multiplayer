@@ -35,9 +35,7 @@ export default function settingsNav() {
             useState<boolean>(
                 cookie.settings ? cookie.settings.accessibility[3] : false
             ),
-            useState<boolean>(
-                cookie.settings ? cookie.settings.accessibility[4] : false
-            ),
+            useState<boolean>(true),
             useState<boolean>(
                 cookie.settings ? cookie.settings.notifications : false
             ),
@@ -156,11 +154,9 @@ export default function settingsNav() {
                         <p>Add Colors to Users </p>
                         <div>
                             <input
-                                defaultChecked={l.booleans[2][0]}
+                                checked={true}
+                                disabled={true}
                                 type="checkbox"
-                                onChange={(e) => {
-                                    l.booleans[2][1](e.currentTarget.checked);
-                                }}
                             />
                         </div>
                     </div>

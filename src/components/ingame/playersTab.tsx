@@ -144,13 +144,9 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                 <div
                                     key={`playersInfos[${i}]`}
                                     className="playerInfo"
-                                    style={
-                                        settings !== undefined && settings.accessibility[4] === true
-                                            ? {
-                                                  backgroundColor: v.color,
-                                              }
-                                            : {}
-                                    }
+                                    style={{
+                                        borderLeft: `4px solid ${v.color || "#64748b"}`,
+                                    }}
                                     onClick={() => {
                                         const element = document.querySelector(`div.player[player-id="${v.id}"]`) as HTMLDivElement;
                                         element.style.animation = "spin2 1s cubic-bezier(.21, 1.57, .55, 1) infinite";
