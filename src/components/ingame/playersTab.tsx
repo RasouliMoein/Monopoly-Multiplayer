@@ -28,9 +28,37 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
     );
 
     const [current, SetCurrentPlayer] = useState<Player | undefined>();
-    const [settings, SetSettings] = useState<MonopolySettings>();
+    const [settings, SetSettings] = useState<MonopolySettings>(() => {
+        try {
+            const cookieStr = CookieManager.get("monopolySettings");
+            if (cookieStr) {
+                const cookie = JSON.parse(decodeURIComponent(cookieStr)) as MonopolyCookie;
+                if (cookie.settings) {
+                    return cookie.settings;
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        return {
+            gameEngine: "2d",
+            accessibility: [45, 5, false, false, true],
+            audio: [100, 100, 25],
+            notifications: false
+        };
+    });
     useEffect(() => {
-        SetSettings((JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie).settings);
+        try {
+            const cookieStr = CookieManager.get("monopolySettings");
+            if (cookieStr) {
+                const cookieObj = JSON.parse(decodeURIComponent(cookieStr)) as MonopolyCookie;
+                if (cookieObj.settings) {
+                    SetSettings(cookieObj.settings);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
     }, [document.cookie]);
 
     useImperativeHandle(ref, () => ({

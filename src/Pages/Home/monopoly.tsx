@@ -6,7 +6,7 @@ import MonopolyNav, { MonopolyNavRef } from "../../components/ingame/nav.tsx";
 import MonopolyGame, { MonopolyGameRef } from "../../components/ingame/game.tsx";
 import NotifyElement, { NotificatorRef } from "../../components/notificator.tsx";
 import monopolyJSON from "../../assets/monopoly.json";
-import { MonopolySettings, MonopolyModes, historyAction, history, GameTrading, MonopolyMode } from "../../assets/types.ts";
+import { MonopolySettings, MonopolyModes, historyAction, history, GameTrading, MonopolyMode, MonopolyCookie } from "../../assets/types.ts";
 import { CookieManager } from "../../assets/cookieManager.ts";
 function App({ socket, name, server }: { socket: Socket; name: string; server: Server | undefined }) {
     const [clients, SetClients] = useState<Map<string, Player>>(new Map());
@@ -17,7 +17,25 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const [gameStartedDisplay, SetGameStartedDisplay] = useState<boolean>(false);
     const [imReady, SetReady] = useState<boolean>(false);
     const [selectedMode, SetMode] = useState<MonopolyMode>(MonopolyModes[0]);
-    const [globalSettings, SetSettings] = useState<MonopolySettings>();
+    const [globalSettings, SetSettings] = useState<MonopolySettings>(() => {
+        try {
+            const cookieStr = CookieManager.get("monopolySettings");
+            if (cookieStr) {
+                const cookie = JSON.parse(decodeURIComponent(cookieStr)) as MonopolyCookie;
+                if (cookie.settings) {
+                    return cookie.settings;
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        return {
+            gameEngine: "2d",
+            accessibility: [45, 5, false, false, true],
+            audio: [100, 100, 25],
+            notifications: false
+        };
+    });
     const [mainTheme, SetTheme] = useState(new Audio("./main-theme.mp3"));
     const [startTIme, SetStartTime] = useState<Date>(new Date());
     const [histories, SetHistories] = useState<Array<historyAction>>([]);
@@ -41,8 +59,17 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
     useEffect(() => {
         const settings_interval = setInterval(() => {
-            const parsedCookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)).settings;
-            SetSettings(parsedCookie);
+            try {
+                const cookieStr = CookieManager.get("monopolySettings");
+                if (cookieStr) {
+                    const parsedCookie = JSON.parse(decodeURIComponent(cookieStr)).settings;
+                    if (parsedCookie) {
+                        SetSettings(parsedCookie);
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
         }, 1000);
         return () => {
             clearInterval(settings_interval);
@@ -80,7 +107,17 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         let settings: MonopolySettings | undefined = undefined;
 
         const settings_interval = setInterval(() => {
-            settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)).settings;
+            try {
+                const cookieStr = CookieManager.get("monopolySettings");
+                if (cookieStr) {
+                    const parsedCookie = JSON.parse(decodeURIComponent(cookieStr)).settings;
+                    if (parsedCookie) {
+                        settings = parsedCookie;
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
         }, 1000);
 
         function mouseMove(e: MouseEvent) {

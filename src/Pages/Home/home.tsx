@@ -25,12 +25,27 @@ export default function Home() {
         if (getCookieString === null) throw new Error("no cookie");
         const obj = JSON.parse(decodeURIComponent(getCookieString));
         cookie = obj;
+        if (!cookie.settings) {
+            cookie.settings = {
+                gameEngine: "2d",
+                accessibility: [45, 5, false, false, true],
+                audio: [100, 100, 25],
+                notifications: false
+            };
+            CookieManager.set("monopolySettings", encodeURIComponent(JSON.stringify(cookie as MonopolyCookie)));
+        }
     } catch {
         cookie = {
             login: {
                 remember: false,
                 id: "",
             },
+            settings: {
+                gameEngine: "2d",
+                accessibility: [45, 5, false, false, true],
+                audio: [100, 100, 25],
+                notifications: false
+            }
         } as MonopolyCookie;
 
         CookieManager.set("monopolySettings", encodeURIComponent(JSON.stringify(cookie as MonopolyCookie)));

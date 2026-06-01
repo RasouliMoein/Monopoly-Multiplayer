@@ -66,13 +66,15 @@ const NotifyElement = forwardRef<NotificatorRef, NotificatorProps>(
 				}, (time ?? 2) * 1000);
 
 				if (sfx === undefined || (sfx !== undefined && sfx === true)) {
-					const _settings = (
-						JSON.parse(
-							decodeURIComponent(
-								CookieManager.get("monopolySettings") as string
-							)
-						) as MonopolyCookie
-					).settings;
+					let _settings;
+					try {
+						const cookieStr = CookieManager.get("monopolySettings");
+						if (cookieStr) {
+							_settings = (JSON.parse(decodeURIComponent(cookieStr)) as MonopolyCookie).settings;
+						}
+					} catch (e) {
+						console.error(e);
+					}
 					let audio = new Audio("./notifications.mp3");
 					audio.volume =
 						((_settings?.audio[1] ?? 100) / 100) *
@@ -119,13 +121,15 @@ const NotifyElement = forwardRef<NotificatorRef, NotificatorProps>(
 					buttonsElement.appendChild(x);
 				}
 
-				const _settings = (
-					JSON.parse(
-						decodeURIComponent(
-							CookieManager.get("monopolySettings") as string
-						)
-					) as MonopolyCookie
-				).settings;
+				let _settings;
+				try {
+					const cookieStr = CookieManager.get("monopolySettings");
+					if (cookieStr) {
+						_settings = (JSON.parse(decodeURIComponent(cookieStr)) as MonopolyCookie).settings;
+					}
+				} catch (e) {
+					console.error(e);
+				}
 
 				switch (soundtrack) {
 					case "loosing":

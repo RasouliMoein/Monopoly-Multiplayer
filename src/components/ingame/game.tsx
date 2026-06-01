@@ -66,11 +66,39 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
     const [advnacedStreet, SetAdvancedStreet] = useState<boolean>(false);
     const [rotation, SetRotation] = useState<number>(0);
     const [scale, SetScale] = useState<number>(1);
-    const [settings, SetSettings] = useState<MonopolySettings>();
+    const [settings, SetSettings] = useState<MonopolySettings>(() => {
+        try {
+            const cookieStr = CookieManager.get("monopolySettings");
+            if (cookieStr) {
+                const cookie = JSON.parse(decodeURIComponent(cookieStr)) as MonopolyCookie;
+                if (cookie.settings) {
+                    return cookie.settings;
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        return {
+            gameEngine: "2d",
+            accessibility: [45, 5, false, false, true],
+            audio: [100, 100, 25],
+            notifications: false
+        };
+    });
     const [timer, SetTimer] = useState<number>(0);
     useEffect(() => {
         const settings_interval = setInterval(() => {
-            SetSettings((JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie).settings);
+            try {
+                const cookieStr = CookieManager.get("monopolySettings");
+                if (cookieStr) {
+                    const cookieObj = JSON.parse(decodeURIComponent(cookieStr)) as MonopolyCookie;
+                    if (cookieObj.settings) {
+                        SetSettings(cookieObj.settings);
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
         }, 200);
 
         return () => {
@@ -139,7 +167,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         });
     }
     function swipeSound() {
-        const _settings = (JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie).settings;
+        const _settings = settings;
         let audio = new Audio("./card.mp3");
         audio.volume = ((_settings?.audio[1] ?? 100) / 100) * ((_settings?.audio[0] ?? 100) / 100);
         audio.loop = false;
@@ -174,7 +202,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                     }
                 ) {
                     function clickSound() {
-                        const _settings = (JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie).settings;
+                        const _settings = settings;
                         let audio = new Audio("./click.mp3");
                         audio.volume = ((_settings?.audio[1] ?? 100) / 100) * ((_settings?.audio[0] ?? 100) / 100);
                         audio.loop = false;
@@ -527,7 +555,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                     const _img = elementSearch.querySelector("div") as HTMLDivElement;
                     _img.style.rotate = `${-rotation}deg`;
                     _img.style.aspectRatio = "1";
-                    if (settings !== undefined && settings.accessibility[4] === true) {
+                    if (settings === undefined || settings.accessibility[4] === true) {
                         _img.setAttribute("data-tooltip-color", x.color);
                     } else if (_img.hasAttribute("data-tooltip-color")) {
                         (_img.querySelector("img") as HTMLImageElement).style.filter = ``;
@@ -629,7 +657,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             switch (state) {
                                 case 0:
                                     st.style.backgroundColor = "rgba(0,0,0,25%)";
-                                    if (settings !== undefined && settings?.accessibility[4]) {
+                                    if (settings === undefined || settings?.accessibility[4]) {
                                         st.style.backgroundColor = _player.color;
                                         st.style.boxShadow = "0px 0px 5px black";
                                     }
@@ -648,7 +676,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                     if (payment_ammount !== 0) {
                                         st.innerHTML = `<p>${payment_ammount}M</p>`;
                                         st.style.backgroundColor = "rgba(0,0,0,75%)";
-                                        if (settings !== undefined && settings?.accessibility[4]) {
+                                        if (settings === undefined || settings?.accessibility[4]) {
                                             st.style.backgroundColor = `${_player.color}`;
                                             st.style.boxShadow = "0px 0px 5px black";
                                         }
