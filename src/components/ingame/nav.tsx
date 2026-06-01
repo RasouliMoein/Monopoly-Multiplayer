@@ -580,6 +580,9 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                         
                                         const key = `${v.time}-${i}`;
                                         const isExpanded = !!expandedIndex[key];
+                                        const balanceChangingTypes = ["buy", "upgrade", "rent", "tax", "unmortgage", "mortgage", "go", "trade", "chance", "chest"];
+                                        const isUnjailPay = parsed.type === "unjail" && v.action.includes("paid $50");
+                                        const showBalancesDropdown = v.balances && v.balances.length > 0 && (balanceChangingTypes.includes(parsed.type) || isUnjailPay);
                                         return (
                                             <div className={`history-action ${parsed.bgClass}`} key={key}>
                                                 <div className="history-action-header">
@@ -589,7 +592,7 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                                     </div>
                                                     <div className="history-action-header-right">
                                                         <div className="history-action-time">{getTimeString(v.time)}</div>
-                                                        {v.balances && v.balances.length > 0 && (
+                                                        {showBalancesDropdown && (
                                                             <button 
                                                                 className={`history-balances-toggle ${isExpanded ? "expanded" : ""}`}
                                                                 onClick={(e) => {

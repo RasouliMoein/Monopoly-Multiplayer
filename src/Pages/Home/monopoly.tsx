@@ -22,10 +22,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         }));
     };
 
-    const addHistoryLocal = (actionText: string) => {
-        SetHistories((old) => [...old, history(actionText, getBalancesSnapshot())]);
-    };
-
     const emitHistory = (actionText: string) => {
         socket.emit("history", history(actionText, getBalancesSnapshot()));
     };
@@ -548,19 +544,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         }) => {
             const xplayer = clients.get(args.turnId) as Player;
             const wasInJail = xplayer?.isInJail;
-            if (wasInJail) {
-                if (args.jailStayed) {
-                    addHistoryLocal(`${clients.get(args.turnId)?.username ?? "player"} failed doubles roll and stayed in Jail`);
-                } else {
-                    addHistoryLocal(`${clients.get(args.turnId)?.username ?? "player"} rolled doubles [${args.listOfNums[0]}, ${args.listOfNums[1]}] and escaped Jail!`);
-                }
-            } else {
-                addHistoryLocal(
-                    `${clients.get(args.turnId)?.username ?? "unknown player"} rolled [${args.listOfNums[0]}, ${args.listOfNums[1]}] moving to "${
-                        propretyMap.get(args.listOfNums[2])?.name ?? ""
-                    }"`
-                );
-            }
             var audio = new Audio("./rolling.mp3");
             audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
             audio.loop = false;
@@ -581,7 +564,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         notifyRef.current?.message(`$200 added for passing Go!`, "info", 2, () => {}, false);
                     engineRef.current?.applyAnimation(2);
                 }
-                addHistoryLocal(`${clients.get(args.turnId)?.username ?? "player"} passed Go and collected $200`);
             }
 
             // ── Landing notifications (taxes / rent — applied server-side) ──
@@ -594,7 +576,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     taxAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     taxAudio.play();
                     engineRef.current?.applyAnimation(1);
-                    emitHistory(`${clients.get(socket.id)?.username ?? "player"} paid $200 Income Tax`);
                 } else if (note.startsWith("luxerytax")) {
                     if (settings?.notifications === true)
                         notifyRef.current?.message(`Paid $100 luxury tax`, "info", 2, () => {}, false);
@@ -602,7 +583,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     taxAudio2.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     taxAudio2.play();
                     engineRef.current?.applyAnimation(1);
-                    emitHistory(`${clients.get(socket.id)?.username ?? "player"} paid $100 Luxury Tax`);
                 } else if (note.startsWith("rent:")) {
                     const [, ownerId, rentAmt] = note.split(":");
                     const ownerName = clients.get(ownerId)?.username ?? "someone";
@@ -612,7 +592,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     rentAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     rentAudio.play();
                     engineRef.current?.applyAnimation(1);
-                    emitHistory(`${clients.get(socket.id)?.username ?? "player"} paid $${rentAmt} rent to ${ownerName}`);
                 }
             }
             // Notify owner on rent received
@@ -649,7 +628,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             buyAudio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             buyAudio.play();
                             engineRef.current?.applyAnimation(1);
-                            emitHistory(`${clients.get(socket.id)?.username ?? "player"} bought ${proprety?.name ?? "a property"}`);
                         } else if (b === "advance-buy") {
                             const _info = info as { state: 1 | 2 | 3 | 4 | 5; money: number };
                             socket.emit("player_action", { action: "buy-advance", newCount: _info.state, housesAdded: _info.money });
@@ -664,7 +642,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             houseAudio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             houseAudio.play();
                             engineRef.current?.applyAnimation(1);
-                            emitHistory(`${clients.get(socket.id)?.username ?? "player"} upgraded ${proprety?.name}`);
                         }
                         // "someones" is now fully server-side — no client action needed
                         // "nothing" / skip — just end turn
@@ -680,7 +657,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             const afterMovementFinished = () => {
                 if (args.goingToJail) {
                     setTimeout(() => {
-                        addHistoryLocal(`${clients.get(args.turnId)?.username ?? "player"} goes to jail`);
                         const jailGen = playerMoveGENERATOR(10, xplayer, false, () => {
                             xplayer.position = 10;
                             var jailAudio = new Audio("./jail.mp3");
@@ -719,19 +695,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             `${args.pendingCard.is_chance ? "Chance" : "Community Chest"}: "${args.pendingCard.element?.title ?? ""}"`,
                             "info", 3, () => {}, false
                         );
-                    addHistoryLocal(`${clients.get(args.turnId)?.username ?? "player"} drew ${args.pendingCard.is_chance ? "Chance" : "Community Chest"}: "${args.pendingCard.element?.title ?? ""}"`);
 
                     setTimeout(() => {
                         // If card triggers a movement, animate it for ALL clients
                         if (args.pendingCard.newPosition !== undefined && args.pendingCard.newPosition !== rolledPosition) {
                             const cardMoveGen = playerMoveGENERATOR(args.pendingCard.newPosition, xplayer, true, () => {
                                 // After card movement finishes
-                                const passedGoOnCard = args.pendingCard.newPosition < rolledPosition;
                                 xplayer.position = args.pendingCard.newPosition;
                                 SetClients(new Map(clients.set(args.turnId, xplayer)));
-                                if (passedGoOnCard) {
-                                    addHistoryLocal(`${xplayer.username} passed Go and collected $200`);
-                                }
                                 if (isActivePlayer) {
                                     if (args.pendingCard.requiresPurchaseDecision) {
                                         showBuyUI(args.pendingCard.newPosition);
@@ -799,17 +770,11 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     audio.loop = false;
                     audio.play();
-                    if (x.id === socket.id) {
-                        emitHistory(`${x.username} paid $50 to leave jail`);
-                    }
                 } else {
                     var cardAudio = new Audio("./moneyplus.mp3");
                     cardAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     cardAudio.loop = false;
                     cardAudio.play();
-                    if (x.id === socket.id) {
-                        emitHistory(`${x.username} used a Get Out of Jail Free card to leave jail`);
-                    }
                 }
             }
         };
@@ -931,7 +896,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     client.recieveJson(PJS);
                 }
             }
-            SetHistories((old) => [...old, history(args.action)]);
         });
 
         var to_emit_name = true;
