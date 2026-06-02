@@ -791,11 +791,11 @@ main nav.content[data-index="3"]>div {
 
 
 main nav.content[data-index="4"] {
-    overflow-y: hidden;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
+    padding-right: 4px;
 }
-
 
 main nav.content[data-index="4"] div.scroll {
     overflow-y: auto;
@@ -1064,11 +1064,15 @@ div.action-bar button img {
 }
 
 div.action-bar button[data-button-type][aria-disabled="true"] {
-    opacity: 0;
-    visibility: hidden;
-    width: 0px;
-    padding: 0;
-    margin: 0;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+    flex-shrink: 1 !important;
 }
 
 div.player {
@@ -1941,8 +1945,10 @@ div.game div.trade-table div.trade-mission * div.proprety-nav[data-actionable=fa
 
 div.game div.trade-table div.trade-mission * div.proprety-nav i {
     min-width: 4px;
+    height: 20px;
     border-radius: 100px;
     transform: scaleY(0.8);
+    flex-shrink: 0;
 }
 
 div.game div.trade-table div.trade-mission * div.proprety-nav h3 {
@@ -2151,7 +2157,7 @@ div.action-bar {
     backdrop-filter: blur(12px) !important;
     display: flex !important;
     align-items: center !important;
-    gap: 8px !important;
+    gap: 0 !important;
 }
 
 div.action-bar button {
@@ -2186,6 +2192,7 @@ div.action-bar button[data-button-type="roll"] {
     box-shadow: 0 4px 14px var(--color-primary-glow) !important;
     text-transform: uppercase !important;
     letter-spacing: 0.5px !important;
+    margin-right: 8px !important;
 }
 
 div.action-bar button[data-button-type="roll"]:hover {
@@ -2200,9 +2207,9 @@ div.action-bar button[data-button-type="roll"] p {
     font-weight: 800 !important;
 }
 
-div.action-bar button[data-button-type="roll"] img {
-    filter: brightness(0) !important;
-    translate: 0px 0px !important;
+div.action-bar button[data-button-type="roll"] span {
+    color: var(--text-dark) !important;
+    line-height: 1 !important;
 }
 
 div.action-bar button img {
@@ -2212,6 +2219,42 @@ div.action-bar button img {
     translate: 0 !important;
     margin: 0 !important;
 }
+
+/* Mortgage / Unmortgage action button in property tab */
+button.railroads-actions {
+    font-family: var(--font-outfit) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    display: block !important;
+    width: 100% !important;
+    margin-top: 10px !important;
+    padding: 12px 20px !important;
+    border-radius: 12px !important;
+    border: 1.5px solid rgba(241, 181, 62, 0.3) !important;
+    background: rgba(241, 181, 62, 0.08) !important;
+    color: var(--color-yellow) !important;
+    cursor: pointer !important;
+    text-align: center !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    letter-spacing: 0.3px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+}
+
+button.railroads-actions:hover {
+    background: rgba(241, 181, 62, 0.18) !important;
+    border-color: rgba(241, 181, 62, 0.6) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 16px rgba(241, 181, 62, 0.2) !important;
+}
+
+/* Unmortgage button — green tint since you're paying back */
+button.railroads-actions:has-text,
+main nav button.railroads-actions:first-of-type {
+    border-color: rgba(59, 179, 108, 0.3) !important;
+    background: rgba(59, 179, 108, 0.08) !important;
+    color: var(--color-green) !important;
+}
+
 
 /* 3. Trade Table Overlay Redesign */
 div.game div.trade-table {
@@ -2384,9 +2427,12 @@ div.game div.trade-table div.trade-mission * div.proprety-nav h3 {
 
 div.game div.trade-table div.trade-mission * div.proprety-nav i.box {
     width: 8px !important;
+    height: 20px !important;
     border-radius: 4px !important;
     transform: none !important;
+    flex-shrink: 0 !important;
 }
+
 
 /* 4. Trade Offer Bottom Controls & State Toggles */
 div.game div.trade-table div.trade-craft-buttons {
@@ -2487,4 +2533,67 @@ main nav.content table tr td:nth-child(1) {
 main nav.content table tr td:nth-child(2) {
     text-align: right !important;
     font-weight: 700 !important;
-}
+}
+
+/* Tooltip and hover configurations */
+*[data-tooltip-hover], *[data-tooltip] {
+    position: relative;
+}
+
+*[data-tooltip-hover]::after {
+    content: attr(data-tooltip-hover);
+    opacity: 0;
+    font-size: 14px;
+    padding: 6px 10px;
+    color: #ffffff;
+    transition: opacity ease-out 0.15s, transform ease-out 0.15s;
+    user-select: none;
+    width: max-content;
+    height: max-content;
+    transform: translateY(-80%) translateX(-50%);
+    letter-spacing: normal;
+    z-index: 1200000000;
+    position: absolute;
+    top: -0.25rem;
+    left: 50%;
+    border-radius: 6px;
+    background-color: #141414;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    visibility: hidden;
+    pointer-events: none;
+}
+
+*[data-tooltip-hover][data-tooltip-color]::after {
+    background-color: attr(data-tooltip-color);
+}
+
+*[data-tooltip-hover]:hover::after {
+    visibility: visible;
+    opacity: 0.95;
+    transform: translateY(-100%) translateX(-50%);
+}
+
+*[data-tooltip]::after {
+    content: attr(data-tooltip);
+    opacity: 0.95;
+    font-size: 14px;
+    padding: 6px 10px;
+    color: #ffffff;
+    transition: opacity ease-out 0.15s, transform ease-out 0.15s;
+    user-select: none;
+    width: max-content;
+    height: max-content;
+    transform: translateY(-100%) translateX(-50%);
+    letter-spacing: normal;
+    z-index: 1200000000;
+    position: absolute;
+    top: -0.25rem;
+    left: 50%;
+    border-radius: 6px;
+    background-color: #141414;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+

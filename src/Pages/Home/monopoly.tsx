@@ -923,6 +923,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         socket.on("cancel-trade", () => {
             if (!selectedMode.AllowDeals) return;
             setTrade(undefined);
+            // Also reset the action-bar sended state in case cancel came from server
+            engineRef.current?.freeDice();
         });
         socket.on("trade-update", (x: GameTrading) => {
             if (!selectedMode.AllowDeals) return;
@@ -932,6 +934,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         socket.on("submit-trade", (args: { pJsons: [PlayerJSON, PlayerJSON]; action: string }) => {
             if (!selectedMode.AllowDeals) return;
             setTrade(undefined);
+            // Reset the sended/action-bar state so players can act again after trade
+            engineRef.current?.freeDice();
             for (const PJS of args.pJsons) {
                 const client = clients.get(PJS.id);
                 if (client !== undefined) {

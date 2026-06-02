@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import RollIcon from "../../../public/roll.png";
+
 import HouseIcon from "../../../public/h.png";
 import HotelIcon from "../../../public/ho.png";
 import { Player } from "./../../assets/player.ts";
@@ -1462,8 +1462,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             <></>
                         )}
                         <button data-button-type="roll" aria-disabled={false}>
-                            <p>ROLL THE </p>
-                            <img style={{ marginLeft: 10 }} src={RollIcon.replace("public/", "")} />
+                            <p>ROLL THE DICE</p>
+                            <span style={{ marginLeft: 8, fontSize: 18 }}>🎲</span>
                         </button>
                         <button data-button-type="pay" data-tooltip-hover="pay" aria-disabled={true}>
                             <img src="pay1.png" />

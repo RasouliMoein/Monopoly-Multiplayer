@@ -224,12 +224,11 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
                                     <h2>Actions</h2>
                                     {mortgageApi.isMortaged(currentCardPosition) ? (
                                         <button className="railroads-actions" onClick={mortgageApi.buttons.cancel}>
-                                            Cancel Mortgage [Pay {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.55)}M]
+                                            🔓 Unmortgage — Pay {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.55)}M
                                         </button>
                                     ) : (
                                         <button className="railroads-actions" onClick={mortgageApi.buttons.pay}>
-                                            {" "}
-                                            Mortgage [Get {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.5)}M]
+                                            🔒 Mortgage — Get {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.5)}M
                                         </button>
                                     )}
                                 </>

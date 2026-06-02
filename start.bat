@@ -3,11 +3,22 @@ echo ========================================================
 echo   Starting Dedicated Monopoly Server
 echo ========================================================
 echo.
-echo Please note: If you have made changes to the React code, 
-echo you may want to run "npm run build" first.
-echo.
-echo Building node backend...
+
+echo Building frontend (React)...
+call npm run build
+if %errorlevel% neq 0 (
+    echo Frontend build failed! Aborting.
+    pause
+    exit /b 1
+)
+
+echo Building backend...
 call npm run build:backend
+if %errorlevel% neq 0 (
+    echo Backend build failed! Aborting.
+    pause
+    exit /b 1
+)
 
 echo Starting Server...
 node dist-backend/index.js
