@@ -2247,6 +2247,16 @@ button.railroads-actions:hover {
     box-shadow: 0 6px 16px rgba(241, 181, 62, 0.2) !important;
 }
 
+button.railroads-actions:disabled {
+    opacity: 0.35 !important;
+    cursor: not-allowed !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    color: rgba(255, 255, 255, 0.3) !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
 /* Unmortgage button — green tint since you're paying back */
 button.railroads-actions:has-text,
 main nav button.railroads-actions:first-of-type {

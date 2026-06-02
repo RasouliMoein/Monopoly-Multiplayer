@@ -517,18 +517,39 @@ async function main(playersCount, f) {
                             emitServerHistory(`${player.username} bought ${prop.name ?? "a property"}`);
                         }
                         else if (args.action === "buy-advance") {
-                            const idx = player.properties.findIndex((p) => p.posistion === player.position);
+                            const targetPosition = args.propertyPosition !== undefined ? args.propertyPosition : player.position;
+                            const targetProp = propertyByPosition.get(targetPosition);
+                            const idx = player.properties.findIndex((p) => p.posistion === targetPosition);
                             if (idx === -1)
                                 return;
                             if (args.newCount === 5) {
-                                player.balance -= prop?.ohousecost ?? 0;
+                                player.balance -= targetProp?.ohousecost ?? 0;
                                 player.properties[idx].count = "h";
                             }
                             else {
-                                player.balance -= (prop?.housecost ?? 0) * args.housesAdded;
+                                player.balance -= (targetProp?.housecost ?? 0) * args.housesAdded;
                                 player.properties[idx].count = args.newCount;
                             }
-                            emitServerHistory(`${player.username} upgraded ${prop.name}`);
+                            emitServerHistory(`${player.username} upgraded ${targetProp.name}`);
+                        }
+                        else if (args.action === "sell-advance") {
+                            const targetPosition = args.propertyPosition !== undefined ? args.propertyPosition : player.position;
+                            const targetProp = propertyByPosition.get(targetPosition);
+                            const idx = player.properties.findIndex((p) => p.posistion === targetPosition);
+                            if (idx === -1)
+                                return;
+                            const currentCount = player.properties[idx].count;
+                            let refund = 0;
+                            if (currentCount === "h") {
+                                refund = Math.round((targetProp?.ohousecost ?? 0) * 0.5);
+                                player.properties[idx].count = 4;
+                            }
+                            else if (typeof currentCount === "number" && currentCount > 0) {
+                                refund = Math.round((targetProp?.housecost ?? 0) * 0.5);
+                                player.properties[idx].count = currentCount - 1;
+                            }
+                            player.balance += refund;
+                            emitServerHistory(`${player.username} demoted ${targetProp.name}`);
                         }
                         // "skip" → no mutations
                         EmitStateUpdate();

@@ -6,6 +6,9 @@ import CardViewer from "./cardViewer.tsx";
 import monopolyJSON from "../../assets/monopoly.json";
 import { Socket } from "../../assets/sockets.ts";
 import { Player } from "../../assets/player.ts";
+import { CookieManager } from "../../assets/cookieManager.ts";
+import { MonopolyCookie } from "../../assets/types.ts";
+
 interface PropretyTabProps {
     socket: Socket;
     players: Array<Player>;
@@ -14,6 +17,7 @@ interface PropretyTabProps {
         onCanc: (a: number, prpName: string) => void;
     };
     allowMortgage: boolean;
+    myTurn: boolean;
 }
 export interface PropretyTabRef {
     clickedOnBoard: (a: number) => void;
@@ -101,6 +105,96 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
 
     const [searchList, SetSearchList] = useState<Array<number>>([]);
     const [currentLookCard, SetLookCard] = useState<number>(-1);
+
+    const prp = localPlayer?.properties.find((v) => v.posistion === currentCardPosition);
+    const propData = propretyMap.get(currentCardPosition);
+
+    const group = prp?.group;
+    const isColorGroup = prp && group && group !== "Special" && group !== "Railroad" && group !== "Utilities";
+
+    let ownsFullSet = false;
+    let hasMortgagedPropertyInGroup = false;
+    let targetCount = 0;
+    let canBuildEvenly = false;
+    let canSellEvenly = false;
+    let buildCost = 0;
+    let sellRefund = 0;
+
+    if (isColorGroup && propData) {
+        const groupProps = Array.from(propretyMap.values()).filter(p => p.group === group);
+        const ownedGroupProps = localPlayer.properties.filter(p => p.group === group);
+        ownsFullSet = groupProps.length > 0 && ownedGroupProps.length === groupProps.length;
+        hasMortgagedPropertyInGroup = ownedGroupProps.some(p => p.morgage === true);
+
+        const transformCount = (v: any) => {
+            if (v === "h") return 5;
+            return typeof v === "number" ? v : 0;
+        };
+
+        const groupCounts = ownedGroupProps.map(p => transformCount(p.count));
+        targetCount = transformCount(prp.count);
+
+        const minCountInGroup = Math.min(...groupCounts);
+        const maxCountInGroup = Math.max(...groupCounts);
+
+        canBuildEvenly = targetCount === minCountInGroup;
+        canSellEvenly = targetCount === maxCountInGroup;
+
+        buildCost = targetCount === 4 ? (propData.ohousecost ?? 0) : (propData.housecost ?? 0);
+        sellRefund = targetCount === 5 ? Math.round((propData.ohousecost ?? 0) * 0.5) : Math.round((propData.housecost ?? 0) * 0.5);
+    }
+
+    const handleBuild = () => {
+        if (!prp || !propData) return;
+
+        let audio = new Audio("./buying1.mp3");
+        const cookieStr = CookieManager.get("monopolySettings");
+        let volume = 0.5;
+        if (cookieStr) {
+            try {
+                const cookie = JSON.parse(decodeURIComponent(cookieStr)) as MonopolyCookie;
+                if (cookie.settings?.audio) {
+                    volume = 0.5 * (cookie.settings.audio[1] / 100) * (cookie.settings.audio[0] / 100);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        audio.volume = volume;
+        audio.play();
+
+        props.socket.emit("player_action", {
+            action: "buy-advance",
+            newCount: targetCount + 1,
+            housesAdded: 1,
+            propertyPosition: currentCardPosition
+        });
+    };
+
+    const handleSell = () => {
+        if (!prp || !propData) return;
+
+        let audio = new Audio("./moneyplus.mp3");
+        const cookieStr = CookieManager.get("monopolySettings");
+        let volume = 0.5;
+        if (cookieStr) {
+            try {
+                const cookie = JSON.parse(decodeURIComponent(cookieStr)) as MonopolyCookie;
+                if (cookie.settings?.audio) {
+                    volume = 0.5 * (cookie.settings.audio[1] / 100) * (cookie.settings.audio[0] / 100);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        audio.volume = volume;
+        audio.play();
+
+        props.socket.emit("player_action", {
+            action: "sell-advance",
+            propertyPosition: currentCardPosition
+        });
+    };
     function searchResults() {
         SetLookCard(-1);
         SetCardPos(-1);
@@ -222,15 +316,53 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
                                 <>
                                     {" "}
                                     <h2>Actions</h2>
-                                    {mortgageApi.isMortaged(currentCardPosition) ? (
-                                        <button className="railroads-actions" onClick={mortgageApi.buttons.cancel}>
-                                            🔓 Unmortgage — Pay {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.55)}M
-                                        </button>
-                                    ) : (
-                                        <button className="railroads-actions" onClick={mortgageApi.buttons.pay}>
-                                            🔒 Mortgage — Get {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.5)}M
-                                        </button>
-                                    )}
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%", alignItems: "center", marginTop: "10px" }}>
+                                        {mortgageApi.isMortaged(currentCardPosition) ? (
+                                            <button className="railroads-actions" onClick={mortgageApi.buttons.cancel} style={{ width: "100%" }}>
+                                                🔓 Unmortgage — Pay {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.55)}M
+                                            </button>
+                                        ) : (
+                                            <button className="railroads-actions" onClick={mortgageApi.buttons.pay} style={{ width: "100%" }}>
+                                                🔒 Mortgage — Get {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.5)}M
+                                            </button>
+                                        )}
+
+                                        {isColorGroup && ownsFullSet && !mortgageApi.isMortaged(currentCardPosition) && (
+                                            <>
+                                                <button
+                                                    className="railroads-actions"
+                                                    style={{ width: "100%" }}
+                                                    disabled={!props.myTurn || hasMortgagedPropertyInGroup || targetCount >= 5 || !canBuildEvenly || localPlayer.balance < buildCost}
+                                                    onClick={handleBuild}
+                                                    title={
+                                                        !props.myTurn ? "Not your turn" :
+                                                        hasMortgagedPropertyInGroup ? "Cannot build: a property in this set is mortgaged" :
+                                                        targetCount >= 5 ? "Fully built (Hotel)" :
+                                                        !canBuildEvenly ? "Cannot build: must build evenly across all properties in the set" :
+                                                        localPlayer.balance < buildCost ? "Cannot build: not enough money" :
+                                                        ""
+                                                    }
+                                                >
+                                                    🏠 {targetCount === 4 ? "Build Hotel" : "Build House"} — Pay {buildCost}M
+                                                </button>
+
+                                                <button
+                                                    className="railroads-actions"
+                                                    style={{ width: "100%" }}
+                                                    disabled={!props.myTurn || targetCount === 0 || !canSellEvenly}
+                                                    onClick={handleSell}
+                                                    title={
+                                                        !props.myTurn ? "Not your turn" :
+                                                        targetCount === 0 ? "No houses to sell" :
+                                                        !canSellEvenly ? "Cannot sell: must sell evenly across all properties in the set" :
+                                                        ""
+                                                    }
+                                                >
+                                                    🪙 {targetCount === 5 ? "Sell Hotel" : "Sell House"} — Get {sellRefund}M
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </>
                             ) : (
                                 <></>
