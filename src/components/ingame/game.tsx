@@ -1911,12 +1911,11 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                  </button>
                                              )}
                                              <button
-                                                 style={
-                                                     (prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
-                                                         ? (prop.tradeObj as GameTrading).turnPlayer.accepted
-                                                         : (prop.tradeObj as GameTrading).againstPlayer.accepted)
-                                                         ? { backgroundColor: "#10b981", color: "white" }
-                                                         : {}
+                                                 className={(prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
+                                                     ? (prop.tradeObj as GameTrading).turnPlayer.accepted
+                                                     : (prop.tradeObj as GameTrading).againstPlayer.accepted)
+                                                     ? "trade-accept-btn active"
+                                                     : "trade-accept-btn"
                                                  }
                                                  onClick={() => {
                                                      const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
@@ -1931,8 +1930,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                  {(prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
                                                      ? (prop.tradeObj as GameTrading).turnPlayer.accepted
                                                      : (prop.tradeObj as GameTrading).againstPlayer.accepted)
-                                                     ? "UNACCEPT"
-                                                     : "ACCEPT OFFER"}
+                                                     ? "✓ Accepted"
+                                                     : "Accept Offer"}
                                              </button>
                                          </div>
                                      </center>
