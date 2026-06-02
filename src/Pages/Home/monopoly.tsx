@@ -39,6 +39,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const [selectedMode, SetMode] = useState<MonopolyMode>(MonopolyModes[0]);
     const [hostId, SetHostId] = useState<string>("");
     const [reconnectAttempt, SetReconnectAttempt] = useState<number | null>(null);
+    const [copiedCode, setCopiedCode] = useState<boolean>(false);
     const [globalSettings, SetSettings] = useState<MonopolySettings>(() => {
         try {
             const cookieStr = CookieManager.get("monopolySettings");
@@ -1113,203 +1114,269 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             </div>
         </>
     ) : (
-        <div className="lobby" style={{
-            background: 'rgba(25, 25, 25, 0.75)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '16px',
-            padding: '24px 36px',
-            backdropFilter: 'blur(12px)',
-            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-            minWidth: '550px',
-            maxWidth: '750px',
-            boxSizing: 'border-box'
-        }}>
-            <main style={{ all: 'unset', display: 'flex', gap: '60px', justifyContent: 'space-between', width: '100%' }}>
-                <section>
-                    <div>
-                        <h3>Hello there {name}</h3>
-                        the players that are currently in the lobby are
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+        <>
+            <NotifyElement ref={notifyRef} />
+            <div className="lobby join-screen-container">
+                {/* Horizontal Header (same as homepage for visual continuity) */}
+                <header className="entry-header">
+                    <div className="logo-group" onClick={() => { document.location.reload(); }} style={{ cursor: "pointer" }}>
+                        <div className="logo-square">
+                            <img src="./icon.png" alt="" className="logo-icon" />
+                        </div>
+                        <span className="logo-title">MONOPOLY</span>
+                    </div>
+                    <div className="room-info-pill" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="pill-prefix">Room Code:</span>
+                        <span className="pill-code">{server?.code || sessionStorage.getItem("current_room") || "------"}</span>
+                        <button 
+                            onClick={() => {
+                                const code = server?.code || sessionStorage.getItem("current_room") || "";
+                                if (code) {
+                                    navigator.clipboard.writeText(code);
+                                    setCopiedCode(true);
+                                    setTimeout(() => setCopiedCode(false), 2000);
+                                    notifyRef.current?.message("Room code copied to clipboard!", "info", 1.5);
+                                }
+                            }}
+                            className="copy-room-code-btn"
+                            title="Copy Code"
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                borderRadius: '6px',
+                                color: 'var(--text-main)',
+                                fontSize: '11px',
+                                fontFamily: 'var(--font-outfit)',
+                                fontWeight: 600,
+                                padding: '2px 8px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                marginLeft: '4px'
+                            }}
+                        >
+                            {copiedCode ? "Copied!" : "Copy"}
+                        </button>
+                    </div>
+                <div className="user-profile">
+                    <div className="profile-avatar" style={{ backgroundColor: '#ffc107', color: '#111', fontWeight: 'bold' }}>
+                        👑
+                    </div>
+                    <div className="profile-info">
+                        <span className="profile-name">Game Lobby</span>
+                        <span className="profile-handle">Ready to launch</span>
+                    </div>
+                </div>
+            </header>
+
+            <div className="two-column-layout">
+                {/* LEFT COLUMN: Lobby Players List */}
+                <div className="left-column">
+                    <div className="lobbies-board-card">
+                        <div className="board-header">
+                            <div style={{ textAlign: "left" }}>
+                                <h3 className="section-title">Hello there, {name}</h3>
+                                <p className="section-subtitle">Players currently connected to this multiplayer session.</p>
+                            </div>
+                        </div>
+
+                        <div className="lobbies-scroll-list" style={{ minHeight: "220px" }}>
                             {Array.from(clients.values()).map((v, i) => {
                                 const isHost = v.id === hostId;
                                 const isLocal = v.id === socket.id;
+                                // Harmonious palette matching color options on homepage
+                                const avatarColors = ["#f35f5f", "#ea7a53", "#f1b53e", "#3bb36c", "#4f8eff"];
+                                const avatarColor = avatarColors[i % avatarColors.length];
+
                                 return (
                                     <div 
-                                        style={{
-                                            display: 'flex', 
-                                            justifyContent: 'space-between', 
-                                            alignItems: 'center', 
-                                            width: '100%',
-                                            boxSizing: 'border-box',
-                                            ...(v.ready ? { backgroundColor: "#32a852" } : {})
-                                        }} 
-                                        className="lobby-players" 
                                         key={i}
+                                        className={`lobby-row-item lobby-player-row ${v.ready ? 'ready-row' : 'pending-row'}`}
                                     >
-                                        <span>
-                                            {v.username} {isHost && "👑"} {!v.connected && " (Offline)"}
-                                        </span>
-                                        {hostId === socket.id && !isLocal && (
-                                            <button 
-                                                onClick={() => socket.emit("kick-player", v.id)}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    color: '#ff4444',
-                                                    cursor: 'pointer',
-                                                    fontSize: '20px',
-                                                    padding: '0 5px',
-                                                    lineHeight: 1,
-                                                    marginTop: 0,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}
-                                                title="Kick Player"
-                                            >
-                                                &times;
-                                            </button>
-                                        )}
+                                        <div className="lobby-row-left">
+                                            <div className="player-avatar-circle" style={{ backgroundColor: avatarColor }}>
+                                                {v.username ? v.username.charAt(0).toUpperCase() : 'P'}
+                                            </div>
+                                            <span className="player-name-label">
+                                                {v.username} {isLocal && <span className="local-user-indicator">(You)</span>}
+                                            </span>
+                                            {isHost && <span className="host-badge">👑 Host</span>}
+                                            {!v.connected && <span className="offline-badge">Offline</span>}
+                                        </div>
+                                        <div className="lobby-row-right">
+                                            <span className={`player-ready-pill ${v.ready ? 'is-ready' : 'is-pending'}`}>
+                                                {v.ready ? "READY" : "WAITING"}
+                                            </span>
+                                            {hostId === socket.id && !isLocal && (
+                                                <button 
+                                                    onClick={() => socket.emit("kick-player", v.id)}
+                                                    className="kick-player-btn"
+                                                    title="Kick Player"
+                                                >
+                                                    &times;
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 );
                             })}
-                            <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '20px', width: '100%' }}>
-                                <button
-                                    disabled={gameStarted}
-                                    onClick={() => {
-                                        socket.emit("ready", {
-                                            ready: !imReady,
-                                        });
-                                        SetReady(!imReady);
-                                    }}
-                                    style={{ margin: 0, flex: 1, paddingBlock: '8px' }}
-                                >
-                                    {!imReady ? "Ready" : "Not Ready"}
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        sessionStorage.removeItem("current_room");
-                                        sessionStorage.removeItem("current_name");
-                                        socket.emit("leave-room");
-                                        socket.disconnect();
-                                        document.location.reload();
-                                    }}
-                                    style={{ backgroundColor: '#ff4444', margin: 0, flex: 1, paddingBlock: '8px' }}
-                                >
-                                    Leave Lobby
-                                </button>
-                            </div>
                         </div>
-                        <br />
-                    </div>
-                </section>
-                <div>
-                    {server === undefined ? (
-                        <>
-                            <p
-                                style={{
-                                    opacity: 0.5,
-                                    margin: 0,
-                                    textAlign: "center",
-                                    fontWeight: "100",
-                                }}
-                            >
-                                the server-admin is <br /> choosing the gamemode
-                            </p>
-                        </>
-                    ) : (
-                        <></>
-                    )}
 
-                    <div className="modes">
-                        <main>
-                            <h3>{selectedMode.Name}</h3>
-                            <table>
-                                <tr>
-                                    <td> Winning State:</td> <td>{selectedMode.WinningMode.toUpperCase()}</td>
-                                </tr>
-                                {/* <tr>
-                                    <td> Buying System:</td> <td>{selectedMode.BuyingSystem.toUpperCase()}</td>
-                                </tr> */}
-                                <tr>
-                                    <td>Trades: </td>
-                                    <td>{selectedMode.AllowDeals ? "ALLOWED" : "NOT-ALLOWED"}</td>
-                                </tr>
-                                <tr>
-                                    <td>Mortgage: </td>
-                                    <td>{selectedMode.mortageAllowed ? "ALLOWED" : "NOT-ALLOWED"}</td>
-                                </tr>
-                                <tr>
-                                    <td>Starting Cash: </td>
-                                    <td>{selectedMode.startingCash} M</td>
-                                </tr>
-                                <tr>
-                                    <td>Turn Timer: </td>
-                                    <td>
-                                        {selectedMode.turnTimer === undefined ||
-                                        (typeof selectedMode.turnTimer === "number" && selectedMode.turnTimer === 0)
-                                            ? "No Timer"
-                                            : JSON.stringify(selectedMode.turnTimer) + " Sec"}
-                                    </td>
-                                </tr>
-                            </table>
-                        </main>
-                        <div className="selecting-mde">
-                            {MonopolyModes.map((v, k) => {
-                                return (
-                                    <p
-                                        data-select={JSON.stringify(v) === JSON.stringify(selectedMode)}
-                                        key={k}
-                                        onClick={() => {
-                                            if (server !== undefined)
-                                                socket.emit("ready", {
-                                                    mode: v,
-                                                });
-                                        }}
-                                        data-disabled={server === undefined}
-                                    >
-                                        {v.Name}
-                                    </p>
-                                );
-                            })}
-                            <p
-                                data-select={selectedMode.Name === "Custom Mode"}
-                                data-disabled={server === undefined}
+                        {/* Bottom action bars for ready/leave */}
+                        <div className="search-bar-horizontal lobby-actions-row">
+                            <button
+                                disabled={gameStarted}
                                 onClick={() => {
-                                    const winstateChoice = window.prompt("Winning State\n1=last-standing\n2=monopols\n3=monopols & trains", "3");
-                                    // const buyingChoice = window.prompt("Buying System State\n1=following-order\n2=card-firsts\n3=everything", "3");
-                                    const allowTrade = window.confirm("Allow Trades");
-                                    const allowMortgage = window.confirm("Allow Mortgage");
-                                    const startingCash = window.prompt("Starting Cash", "1500");
-                                    const turnTimer = window.prompt("Turn Timer", "0");
-                                    const v = {
-                                        AllowDeals: allowTrade,
-                                        // BuyingSystem: buyingChoice === "2" ? "card-firsts" : buyingChoice === "3" ? "everything" : "following-order",
-                                        WinningMode:
-                                            winstateChoice === "2" ? "monopols" : winstateChoice === "3" ? "monopols & trains" : "last-standing",
-                                        Name: "Custom Mode",
-                                        mortageAllowed: allowMortgage,
-                                        startingCash: startingCash === null ? 1500 : parseInt(startingCash) ?? 1500,
-                                        turnTimer: turnTimer === null ? undefined : parseInt(turnTimer) ?? undefined,
-                                    } as MonopolyMode;
-                                    if (server !== undefined)
-                                        socket.emit("ready", {
-                                            mode: v,
-                                        });
+                                    socket.emit("ready", {
+                                        ready: !imReady,
+                                    });
+                                    SetReady(!imReady);
                                 }}
+                                className={`lobby-ready-toggle-btn ${imReady ? 'is-ready' : 'is-pending'}`}
                             >
-                                Custom Mode
-                            </p>
+                                {imReady ? "Toggle Unready" : "Toggle Ready"}
+                            </button>
+                            
+                            <button
+                                onClick={() => {
+                                    sessionStorage.removeItem("current_room");
+                                    sessionStorage.removeItem("current_name");
+                                    socket.emit("leave-room");
+                                    socket.disconnect();
+                                    document.location.reload();
+                                }}
+                                className="lobby-leave-btn"
+                            >
+                                Leave Lobby
+                            </button>
                         </div>
                     </div>
                 </div>
-            </main>
+
+                {/* RIGHT COLUMN: Mode settings & configs (styled like Create reminder in screenshot) */}
+                <div className="right-column">
+                    <div className="profile-details-card">
+                        <div className="card-header-bar">
+                            <h3 className="card-title">Match Settings</h3>
+                        </div>
+
+                        {/* Game Mode Pill Selection */}
+                        <div className="reminder-type-section">
+                            <label className="section-label">SELECT GAME MODE</label>
+                            <div className="color-pills-row game-modes-pills">
+                                {MonopolyModes.map((v, k) => {
+                                    const isSelected = JSON.stringify(v) === JSON.stringify(selectedMode);
+                                    // Map color indices to give different styles matching the picture
+                                    const colors = ["orange", "yellow", "green", "blue"];
+                                    const colorClass = colors[k % colors.length] + "-pill";
+                                    return (
+                                        <button
+                                            key={k}
+                                            type="button"
+                                            className={`color-pill ${colorClass} ${isSelected ? "active" : ""}`}
+                                            onClick={() => {
+                                                if (server !== undefined)
+                                                    socket.emit("ready", {
+                                                        mode: v,
+                                                    });
+                                            }}
+                                            disabled={server === undefined}
+                                        >
+                                            <span className={`pill-dot ${colors[k % colors.length]}-dot`}></span> {v.Name}
+                                        </button>
+                                    );
+                                })}
+                                <button
+                                    type="button"
+                                    className={`color-pill red-pill ${selectedMode.Name === "Custom Mode" ? "active" : ""}`}
+                                    onClick={() => {
+                                        const winstateChoice = window.prompt("Winning State\n1=last-standing\n2=monopols\n3=monopols & trains", "3");
+                                        const allowTrade = window.confirm("Allow Trades");
+                                        const allowMortgage = window.confirm("Allow Mortgage");
+                                        const startingCash = window.prompt("Starting Cash", "1500");
+                                        const turnTimer = window.prompt("Turn Timer", "0");
+                                        const v = {
+                                            AllowDeals: allowTrade,
+                                            WinningMode:
+                                                winstateChoice === "2" ? "monopols" : winstateChoice === "3" ? "monopols & trains" : "last-standing",
+                                            Name: "Custom Mode",
+                                            mortageAllowed: allowMortgage,
+                                            startingCash: startingCash === null ? 1500 : parseInt(startingCash) ?? 1500,
+                                            turnTimer: turnTimer === null ? undefined : parseInt(turnTimer) ?? undefined,
+                                        } as MonopolyMode;
+                                        if (server !== undefined)
+                                            socket.emit("ready", {
+                                                mode: v,
+                                            });
+                                    }}
+                                    disabled={server === undefined}
+                                >
+                                    <span className="pill-dot red-dot"></span> Custom Mode
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Match details list */}
+                        <div className="event-details-section">
+                            <label className="section-label">MATCH SETUP SUMMARY</label>
+                            
+                            <div className="details-info-row">
+                                <span className="details-icon">🏆</span>
+                                <span className="details-text">Winning Mode: <strong className="highlight-text">{selectedMode.WinningMode.toUpperCase()}</strong></span>
+                            </div>
+                            
+                            <div className="details-info-row">
+                                <span className="details-icon">🤝</span>
+                                <span className="details-text">Trades: <strong className="highlight-text">{selectedMode.AllowDeals ? "ALLOWED" : "DISABLED"}</strong></span>
+                            </div>
+
+                            <div className="details-info-row">
+                                <span className="details-icon">🏢</span>
+                                <span className="details-text">Mortgages: <strong className="highlight-text">{selectedMode.mortageAllowed ? "ALLOWED" : "DISABLED"}</strong></span>
+                            </div>
+
+                            <div className="details-info-row">
+                                <span className="details-icon">💰</span>
+                                <span className="details-text">Starting Cash: <strong className="highlight-text">{selectedMode.startingCash}M</strong></span>
+                            </div>
+
+                            <div className="details-info-row">
+                                <span className="details-icon">⏱️</span>
+                                <span className="details-text">
+                                    Turn Timer: <strong className="highlight-text">
+                                        {selectedMode.turnTimer === undefined ||
+                                        (typeof selectedMode.turnTimer === "number" && selectedMode.turnTimer === 0)
+                                            ? "NO TIMER"
+                                            : JSON.stringify(selectedMode.turnTimer) + " SEC"}
+                                    </strong>
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Large Primary Action Button */}
+                        <div className="action-button-container">
+                            {server === undefined ? (
+                                <button className="primary-action-btn lobby-client-status" disabled={true}>
+                                    Waiting for Host to Start...
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        socket.emit("ready", { ready: !imReady });
+                                        SetReady(!imReady);
+                                    }}
+                                    className={`primary-action-btn ${imReady ? 'host-ready-active' : ''}`}
+                                >
+                                    {imReady ? "Toggle Unready" : "Toggle Ready (Host)"}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <p id="floating-clock"></p>
         </div>
+        </>
     )}
 
     {reconnectAttempt !== null && (

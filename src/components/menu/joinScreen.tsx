@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, botInitial, randomName } from "../../assets/types";
-import BotsList from "./botsList";
-import Slider from "../utils/slider";
+import { User, botInitial } from "../../assets/types";
 
 export default function JoinScreen(props: {
     joinViaCode: () => void;
@@ -14,14 +12,7 @@ export default function JoinScreen(props: {
     SetAddress: React.Dispatch<React.SetStateAction<string>>;
     SetName: React.Dispatch<React.SetStateAction<string>>;
 }) {
-    const [tabIndex, SetTab] = useState(0);
-    const [botsList, SetBotList] = useState<Array<botInitial>>([
-        {
-            name: randomName(),
-            diff: "Regular",
-        },
-    ]);
-    const [maxPlayers, setMaxPlayers] = useState(6);
+    const [maxPlayers, setMaxPlayers] = useState(4);
     const [activeRooms, setActiveRooms] = useState<any[]>([]);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -39,274 +30,35 @@ export default function JoinScreen(props: {
     };
 
     useEffect(() => {
-        if (tabIndex === 0) {
-            fetchRooms();
-        }
-    }, [tabIndex]);
+        fetchRooms();
+    }, []);
 
     return (
-        <>
-            <nav className="join">
-                <button
-                    data-tooltip-hover={"online"}
-                    data-select={tabIndex === 0}
-                    onClick={() => {
-                        SetTab(0);
-                    }}
-                >
-                    <img src="online.png" alt="" />
-                </button>
-                <button
-                    data-tooltip-hover={"computer"}
-                    data-select={tabIndex === 1}
-                    onClick={() => {
-                        SetTab(1);
-                    }}
-                >
-                    <img src="bot.png" alt="" />
-                </button>
-            </nav>
-            <br></br>
-
-            {tabIndex === 1 ? (
-                <>
-                    <div key={"bots-name"}>
-                        <p>please enter your name:</p>
-                        {props.fbUser === undefined ? (
-                            <input
-                                type="text"
-                                id="name"
-                                onChange={(e) => {
-                                    props.SetName(e.currentTarget.value);
-                                }}
-                                defaultValue={props.name}
-                                placeholder="enter name"
-                            />
-                        ) : (
-                            <input type="text" id="name" disabled={true} value={props.fbUser.name} placeholder="enter name" />
-                        )}
-                    </div>
-                    <p>bots settings:</p>
-                    <BotsList
-                        OnChange={(arr: botInitial[]) => {
-                            SetBotList(arr);
-                        }}
-                    />
-
-                    <center>
-                        <button
-                            onClick={() => {
-                                props.joinBots(botsList);
-                            }}
-                            disabled={props.disabled}
-                        >
-                            start
-                        </button>
-                    </center>
-                </>
-            ) : (
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    gap: '24px',
-                    justifyContent: 'space-between',
-                    minWidth: '700px',
-                    maxWidth: '850px',
-                    color: 'white',
-                    fontFamily: 'system-ui, sans-serif',
-                    marginTop: '5px'
-                }}>
-                    {/* Left: Configuration Form */}
-                    <div style={{ flex: '1', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div key={"online-name"} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <p style={{ margin: 0, opacity: 0.8, fontSize: '13px', textAlign: 'left' }}>Your Name:</p>
-                            {props.fbUser === undefined ? (
-                                <input
-                                    type="text"
-                                    id="name"
-                                    onChange={(e) => {
-                                        props.SetName(e.currentTarget.value);
-                                    }}
-                                    defaultValue={props.name}
-                                    placeholder="Enter username"
-                                    style={{
-                                        padding: '8px 12px',
-                                        borderRadius: '6px',
-                                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                        color: 'white',
-                                        fontSize: '14px',
-                                        width: '100%',
-                                        boxSizing: 'border-box',
-                                        marginBottom: '5px'
-                                    }}
-                                />
-                            ) : (
-                                <input 
-                                    type="text" 
-                                    id="name" 
-                                    disabled={true} 
-                                    value={props.fbUser.name} 
-                                    placeholder="Enter username"
-                                    style={{
-                                        padding: '8px 12px',
-                                        borderRadius: '6px',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                                        color: '#888',
-                                        fontSize: '14px',
-                                        width: '100%',
-                                        boxSizing: 'border-box',
-                                        marginBottom: '5px'
-                                    }}
-                                />
-                            )}
-                        </div>
-
-                        {/* Create Lobby Card */}
-                        <div style={{
-                            padding: '12px 16px',
-                            background: 'rgba(255, 255, 255, 0.03)',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                            borderRadius: '10px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px'
-                        }}>
-                            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#0075ff', textAlign: 'left' }}>Create New Lobby</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.8, fontSize: '12px' }}>
-                                    <span>Max Players:</span>
-                                    <span>{maxPlayers}</span>
-                                </div>
-                                <Slider
-                                    onChange={(e) => {
-                                        setMaxPlayers(parseInt(e.currentTarget.value));
-                                    }}
-                                    max={6}
-                                    min={2}
-                                    defaultValue={maxPlayers}
-                                    step={1}
-                                />
+        <div className="join-screen-container">
+            <div className="two-column-layout">
+                {/* LEFT COLUMN: Lobbies list */}
+                <div className="left-column">
+                    <div className="lobbies-board-card">
+                        <div className="board-header">
+                            <div style={{ textAlign: "left" }}>
+                                <h3 className="section-title">Active Public Rooms</h3>
+                                <p className="section-subtitle">Join an ongoing public lobby or quickly connect with friends.</p>
                             </div>
-                            <button
-                                onClick={() => props.createRoom(maxPlayers)}
-                                disabled={props.disabled}
-                                style={{
-                                    padding: '8px',
-                                    fontSize: '14px',
-                                    borderRadius: '6px',
-                                    backgroundColor: '#0075ff',
-                                    border: 'none',
-                                    color: 'white',
-                                    fontWeight: '600',
-                                    cursor: props.disabled ? 'wait' : 'pointer',
-                                    transition: 'background-color 0.2s',
-                                    width: '100%',
-                                    marginTop: '2px'
-                                }}
-                            >
-                                Create & Host Game
-                            </button>
-                        </div>
-
-                        {/* Join with Code Card */}
-                        <div style={{
-                            padding: '12px 16px',
-                            background: 'rgba(255, 255, 255, 0.03)',
-                            border: '1px solid rgba(255, 255, 255, 0.08)',
-                            borderRadius: '10px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px'
-                        }}>
-                            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: '#50c878', textAlign: 'left' }}>Join Lobby with Code</h4>
-                            <input
-                                type="text"
-                                id="room-code"
-                                onChange={(e) => props.SetAddress(e.currentTarget.value.toUpperCase())}
-                                value={props.addr}
-                                placeholder="ENTER 6-CHAR CODE"
-                                style={{
-                                    padding: '8px',
-                                    borderRadius: '6px',
-                                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                    color: 'white',
-                                    fontSize: '14px',
-                                    width: '100%',
-                                    boxSizing: 'border-box',
-                                    textAlign: 'center',
-                                    fontFamily: 'consolas, monospace',
-                                    letterSpacing: '2px',
-                                    marginBottom: '5px'
-                                }}
-                            />
-                            <button
-                                onClick={props.joinViaCode}
-                                disabled={props.disabled}
-                                style={{
-                                    padding: '8px',
-                                    fontSize: '14px',
-                                    borderRadius: '6px',
-                                    backgroundColor: '#50c878',
-                                    border: 'none',
-                                    color: 'white',
-                                    fontWeight: '600',
-                                    cursor: props.disabled ? 'wait' : 'pointer',
-                                    transition: 'background-color 0.2s',
-                                    width: '100%'
-                                }}
-                            >
-                                Join Room
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Right: Active Public Lobbies Panel */}
-                    <div style={{
-                        flex: '1.2',
-                        background: 'rgba(255, 255, 255, 0.02)',
-                        border: '1px solid rgba(255, 255, 255, 0.06)',
-                        borderRadius: '14px',
-                        padding: '16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '10px',
-                        maxHeight: '345px',
-                        overflowY: 'auto',
-                        boxSizing: 'border-box'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>Active Public Rooms</h4>
                             <button 
                                 onClick={fetchRooms}
                                 disabled={isRefreshing}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#0075ff',
-                                    cursor: 'pointer',
-                                    fontSize: '12px',
-                                    padding: '3px',
-                                    opacity: isRefreshing ? 0.5 : 1
-                                }}
+                                className="refresh-btn"
                             >
-                                {isRefreshing ? "Refreshing..." : "Refresh ↻"}
+                                {isRefreshing ? "Refreshing..." : "Refresh Lobbies ↻"}
                             </button>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div className="lobbies-scroll-list">
                             {activeRooms.length === 0 ? (
-                                <div style={{ 
-                                    padding: '24px 10px', 
-                                    textAlign: 'center', 
-                                    opacity: 0.5, 
-                                    fontSize: '12px',
-                                    border: '1px dashed rgba(255,255,255,0.1)',
-                                    borderRadius: '6px'
-                                }}>
-                                    No public lobbies available.<br/>Host a new room!
+                                <div className="no-lobbies-fallback">
+                                    <div className="fallback-icon">📡</div>
+                                    <p>No active public lobbies found.</p>
+                                    <span>Be the first to host a multiplayer room!</span>
                                 </div>
                             ) : (
                                 activeRooms.map((room) => {
@@ -322,61 +74,20 @@ export default function JoinScreen(props: {
                                                     }, 100);
                                                 }
                                             }}
-                                            style={{
-                                                padding: '10px 12px',
-                                                borderRadius: '8px',
-                                                background: isJoinable ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.01)',
-                                                border: '1px solid rgba(255, 255, 255, 0.06)',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                cursor: isJoinable ? 'pointer' : 'not-allowed',
-                                                transition: 'transform 0.2s, background-color 0.2s',
-                                                transform: isJoinable ? 'scale(1)' : 'none',
-                                                opacity: isJoinable ? 1 : 0.6
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (isJoinable) {
-                                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
-                                                    e.currentTarget.style.transform = 'scale(1.01)';
-                                                }
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                if (isJoinable) {
-                                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-                                                    e.currentTarget.style.transform = 'scale(1)';
-                                                }
-                                            }}
+                                            className={`lobby-row-item ${isJoinable ? 'joinable' : 'full'}`}
                                         >
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <span style={{ fontSize: '13px', fontWeight: 'bold', fontFamily: 'consolas, monospace', letterSpacing: '1px' }}>
-                                                        {room.code}
-                                                    </span>
-                                                    <span style={{ 
-                                                        fontSize: '9px', 
-                                                        padding: '1px 4px', 
-                                                        borderRadius: '3px',
-                                                        backgroundColor: room.gameStarted ? 'rgba(255, 193, 7, 0.15)' : 'rgba(76, 175, 80, 0.15)',
-                                                        color: room.gameStarted ? '#ffc107' : '#4caf50'
-                                                    }}>
-                                                        {room.gameStarted ? "In-Game" : "Lobby"}
-                                                    </span>
-                                                </div>
-                                                <span style={{ fontSize: '11px', opacity: 0.6 }}>
-                                                    Host: 👑 {room.hostName}
+                                            <div className="lobby-row-left">
+                                                <span className="room-code-tag">{room.code}</span>
+                                                <span className={`room-status-badge ${room.gameStarted ? 'in-game' : 'waiting'}`}>
+                                                    {room.gameStarted ? "In-Game" : "Lobby"}
                                                 </span>
                                             </div>
-
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                                <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                                                    👥 {room.clientsCount}/{room.maxPlayers}
-                                                </span>
-                                                {isJoinable && (
-                                                    <span style={{ fontSize: '10px', color: '#0075ff', fontWeight: '600' }}>
-                                                        Join →
-                                                    </span>
-                                                )}
+                                            <div className="lobby-row-middle">
+                                                <span className="host-name-label">👑 {room.hostName}</span>
+                                            </div>
+                                            <div className="lobby-row-right">
+                                                <span className="player-count-label">👥 {room.clientsCount}/{room.maxPlayers}</span>
+                                                {isJoinable && <span className="join-arrow-btn">Join →</span>}
                                             </div>
                                         </div>
                                     );
@@ -384,8 +95,72 @@ export default function JoinScreen(props: {
                             )}
                         </div>
                     </div>
+
+                    {/* BOTTOM BAR: Join Game Only */}
+                    <div className="search-bar-horizontal" style={{ gridTemplateColumns: '1.8fr 1fr' }}>
+                        <div className="search-pill-input code-pill" style={{ width: '100%' }}>
+                            <input
+                                type="text"
+                                id="room-code"
+                                onChange={(e) => props.SetAddress(e.currentTarget.value.toUpperCase())}
+                                value={props.addr}
+                                placeholder="Enter Lobby Code"
+                                maxLength={8}
+                                className="pill-text-field"
+                                style={{ width: '100%' }}
+                            />
+                            <span className="pill-icon">📍</span>
+                        </div>
+                        <button
+                            onClick={props.joinViaCode}
+                            disabled={props.disabled || !props.addr || !props.name}
+                            className="primary-action-btn"
+                            style={{ height: '40px', padding: '0 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            ⚡ Join Lobby
+                        </button>
+                    </div>
                 </div>
-            )}
-        </>
+
+                {/* RIGHT COLUMN: Host New Game Card */}
+                <div className="right-column">
+                    <div className="profile-details-card">
+                        <div className="card-header-bar">
+                            <h3 className="card-title">Host New Game</h3>
+                        </div>
+
+                        {/* Max Players Selection (Moved from bottom left) */}
+                        <div className="input-group-bordered">
+                            <label className="input-label">MAX PLAYERS LIMIT</label>
+                            <div className="select-container" style={{ width: '100%' }}>
+                                <select
+                                    value={maxPlayers}
+                                    onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
+                                    className="premium-select"
+                                    style={{ width: '100%', height: '40px', fontSize: '14px' }}
+                                >
+                                    <option value={2}>2 Players Max</option>
+                                    <option value={3}>3 Players Max</option>
+                                    <option value={4}>4 Players Max</option>
+                                    <option value={5}>5 Players Max</option>
+                                    <option value={6}>6 Players Max</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Big Premium Action Button (Moved from bottom left) */}
+                        <div className="action-button-container">
+                            <button
+                                onClick={() => props.createRoom(maxPlayers)}
+                                disabled={props.disabled || !props.name}
+                                className="primary-action-btn"
+                            >
+                                {props.name.trim() ? "Host & Play Game" : "Enter Name in Header"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }

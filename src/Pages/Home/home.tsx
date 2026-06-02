@@ -203,13 +203,21 @@ export default function Home() {
 
         const storedRoom = sessionStorage.getItem("current_room");
         const storedName = sessionStorage.getItem("current_name");
+        if (storedName) {
+            SetName(storedName);
+        }
         if (storedRoom && storedName) {
             SetAddress(storedRoom);
-            SetName(storedName);
             joinButtonClicked(storedRoom, storedName);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (name) {
+            sessionStorage.setItem("current_name", name);
+        }
+    }, [name]);
 
     async function createRoomAndJoin(playersCount: number) {
         try {
@@ -330,160 +338,53 @@ export default function Home() {
         <>
             <NotifyElement ref={notifyRef} />
             <div className="entry">
-                <nav>
-                    <button
-                        data-select={tabIndex === 0}
-                        onClick={() => {
-                            SetTab(0);
-                        }}
-                        data-tooltip-hover="play"
-                    >
-                        <img src="./icon.png" alt="" />
-                    </button>
-                    <button
-                        data-select={tabIndex === 2}
-                        onClick={() => {
-                            SetTab(2);
-                        }}
-                        disabled={true}
-                        data-tooltip-hover="account"
-                    >
-                        <img src="./human.png" alt="" />
-                    </button>
-                    <br />
-                    <button
-                        data-select={tabIndex === 3}
-                        onClick={() => {
-                            SetTab(3);
-                        }}
-                        data-tooltip-hover="credits"
-                    >
-                        <img src="./credits.png" alt="" />
-                    </button>
-                    <button
-                        data-select={tabIndex === 4}
-                        onClick={() => {
-                            SetTab(4);
-                        }}
-                        data-tooltip-hover="monopolySettings"
-                    >
-                        <img src="./settings.png" alt="" />
-                    </button>
-                </nav>
-                <main>
+                <header className="entry-header">
+                    <div className="logo-group" onClick={() => { document.location.href = "/"; }} style={{ cursor: "pointer" }}>
+                        <div className="logo-square">
+                            <img src="./icon.png" alt="" className="logo-icon" />
+                        </div>
+                        <span className="logo-title">MONOPOLY</span>
+                    </div>
+                    <nav className="entry-nav">
+                        <button
+                            data-select={tabIndex === 0}
+                            onClick={() => SetTab(0)}
+                            className="nav-item"
+                        >
+                            Play Game
+                        </button>
+                        <button
+                            data-select={tabIndex === 4}
+                            onClick={() => SetTab(4)}
+                            className="nav-item"
+                        >
+                            Settings
+                        </button>
+                    </nav>
+                    <div className="user-profile">
+                        <div className="profile-avatar">
+                            {name ? name.charAt(0).toUpperCase() : 'G'}
+                        </div>
+                        <div className="profile-info">
+                            <input
+                                type="text"
+                                className="header-name-input"
+                                value={name}
+                                onChange={(e) => SetName(e.target.value)}
+                                placeholder="Enter Username..."
+                                maxLength={16}
+                                title="Click to edit your name"
+                            />
+                            <span className="profile-handle">@{name ? name.toLowerCase().replace(/\s+/g, '') : "guest"}</span>
+                        </div>
+                    </div>
+                </header>
+                <main className="entry-main">
                     {tabIndex === 4 ? (
                         <SettingsNav />
-                    ) : tabIndex === 3 ? (
+                    ) : (
                         <>
-                            <p>This Project was made by Itay Layzerovich</p>
-                            <div style={{ color: "white" }}>
-                                <p> As the developer of this Monopoly game project, it is essential to clarify the following legal aspects: </p>
-                                <ol>
-                                    <li>
-                                        <i>Game Mechanics and Rules:</i> The game mechanics and rules of Monopoly have been widely known and played
-                                        for many years. This project aims to offer a digital rendition of the classic Monopoly experience, utilizing
-                                        original concepts that have become common knowledge.
-                                    </li>
-                                    <li>
-                                        {" "}
-                                        <i>Original Monopoly Intellectual Property:</i>
-                                        The Monopoly board game is a registered trademark and copyrighted property of Hasbro Inc. and its respective
-                                        licensors. This project is not an official representation or product of Hasbro Inc., and no direct affiliation
-                                        or endorsement is implied.
-                                    </li>
-                                    <li>
-                                        <i>License and Usage:</i> This Monopoly game project is developed with the intent of being an educational and
-                                        personal project. It is offered as a free-to-use, open-source initiative for learning purposes, and no
-                                        commercial use or distribution is intended.
-                                    </li>
-                                    <li>
-                                        <i>Fair Use and Transformative Work:</i>
-                                        This project may fall under the category of "fair use" as it is a transformative work that provides a unique
-                                        digital experience based on the original Monopoly game. It is not intended to compete with or harm the
-                                        commercial interests of the original trademark owner.
-                                    </li>
-                                    <li>
-                                        <i>No Warranty or Liability:</i> While efforts have been made to create an enjoyable and bug-free experience,
-                                        this project is provided as-is without any warranty. The developer shall not be liable for any issues or
-                                        damages arising from the use of this software.
-                                    </li>
-                                    <li>
-                                        <i>Attribution:</i> This project may include third-party libraries or assets that are appropriately credited
-                                        and licensed under their respective terms. Any attributions and licenses should be preserved as required by
-                                        the respective authors.
-                                    </li>
-                                    <li>
-                                        <i>Personal Responsibility:</i> As the developer, you are responsible for complying with all applicable laws,
-                                        including intellectual property laws, and ensuring that your usage of this project is within legal boundaries.
-                                    </li>
-                                </ol>
-                            </div>
-                        </>
-                    ) : // tabIndex === 2 ? (
-                    //     <>
-                    //         <header>
-                    //             <p style={{ fontSize: 13, marginBottom: 0 }}>Account</p>
-                    //             <div className="loginPageHeader">
-                    //                 <h3>Login</h3>
-                    //                 <div className="scoreboardIcon">
-                    //                     <img
-                    //                         onClick={() => {
-                    //                             document.location.href = "/Monopoly/users";
-                    //                         }}
-                    //                         src="scoreboard.png"
-                    //                     />
-                    //                 </div>
-                    //             </div>
-                    //         </header>
-                    //         <LoginScreen
-                    //             admin={undefined}
-                    //             currentUser={fbUser}
-                    //             onLogout={() => {
-                    //                 SetRemember(false);
-                    //                 SetFbUser(undefined);
-                    //                 SetName("");
-                    //             }}
-                    //             onLogin={(v, b) => {
-                    //                 SetTab(0);
-                    //                 SetRemember(b);
-                    //                 SetFbUser(v);
-                    //                 SetName(v.name);
-                    //                 if (!b) return;
-                    //                 try {
-                    //                     var cookie = JSON.parse(document.cookie) as MonopolyCookie;
-                    //                     cookie.login = {
-                    //                         remember: true,
-                    //                         id: v.id,
-                    //                     };
-                    //                     document.cookie = JSON.stringify(cookie as MonopolyCookie);
-                    //                 } catch {
-                    //                     var cookie = {
-                    //                         login: {
-                    //                             remember: true,
-                    //                             id: v.id,
-                    //                         },
-                    //                     } as MonopolyCookie;
-                    //                     document.cookie = JSON.stringify(cookie as MonopolyCookie);
-                    //                 }
-                    //             }}
-                    //         />
-                    //     </>
-                    // ) :
-                    (
-                        <>
-                            <header>
-                                Welcome to the <h3>MONOPOLY</h3>{" "}
-                                <p
-                                    style={{ fontSize: 9, cursor: "pointer", opacity: 0.8, width: "fit-content" }}
-                                    onClick={() => {
-                                        document.location.href = "/";
-                                    }}
-                                >
-                                    @itaylayzer - 10.12.23
-                                </p>{" "}
-                                Game
-                            </header>
-                             <JoinScreen
+                            <JoinScreen
                                 disabled={disabled}
                                 fbUser={fbUser}
                                 joinBots={(x) => {
@@ -500,17 +401,14 @@ export default function Home() {
                                 addr={addr}
                                 name={name}
                             />
-                            <center>
+                            <div className="reset-session-container">
                                 <button
-                                    style={{
-                                        backgroundColor: "#444",
-                                        marginTop: 10,
-                                    }}
+                                    className="btn-secondary btn-reset"
                                     onClick={resetSavedGameSession}
                                 >
-                                    Reset saved game session
+                                    Reset Saved Game Session
                                 </button>
-                            </center>
+                            </div>
                         </>
                     )}
                 </main>
