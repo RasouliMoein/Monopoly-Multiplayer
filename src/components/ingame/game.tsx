@@ -90,6 +90,28 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         };
     });
     const [timer, SetTimer] = useState<number>(0);
+
+    const handleRoll = () => {
+        SetSended(true);
+        prop.socket.emit("roll_dice");
+        SetTimer(0);
+
+        const localPlayer = prop.players.find((v) => v.id === prop.socket.id);
+        if (localPlayer && localPlayer.isInJail) {
+            const payElement = document.querySelector(`button[data-button-type="pay"]`) as HTMLButtonElement;
+            const cardElement = document.querySelector(`button[data-button-type="card"]`) as HTMLButtonElement;
+            if (payElement) {
+                payElement.onclick = null;
+                payElement.setAttribute("aria-disabled", "true");
+                payElement.style.translate = "0px 0px";
+            }
+            if (cardElement) {
+                cardElement.onclick = null;
+                cardElement.setAttribute("aria-disabled", "true");
+            }
+        }
+    };
+
     useEffect(() => {
         const settings_interval = setInterval(() => {
             try {
@@ -457,15 +479,9 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         showJailsButtons: (is_card: boolean) => {
             const payElement = document.querySelector(`button[data-button-type="pay"]`) as HTMLButtonElement;
             const cardElement = document.querySelector(`button[data-button-type="card"]`) as HTMLButtonElement;
-            const rollElement = document.querySelector(`button[data-button-type="roll"]`) as HTMLButtonElement;
+
 
             function returnToNormal() {
-                rollElement.onclick = () => {
-                    SetSended(true);
-                    prop.socket.emit("roll_dice");
-                    console.warn("roll after return to normal");
-                    SetTimer(0);
-                };
                 SetTimer(0);
                 SetSended(true);
                 cardElement.onclick = () => {};
@@ -505,13 +521,6 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                     returnToNormal();
                 };
             }
-            rollElement.onclick = () => {
-                prop.socket.emit("roll_dice");
-                console.warn("roll when in jail");
-                returnToNormal();
-                SetSended(true);
-                SetTimer(0);
-            };
         },
     }));
 
@@ -721,16 +730,6 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
             continue_to_animate = false;
         };
     }, [prop.players, rotation]);
-
-    useEffect(() => {
-        const rollElement = document.querySelector(`button[data-button-type="roll"]`) as HTMLButtonElement;
-        rollElement.onclick = () => {
-            SetSended(true);
-            prop.socket.emit("roll_dice");
-            console.warn("first roll");
-            SetTimer(0);
-        };
-    }, []);
 
     useEffect(() => {
         if (prop.myTurn && !sended) {
@@ -1479,7 +1478,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 DECLARE BANKRUPTCY 💀
                             </button>
                         ) : (
-                            <button data-button-type="roll" aria-disabled={false}>
+                            <button data-button-type="roll" aria-disabled={false} onClick={handleRoll}>
                                 <p>ROLL THE DICE</p>
                                 <span style={{ marginLeft: 8, fontSize: 18 }}>🎲</span>
                             </button>

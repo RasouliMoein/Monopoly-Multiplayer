@@ -424,71 +424,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 SetClients(new Map(clients.set(args.from, x)));
             }
 
-            if (args.pJson.balance < 0) {
-                if (args.pJson.id !== socket.id) {
-                    if (clients.size > 2) {
-                        const name = args.pJson.username;
-                        notifyRef.current?.message(`${name} lost`, "info");
-                    } else {
-                        if (clients.has(socket.id)) {
-                            mainTheme.pause();
-                            notifyRef.current?.dialog(
-                                (close_func, createButton) => ({
-                                    innerHTML: `<h3> YOU WON! </h3> <p> your the only left player with the balance of ${
-                                        clients.get(socket.id)?.balance ?? 0
-                                    } </p>`,
-                                    buttons: [
-                                        createButton("LEAVE GAME", () => {
-                                            close_func();
-                                            leaveGameSession();
-                                        }),
-                                    ],
-                                }),
-                                "winning"
-                            );
-                        } else {
-                            const xclient = Array.from(clients.values()).filter((v) => v.id !== args.pJson.id)[0];
-                            const name = xclient.username ?? 0;
-                            mainTheme.pause();
-                            notifyRef.current?.dialog(
-                                (close_func, createButton) => ({
-                                    innerHTML: `<h3> ${name} WON! </h3> <p> ${name} won with the balance of ${
-                                        clients.get(socket.id)?.balance ?? 0
-                                    } </p>`,
-                                    buttons: [
-                                        createButton("LEAVE GAME", () => {
-                                            close_func();
-                                            leaveGameSession();
-                                        }),
-                                    ],
-                                }),
-                                "winning"
-                            );
-                        }
-                    }
-                } else {
-                    mainTheme.pause();
-                    notifyRef.current?.dialog(
-                        (close_func, createButton) => ({
-                            innerHTML: `<h3> YOU LOST! </h3> <p> you lost your money and lost the monopol with a wanted balance of ${-(
-                                clients.get(socket.id)?.balance ?? 0
-                            )} </p>`,
-                            buttons: [
-                                createButton("CONTINUE WATCHING", () => {
-                                    close_func();
-                                }),
-                                createButton("LEAVE GAME", () => {
-                                    close_func();
-                                    leaveGameSession();
-                                }),
-                            ],
-                        }),
-                        "loosing"
-                    );
-                }
 
-                destroyPlayer(args.pJson.id);
-            }
             if (args.WinningMode === "monopols" || args.WinningMode === "monopols & trains") {
                 function removeDuplicates(originalList: Array<any>) {
                     // Create an empty array to store unique values
