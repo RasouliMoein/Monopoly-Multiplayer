@@ -24,6 +24,7 @@ class Player {
     jailTurnsRemaining;
     getoutCards;
     connected;
+    isBankrupt; // Phase 2A
     constructor(_id, _name, _icon, cash) {
         this.id = _id;
         this.username = _name;
@@ -35,6 +36,7 @@ class Player {
         this.jailTurnsRemaining = 0;
         this.getoutCards = 0;
         this.connected = true;
+        this.isBankrupt = false; // Phase 2A
     }
     to_json() {
         return {
@@ -48,6 +50,7 @@ class Player {
             jailTurnsRemaining: this.jailTurnsRemaining,
             getoutCards: this.getoutCards,
             connected: this.connected,
+            isBankrupt: this.isBankrupt, // Phase 2A
         };
     }
     from_json(json) {
@@ -60,6 +63,7 @@ class Player {
         this.jailTurnsRemaining = json.jailTurnsRemaining;
         this.getoutCards = json.getoutCards;
         this.connected = json.connected ?? true;
+        this.isBankrupt = json.isBankrupt ?? false; // Phase 2A
     }
 }
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -71,6 +75,9 @@ async function main(playersCount, f) {
     let gameStarted = false;
     let selectedMode = types_1.MonopolyModes[0];
     let hostId = "";
+    // Phase 2A — tracking maps
+    const consecutiveDoublesMap = new Map(); // playerId → doubles streak
+    const creditorMap = new Map(); // playerId → who they owe
     function getCurrentTime() {
         const now = new Date();
         return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -137,15 +144,27 @@ async function main(playersCount, f) {
                 let amt = 0;
                 if (prop.group === "Utilities") {
                     const cnt = player.properties.filter((p) => p.group === "Utilities").length;
-                    amt = rolls * (cnt === 2 ? 10 : 4) * multiplier;
+                    // Fix #3: when multiplier === 10 ("advance to nearest utility" Chance card),
+                    // rent must be exactly 10 × dice. Normal landing uses 4× (1 utility) or 10× (2 utilities).
+                    const baseRate = multiplier === 10 ? 1 : (cnt === 2 ? 10 : 4);
+                    amt = rolls * baseRate * multiplier;
                 }
                 else if (prop.group === "Railroad") {
-                    const cnt = player.properties
-                        .filter((p) => p.group === "Railroad" && p.morgage !== true).length;
+                    // Fix #2: count ALL owned railroads, not just unmortgaged ones.
+                    // The mortgaged-railroad early-return above already handles the case
+                    // where the landed railroad itself is mortgaged (returns amount=0).
+                    const cnt = player.properties.filter((p) => p.group === "Railroad").length;
                     amt = ([0, 25, 50, 100, 200][cnt] ?? 0) * multiplier;
                 }
                 else if (prp.count === 0) {
-                    amt = (prop.rent ?? 0) * multiplier;
+                    // Fix #4: double rent when owner holds the full unimproved color group (monopoly).
+                    const groupProps = monopoly_json_1.default.properties.filter((p) => p.group === prop.group);
+                    const ownedGroup = player.properties.filter((p) => p.group === prop.group);
+                    const hasMonopoly = groupProps.length > 0 && ownedGroup.length === groupProps.length;
+                    // Only apply double when ALL properties in the set are unimproved.
+                    // If any have been built on, that property uses its own rent tier instead.
+                    const allUnimproved = ownedGroup.every((p) => p.count === 0);
+                    amt = (prop.rent ?? 0) * (hasMonopoly && allUnimproved ? 2 : 1) * multiplier;
                 }
                 else if (typeof prp.count === "number" && prp.count > 0) {
                     amt = ((prop.multpliedrent ?? [])[prp.count - 1] ?? 0) * multiplier;
@@ -389,6 +408,12 @@ async function main(playersCount, f) {
                     try {
                         if (currentId !== socket.id)
                             return;
+                        // Guard: bankrupt players cannot roll
+                        if (player.isBankrupt)
+                            return;
+                        // Guard: insolvent players must declare bankruptcy before rolling again
+                        if (player.balance < 0)
+                            return;
                         const d1 = Math.floor(Math.random() * 6) + 1;
                         const d2 = Math.floor(Math.random() * 6) + 1;
                         const sum = d1 + d2;
@@ -396,28 +421,75 @@ async function main(playersCount, f) {
                         logs_strings.push(logStr);
                         server.logFunction(logStr);
                         // ── In Jail branch ──
+                        let forcedJailPayment = 0; // Fix #6: tracks forced $50 on 3rd jail attempt
                         if (player.isInJail) {
                             const doubles = d1 === d2;
                             if (!doubles) {
                                 player.jailTurnsRemaining = Math.max(0, player.jailTurnsRemaining - 1);
-                                emitServerHistory(`${player.username} failed doubles roll and stayed in Jail`);
-                                EmitAll("dice_roll_result", {
-                                    listOfNums: [d1, d2, player.position],
-                                    turnId: currentId,
-                                    passedGo: false, goPayment: 0,
-                                    goingToJail: false, jailStayed: true, jailEscape: false,
-                                    rolledPosition: player.position, finalPosition: player.position,
-                                    requiresPurchaseDecision: false, pendingCard: null, landingNote: "",
-                                });
-                                EmitStateUpdate();
-                                return;
+                                // Fix #6: On the 3rd failed attempt (jailTurnsRemaining hits 0),
+                                // classic rules require the player to pay $50 and move that roll.
+                                // We fall through to normal roll processing instead of returning.
+                                if (player.jailTurnsRemaining === 0) {
+                                    player.balance -= 50;
+                                    forcedJailPayment = 50;
+                                    player.isInJail = false;
+                                    emitServerHistory(`${player.username} paid $50 (forced) and was released from Jail after 3 failed attempts`);
+                                    // DO NOT return — fall through to normal movement below
+                                }
+                                else {
+                                    emitServerHistory(`${player.username} failed doubles roll and stayed in Jail`);
+                                    EmitAll("dice_roll_result", {
+                                        listOfNums: [d1, d2, player.position],
+                                        turnId: currentId,
+                                        passedGo: false, goPayment: 0,
+                                        goingToJail: false, jailStayed: true, jailEscape: false,
+                                        rolledPosition: player.position, finalPosition: player.position,
+                                        requiresPurchaseDecision: false, pendingCard: null, landingNote: "",
+                                        forcedJailPayment: 0,
+                                    });
+                                    EmitStateUpdate();
+                                    return;
+                                }
                             }
-                            // Doubles — escape jail, fall through to normal roll
-                            player.isInJail = false;
-                            player.jailTurnsRemaining = 0;
-                            emitServerHistory(`${player.username} rolled doubles [${d1}, ${d2}] and escaped Jail!`);
+                            else {
+                                // Doubles — escape jail, fall through to normal roll
+                                player.isInJail = false;
+                                player.jailTurnsRemaining = 0;
+                                emitServerHistory(`${player.username} rolled doubles [${d1}, ${d2}] and escaped Jail!`);
+                            }
                         }
                         // ── Normal roll ──
+                        const isDoubles = d1 === d2;
+                        // Phase 2D: Track consecutive doubles (jail-escape doubles don't count)
+                        if (!player.isInJail) {
+                            if (isDoubles) {
+                                const streak = (consecutiveDoublesMap.get(socket.id) ?? 0) + 1;
+                                consecutiveDoublesMap.set(socket.id, streak);
+                                if (streak >= 3) {
+                                    // 3rd consecutive double — Go to Jail immediately
+                                    consecutiveDoublesMap.set(socket.id, 0);
+                                    player.position = 10;
+                                    player.isInJail = true;
+                                    player.jailTurnsRemaining = 3;
+                                    emitServerHistory(`${player.username} rolled doubles 3 times in a row and goes to Jail!`);
+                                    EmitAll("dice_roll_result", {
+                                        listOfNums: [d1, d2, 30],
+                                        turnId: currentId,
+                                        passedGo: false, goPayment: 0,
+                                        goingToJail: true, jailStayed: false, jailEscape: false,
+                                        rolledPosition: 30, finalPosition: 10,
+                                        requiresPurchaseDecision: false, pendingCard: null, landingNote: "",
+                                        forcedJailPayment: 0,
+                                        allowRollAgain: false,
+                                    });
+                                    EmitStateUpdate();
+                                    return;
+                                }
+                            }
+                            else {
+                                consecutiveDoublesMap.set(socket.id, 0);
+                            }
+                        }
                         const oldPos = player.position;
                         const rolledPosition = (oldPos + sum) % 40;
                         const passedGo = (oldPos + sum) >= 40;
@@ -471,14 +543,17 @@ async function main(playersCount, f) {
                                 landingNote = landing.landingNote;
                                 if (landingNote.startsWith("incometax")) {
                                     emitServerHistory(`${player.username} paid $200 Income Tax`);
+                                    creditorMap.set(player.id, "bank"); // Phase 2E
                                 }
                                 else if (landingNote.startsWith("luxerytax")) {
                                     emitServerHistory(`${player.username} paid $100 Luxury Tax`);
+                                    creditorMap.set(player.id, "bank"); // Phase 2E
                                 }
                                 else if (landingNote.startsWith("rent:")) {
                                     const [, ownerId, rentAmt] = landingNote.split(":");
                                     const ownerName = Clients.get(ownerId)?.player.username ?? "someone";
                                     emitServerHistory(`${player.username} paid $${rentAmt} rent to ${ownerName}`);
+                                    creditorMap.set(player.id, ownerId); // Phase 2E
                                 }
                             }
                         }
@@ -494,6 +569,9 @@ async function main(playersCount, f) {
                             goingToJail, jailStayed: false, jailEscape: false,
                             rolledPosition, finalPosition,
                             requiresPurchaseDecision, pendingCard, landingNote,
+                            forcedJailPayment,
+                            // Phase 2E: allow re-roll on doubles (unless going to jail)
+                            allowRollAgain: isDoubles && !goingToJail && !player.isInJail,
                         });
                         EmitStateUpdate();
                     }
@@ -572,16 +650,18 @@ async function main(playersCount, f) {
                         server.logFunction(e);
                     }
                 });
-                // ── Legacy chorch_roll — now handled inside roll_dice ─────
-                socket.on("chorch_roll", () => { });
-                // ── Finish Turn ───────────────────────────────────────────
+                // ── Finish Turn ───────────────────────────────────────
                 socket.on("finish-turn", () => {
                     try {
                         if (currentId !== socket.id)
                             return;
+                        // Phase 2C: Reject finish-turn if still insolvent — must declare bankruptcy
                         if (player.balance < 0)
-                            Clients.delete(socket.id);
-                        const active = Array.from(Clients.values()).filter((v) => v.player.balance > 0);
+                            return;
+                        // Phase 2A: Reset doubles streak and creditor on clean turn end
+                        consecutiveDoublesMap.set(socket.id, 0);
+                        creditorMap.set(socket.id, null);
+                        const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
                         const arr = active.map((v) => v.player.id);
                         let i = arr.indexOf(socket.id);
                         i = arr.length > 0 ? (i + 1) % arr.length : -1;
@@ -603,7 +683,92 @@ async function main(playersCount, f) {
                         server.logFunction(e);
                     }
                 });
-                // ── Message ───────────────────────────────────────────────
+                // ── DEBUG: set own balance (for testing bankruptcy flow) ──
+                socket.on("debug_set_balance", (args) => {
+                    try {
+                        player.balance = args.balance ?? -1;
+                        EmitStateUpdate();
+                    }
+                    catch (e) {
+                        server.logFunction(e);
+                    }
+                });
+                // ── DEBUG: set turn to self (for testing bankruptcy flow) ──
+                socket.on("debug_set_turn", () => {
+                    try {
+                        currentId = socket.id;
+                        EmitAll("turn-finished", {
+                            from: socket.id,
+                            turnId: currentId,
+                            pJson: player.to_json(),
+                            WinningMode: selectedMode.WinningMode,
+                        });
+                        EmitStateUpdate();
+                    }
+                    catch (e) {
+                        server.logFunction(e);
+                    }
+                });
+                // ── Declare Bankruptcy ───────────────────────────────
+                // Phase 2B: Full bankruptcy handler — asset transfer + 10% fee
+                socket.on("declare-bankruptcy", () => {
+                    try {
+                        if (player.isBankrupt)
+                            return;
+                        if (player.balance >= 0)
+                            return;
+                        player.isBankrupt = true;
+                        const creditor = creditorMap.get(player.id) ?? "bank";
+                        if (creditor !== "bank") {
+                            const creditorClient = Clients.get(creditor);
+                            if (creditorClient) {
+                                const cp = creditorClient.player;
+                                for (const prp of player.properties) {
+                                    prp.count = 0;
+                                    if (prp.morgage === true) {
+                                        const propData = propertyById.get(prp.posistion?.toString()) ??
+                                            propertyByPosition.get(prp.posistion);
+                                        const fee = Math.round((propData?.price ?? 0) * 0.05);
+                                        cp.balance -= fee;
+                                    }
+                                    cp.properties.push(prp);
+                                }
+                            }
+                        }
+                        else {
+                            for (const prp of player.properties) {
+                                prp.count = 0;
+                                prp.morgage = false;
+                            }
+                        }
+                        player.properties = [];
+                        player.balance = 0;
+                        const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
+                        const arr = active.map((v) => v.player.id);
+                        let i = arr.indexOf(socket.id);
+                        i = arr.length > 0 ? (i + 1) % arr.length : -1;
+                        currentId = i === -1 ? "" : arr[i];
+                        consecutiveDoublesMap.set(socket.id, 0);
+                        creditorMap.set(socket.id, null);
+                        emitServerHistory(`${player.username} declared bankruptcy`);
+                        EmitAll("player-bankrupt", {
+                            bankruptId: player.id,
+                            creditorId: creditor,
+                            turnId: currentId,
+                            pJsons: Array.from(Clients.values()).map((c) => c.player.to_json()),
+                        });
+                        EmitStateUpdate();
+                        if (active.length <= 1) {
+                            gameStarted = false;
+                            for (const c of Array.from(Clients.values()))
+                                c.ready = false;
+                        }
+                    }
+                    catch (e) {
+                        server.logFunction(e);
+                    }
+                });
+                // ── Message ───────────────────────────────────────
                 socket.on("message", (message) => {
                     try {
                         server.logFunction(`{${getCurrentTime()}} [${socket.id}] "${Clients.get(socket.id)?.player.username}" messaged "${message}".`);

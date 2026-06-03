@@ -705,6 +705,29 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         } catch (e) { server.logFunction(e); }
                     });
 
+                    // ── DEBUG: set own balance (for testing bankruptcy flow) ──
+                    socket.on("debug_set_balance", (args: { balance: number }) => {
+                        try {
+                            player.balance = args.balance ?? -1;
+                            EmitStateUpdate();
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    // ── DEBUG: set turn to self (for testing bankruptcy flow) ──
+                    socket.on("debug_set_turn", () => {
+                        try {
+                            currentId = socket.id;
+                            EmitAll("turn-finished", {
+                                from: socket.id,
+                                turnId: currentId,
+                                pJson: player.to_json(),
+                                WinningMode: selectedMode.WinningMode,
+                            });
+                            EmitStateUpdate();
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+
                     // ── Declare Bankruptcy ───────────────────────────────
                     // Phase 2B: Full bankruptcy handler — asset transfer + 10% fee
                     socket.on("declare-bankruptcy", () => {

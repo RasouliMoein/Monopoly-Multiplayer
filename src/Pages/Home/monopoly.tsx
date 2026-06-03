@@ -74,6 +74,37 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const [currentTrade, setTrade] = useState<GameTrading | boolean | undefined>(undefined);
     const leavingRoomRef = useRef<boolean>(false);
 
+    const [debugCollapsed, setDebugCollapsed] = useState<boolean>(false);
+    const isDebugMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
+
+    const handleTriggerInsolvency = () => {
+        socket.emit("debug_set_balance", { balance: -1 });
+        socket.emit("debug_set_turn");
+        setHasRolled(true);
+        setAllowRollAgain(false);
+        setIsDebtState(true);
+        notifyRef.current?.message("Bankruptcy test triggered! Check your turn options.", "info", 3);
+    };
+
+    const handleTakeTurn = () => {
+        socket.emit("debug_set_turn");
+        notifyRef.current?.message("Forced turn to self!", "info", 2);
+    };
+
+    const handleAdjustBalance = (amount: number) => {
+        const localPlayer = clients.get(socket.id);
+        if (localPlayer) {
+            const newBalance = localPlayer.balance + amount;
+            socket.emit("debug_set_balance", { balance: newBalance });
+            notifyRef.current?.message(`Balance adjusted by ${amount > 0 ? "+" : ""}$${amount}`, "info", 2);
+        }
+    };
+
+    const handleClearBalance = () => {
+        socket.emit("debug_set_balance", { balance: 0 });
+        notifyRef.current?.message("Balance set to $0", "info", 2);
+    };
+
     useEffect(() => {
         if (!gameStartedDisplay) return;
         // Sound Effect
@@ -1287,6 +1318,137 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     <img src="icon.png" alt="" />
                 </footer>
             </div>
+
+            {isDebugMode && (
+                <>
+                    <style>{`
+                        .debug-panel {
+                            position: fixed;
+                            bottom: 20px;
+                            left: 20px;
+                            z-index: 99999;
+                            background: rgba(15, 23, 42, 0.75);
+                            backdrop-filter: blur(12px);
+                            border: 1px solid rgba(255, 255, 255, 0.1);
+                            border-radius: 12px;
+                            padding: 16px;
+                            color: #f8fafc;
+                            font-family: 'Outfit', sans-serif;
+                            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+                            width: 240px;
+                            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        }
+                        .debug-panel.collapsed {
+                            width: 48px;
+                            height: 48px;
+                            padding: 0;
+                            overflow: hidden;
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            cursor: pointer;
+                        }
+                        .debug-panel h4 {
+                            margin: 0 0 12px 0;
+                            font-size: 14px;
+                            font-weight: 600;
+                            letter-spacing: 0.05em;
+                            text-transform: uppercase;
+                            color: #a78bfa;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        }
+                        .debug-close-btn {
+                            background: none;
+                            border: none;
+                            color: #94a3b8;
+                            cursor: pointer;
+                            font-size: 16px;
+                            padding: 4px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            border-radius: 4px;
+                            transition: background 0.2s;
+                        }
+                        .debug-close-btn:hover {
+                            background: rgba(255, 255, 255, 0.05);
+                            color: #f8fafc;
+                        }
+                        .debug-panel-content {
+                            display: flex;
+                            flex-direction: column;
+                            gap: 8px;
+                        }
+                        .debug-btn {
+                            background: rgba(255, 255, 255, 0.05);
+                            border: 1px solid rgba(255, 255, 255, 0.08);
+                            border-radius: 8px;
+                            color: #e2e8f0;
+                            padding: 8px 12px;
+                            font-size: 12px;
+                            font-weight: 500;
+                            text-align: left;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                        }
+                        .debug-btn:hover {
+                            background: rgba(167, 139, 250, 0.15);
+                            border-color: rgba(167, 139, 250, 0.3);
+                            color: #f8fafc;
+                            transform: translateY(-1px);
+                        }
+                        .debug-btn-primary {
+                            background: rgba(167, 139, 250, 0.2);
+                            border-color: rgba(167, 139, 250, 0.4);
+                            color: #ddd6fe;
+                        }
+                        .debug-btn-primary:hover {
+                            background: rgba(167, 139, 250, 0.3);
+                            border-color: rgba(167, 139, 250, 0.5);
+                            color: #ffffff;
+                        }
+                        .debug-toggle-trigger {
+                            font-size: 20px;
+                            line-height: 1;
+                        }
+                    `}</style>
+                    {debugCollapsed ? (
+                        <div className="debug-panel collapsed" onClick={() => setDebugCollapsed(false)} title="Open Debug Panel">
+                            <span className="debug-toggle-trigger">🛠️</span>
+                        </div>
+                    ) : (
+                        <div className="debug-panel">
+                            <h4>
+                                <span>🛠️ Game Debugger</span>
+                                <button className="debug-close-btn" onClick={() => setDebugCollapsed(true)}>×</button>
+                            </h4>
+                            <div className="debug-panel-content">
+                                <button className="debug-btn debug-btn-primary" onClick={handleTriggerInsolvency}>
+                                    💸 Trigger Debt (-$1)
+                                </button>
+                                <button className="debug-btn" onClick={handleTakeTurn}>
+                                    👑 Force My Turn
+                                </button>
+                                <button className="debug-btn" onClick={() => handleAdjustBalance(1000)}>
+                                    💰 Gain $1,000
+                                </button>
+                                <button className="debug-btn" onClick={() => handleAdjustBalance(-500)}>
+                                    📉 Lose $500
+                                </button>
+                                <button className="debug-btn" onClick={handleClearBalance}>
+                                    ⚖️ Set Balance $0
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
         </>
     ) : (
         <>
