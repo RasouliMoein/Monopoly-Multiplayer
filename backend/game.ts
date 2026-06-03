@@ -157,7 +157,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
     /** Broadcast canonical player state to every connected client. */
     function EmitStateUpdate() {
-        EmitAll("state_update", { 
+        EmitAll("state_update", {
             players: Array.from(Clients.values()).map((c) => c.player.to_json()),
             hostId: hostId
         });
@@ -372,7 +372,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         if (currentId === "" || !Array.from(Clients.keys()).includes(currentId)) currentId = socket.id;
                         client = { player, socket, ready: false, positions: { x: 0, y: 0 }, connected: true };
                         Clients.set(socket.id, client);
-                        
+
                         if (hostId === "") {
                             hostId = socket.id;
                         }
@@ -568,7 +568,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                     };
                                     requiresPurchaseDecision = result.requiresPurchaseDecision;
                                     emitServerHistory(`${player.username} drew ${prop.id === "chance" ? "Chance" : "Community Chest"}: "${card.title}"`);
-                                    
+
                                     // Check if card movement crossed GO
                                     if (player.balance >= balanceBeforeCard + 200 && (card.action === "move" || card.action === "movenearest")) {
                                         emitServerHistory(`${player.username} passed Go and collected $200`);
@@ -709,14 +709,6 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     socket.on("debug_set_balance", (args: { balance: number }) => {
                         try {
                             player.balance = args.balance ?? -1;
-                            // If player goes into debt and has no properties, give them Boardwalk & Park Place
-                            // so they have assets to mortgage or trade instead of losing immediately.
-                            if (player.balance < 0 && player.properties.length === 0) {
-                                player.properties = [
-                                    { posistion: 39, count: 0, group: "Darkblue" },
-                                    { posistion: 37, count: 0, group: "Darkblue" }
-                                ];
-                            }
                             EmitStateUpdate();
                         } catch (e) { server.logFunction(e); }
                     });
@@ -916,7 +908,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         const logMsg = `{${getCurrentTime()}} [${socket.id}] Player "${lc.player.username}" has left the room.`;
                         server.logFunction(logMsg); logs_strings.push(logMsg);
                         Clients.delete(socket.id);
-                        
+
                         if (hostId === socket.id) {
                             const remaining = Array.from(Clients.keys());
                             hostId = remaining.length > 0 ? remaining[0] : "";
@@ -962,12 +954,12 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         wasInGame = gameStarted;
                     }
                     const dc = Clients.get(socket.id);
-                    if (dc) { 
-                        dc.ready = false; 
-                        dc.connected = false; 
+                    if (dc) {
+                        dc.ready = false;
+                        dc.connected = false;
                         dc.player.connected = false;
                     }
-                    
+
                     if (hostId === socket.id && !gameStarted) {
                         const nextHost = Array.from(Clients.values()).find((c) => c.connected && c.player.id !== socket.id);
                         if (nextHost) {

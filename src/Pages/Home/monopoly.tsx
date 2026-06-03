@@ -105,6 +105,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         notifyRef.current?.message("Balance set to $0", "info", 2);
     };
 
+    const [overrideD1, setOverrideD1] = useState<number>(1);
+    const [overrideD2, setOverrideD2] = useState<number>(1);
+
+    const handleSetDice = () => {
+        socket.emit("debug_override_dice", { d1: overrideD1, d2: overrideD2 });
+        notifyRef.current?.message(`Next roll set to [${overrideD1}, ${overrideD2}]`, "info", 2);
+    };
+
     useEffect(() => {
         if (!gameStartedDisplay) return;
         // Sound Effect
@@ -1444,6 +1452,33 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 <button className="debug-btn" onClick={handleClearBalance}>
                                     ⚖️ Set Balance $0
                                 </button>
+                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "8px", paddingTop: "8px" }}>
+                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "6px", fontWeight: "600", textTransform: "uppercase" }}>
+                                        Set Next Roll
+                                    </div>
+                                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                        <select 
+                                            value={overrideD1} 
+                                            onChange={(e) => setOverrideD1(Number(e.target.value))}
+                                            style={{ flex: 1, background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px", padding: "4px", fontSize: "12px" }}
+                                        >
+                                            {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}</option>)}
+                                        </select>
+                                        <select 
+                                            value={overrideD2} 
+                                            onChange={(e) => setOverrideD2(Number(e.target.value))}
+                                            style={{ flex: 1, background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px", padding: "4px", fontSize: "12px" }}
+                                        >
+                                            {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}</option>)}
+                                        </select>
+                                        <button 
+                                            onClick={handleSetDice}
+                                            style={{ background: "rgba(167, 139, 250, 0.2)", border: "1px solid rgba(167, 139, 250, 0.4)", borderRadius: "4px", color: "white", padding: "4px 8px", fontSize: "11px", cursor: "pointer", fontWeight: "600" }}
+                                        >
+                                            Set
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
