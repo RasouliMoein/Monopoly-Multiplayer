@@ -111,6 +111,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
     // Phase 2A — tracking maps
     const consecutiveDoublesMap = new Map<string, number>(); // playerId → doubles streak
     const creditorMap = new Map<string, string | "bank" | null>(); // playerId → who they owe
+    const debugDiceOverrideMap = new Map<string, { d1: number; d2: number }>();
 
     function getCurrentTime() {
         const now = new Date();
@@ -444,8 +445,17 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                             if (player.isBankrupt) return;
                             // Guard: insolvent players must declare bankruptcy before rolling again
                             if (player.balance < 0) return;
-                            const d1 = Math.floor(Math.random() * 6) + 1;
-                            const d2 = Math.floor(Math.random() * 6) + 1;
+                            let rolledD1 = Math.floor(Math.random() * 6) + 1;
+                            let rolledD2 = Math.floor(Math.random() * 6) + 1;
+                            const override = debugDiceOverrideMap.get(socket.id);
+                            if (override) {
+                                rolledD1 = override.d1;
+                                rolledD2 = override.d2;
+                                debugDiceOverrideMap.delete(socket.id);
+                                server.logFunction(`[DEBUG] Applying dice override for ${player.username}: [${rolledD1}, ${rolledD2}]`);
+                            }
+                            const d1 = rolledD1;
+                            const d2 = rolledD2;
                             const sum = d1 + d2;
                             const logStr = `{${getCurrentTime()}} [${socket.id}] Player "${player.username}" rolled a [${d1},${d2}].`;
                             logs_strings.push(logStr);
@@ -724,6 +734,14 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 WinningMode: selectedMode.WinningMode,
                             });
                             EmitStateUpdate();
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    // ── DEBUG: override dice ──
+                    socket.on("debug_override_dice", (args: { d1: number; d2: number }) => {
+                        try {
+                            debugDiceOverrideMap.set(socket.id, { d1: args.d1, d2: args.d2 });
+                            server.logFunction(`[DEBUG] Set dice override for socket ${socket.id} to [${args.d1}, ${args.d2}]`);
                         } catch (e) { server.logFunction(e); }
                     });
 
