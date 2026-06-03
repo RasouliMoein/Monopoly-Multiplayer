@@ -557,6 +557,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             requiresPurchaseDecision?: boolean;
             pendingCard?: any;
             landingNote?: string;
+            forcedJailPayment?: number; // Fix #6: set to 50 when 3rd jail attempt forces payment
         }) => {
             const xplayer = clients.get(args.turnId) as Player;
             const wasInJail = xplayer?.isInJail;
@@ -700,6 +701,17 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     }
                     return;
                 }
+                // Fix #6: forced jail payment ($50 on 3rd failed attempt)
+                // The server has already applied the charge and set isInJail=false;
+                // just show the player a notification and continue to normal movement.
+                if (args.forcedJailPayment && args.forcedJailPayment > 0 && isActivePlayer) {
+                    if (settings?.notifications === true)
+                        notifyRef.current?.message(
+                            `Paid $${args.forcedJailPayment} (forced) — released from Jail after 3 failed attempts`,
+                            "info", 3, () => {}, false
+                        );
+                    engineRef.current?.applyAnimation(1);
+                }
                 if (args.goingToJail) return; // handled in afterMovementFinished
 
                 if (args.pendingCard) {
@@ -715,19 +727,31 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     setTimeout(() => {
                         // If card triggers a movement, animate it for ALL clients
                         if (args.pendingCard.newPosition !== undefined && args.pendingCard.newPosition !== rolledPosition) {
-                            const cardMoveGen = playerMoveGENERATOR(args.pendingCard.newPosition, xplayer, true, () => {
-                                // After card movement finishes
-                                xplayer.position = args.pendingCard.newPosition;
-                                SetClients(new Map(clients.set(args.turnId, xplayer)));
-                                if (isActivePlayer) {
-                                    if (args.pendingCard.requiresPurchaseDecision) {
-                                        showBuyUI(args.pendingCard.newPosition);
-                                    } else {
-                                        engineRef.current?.freeDice();
-                                        socket.emit("finish-turn");
+                            // Fix #5: detect backward moves (e.g. "Go Back 3 Spaces" has count: -3)
+                            // and pass adding=false so the token steps backward instead of forward.
+                            const isBackward = (
+                                args.pendingCard.element?.count !== undefined &&
+                                typeof args.pendingCard.element.count === "number" &&
+                                args.pendingCard.element.count < 0
+                            );
+                            const cardMoveGen = playerMoveGENERATOR(
+                                args.pendingCard.newPosition, xplayer,
+                                !isBackward, // get200whengo: false for backward moves (no $200 when going back)
+                                () => {
+                                    // After card movement finishes
+                                    xplayer.position = args.pendingCard.newPosition;
+                                    SetClients(new Map(clients.set(args.turnId, xplayer)));
+                                    if (isActivePlayer) {
+                                        if (args.pendingCard.requiresPurchaseDecision) {
+                                            showBuyUI(args.pendingCard.newPosition);
+                                        } else {
+                                            engineRef.current?.freeDice();
+                                            socket.emit("finish-turn");
+                                        }
                                     }
-                                }
-                            });
+                                },
+                                !isBackward // adding: false makes the token step backward
+                            );
                             cardMoveGen.func();
                         } else {
                             // No movement from card (e.g. addfunds, removefunds, getout-of-jail-free)

@@ -170,13 +170,25 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                 let amt = 0;
                 if (prop.group === "Utilities") {
                     const cnt = player.properties.filter((p: any) => p.group === "Utilities").length;
-                    amt = rolls * (cnt === 2 ? 10 : 4) * multiplier;
+                    // Fix #3: when multiplier === 10 ("advance to nearest utility" Chance card),
+                    // rent must be exactly 10 × dice. Normal landing uses 4× (1 utility) or 10× (2 utilities).
+                    const baseRate = multiplier === 10 ? 1 : (cnt === 2 ? 10 : 4);
+                    amt = rolls * baseRate * multiplier;
                 } else if (prop.group === "Railroad") {
-                    const cnt = player.properties
-                        .filter((p: any) => p.group === "Railroad" && p.morgage !== true).length;
+                    // Fix #2: count ALL owned railroads, not just unmortgaged ones.
+                    // The mortgaged-railroad early-return above already handles the case
+                    // where the landed railroad itself is mortgaged (returns amount=0).
+                    const cnt = player.properties.filter((p: any) => p.group === "Railroad").length;
                     amt = ([0, 25, 50, 100, 200][cnt] ?? 0) * multiplier;
                 } else if (prp.count === 0) {
-                    amt = (prop.rent ?? 0) * multiplier;
+                    // Fix #4: double rent when owner holds the full unimproved color group (monopoly).
+                    const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prop.group);
+                    const ownedGroup = player.properties.filter((p: any) => p.group === prop.group);
+                    const hasMonopoly = groupProps.length > 0 && ownedGroup.length === groupProps.length;
+                    // Only apply double when ALL properties in the set are unimproved.
+                    // If any have been built on, that property uses its own rent tier instead.
+                    const allUnimproved = ownedGroup.every((p: any) => p.count === 0);
+                    amt = (prop.rent ?? 0) * (hasMonopoly && allUnimproved ? 2 : 1) * multiplier;
                 } else if (typeof prp.count === "number" && prp.count > 0) {
                     amt = ((prop.multpliedrent ?? [])[prp.count - 1] ?? 0) * multiplier;
                 } else if (prp.count === "h") {
@@ -427,26 +439,43 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                             server.logFunction(logStr);
 
                             // ── In Jail branch ──
+                            let forcedJailPayment = 0; // Fix #6: tracks forced $50 on 3rd jail attempt
                             if (player.isInJail) {
                                 const doubles = d1 === d2;
                                 if (!doubles) {
                                     player.jailTurnsRemaining = Math.max(0, player.jailTurnsRemaining - 1);
-                                    emitServerHistory(`${player.username} failed doubles roll and stayed in Jail`);
-                                    EmitAll("dice_roll_result", {
-                                        listOfNums: [d1, d2, player.position],
-                                        turnId: currentId,
-                                        passedGo: false, goPayment: 0,
-                                        goingToJail: false, jailStayed: true, jailEscape: false,
-                                        rolledPosition: player.position, finalPosition: player.position,
-                                        requiresPurchaseDecision: false, pendingCard: null, landingNote: "",
-                                    });
-                                    EmitStateUpdate();
-                                    return;
+
+                                    // Fix #6: On the 3rd failed attempt (jailTurnsRemaining hits 0),
+                                    // classic rules require the player to pay $50 and move that roll.
+                                    // We fall through to normal roll processing instead of returning.
+                                    if (player.jailTurnsRemaining === 0) {
+                                        player.balance -= 50;
+                                        forcedJailPayment = 50;
+                                        player.isInJail = false;
+                                        emitServerHistory(
+                                            `${player.username} paid $50 (forced) and was released from Jail after 3 failed attempts`
+                                        );
+                                        // DO NOT return — fall through to normal movement below
+                                    } else {
+                                        emitServerHistory(`${player.username} failed doubles roll and stayed in Jail`);
+                                        EmitAll("dice_roll_result", {
+                                            listOfNums: [d1, d2, player.position],
+                                            turnId: currentId,
+                                            passedGo: false, goPayment: 0,
+                                            goingToJail: false, jailStayed: true, jailEscape: false,
+                                            rolledPosition: player.position, finalPosition: player.position,
+                                            requiresPurchaseDecision: false, pendingCard: null, landingNote: "",
+                                            forcedJailPayment: 0,
+                                        });
+                                        EmitStateUpdate();
+                                        return;
+                                    }
+                                } else {
+                                    // Doubles — escape jail, fall through to normal roll
+                                    player.isInJail = false;
+                                    player.jailTurnsRemaining = 0;
+                                    emitServerHistory(`${player.username} rolled doubles [${d1}, ${d2}] and escaped Jail!`);
                                 }
-                                // Doubles — escape jail, fall through to normal roll
-                                player.isInJail = false;
-                                player.jailTurnsRemaining = 0;
-                                emitServerHistory(`${player.username} rolled doubles [${d1}, ${d2}] and escaped Jail!`);
                             }
 
                             // ── Normal roll ──
@@ -529,6 +558,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 goingToJail, jailStayed: false, jailEscape: false,
                                 rolledPosition, finalPosition,
                                 requiresPurchaseDecision, pendingCard, landingNote,
+                                forcedJailPayment,
                             });
                             EmitStateUpdate();
                         } catch (e) { server.logFunction(e); }
