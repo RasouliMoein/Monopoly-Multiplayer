@@ -152,15 +152,15 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         }
     }, [globalSettings]);
 
-    // Phase 2F — keep isDebtState in sync with local player's balance after rolling
+    // Phase 2F — keep isDebtState in sync with local player's balance
     useEffect(() => {
         const localPlayer = clients.get(socket.id);
-        if (localPlayer && hasRolled && !allowRollAgain) {
+        if (localPlayer) {
             setIsDebtState(localPlayer.balance < 0);
         } else {
             setIsDebtState(false);
         }
-    }, [clients, hasRolled, allowRollAgain]);
+    }, [clients]);
 
     const engineRef = useRef<MonopolyGameRef>(null);
     const navRef = useRef<MonopolyNavRef>(null);

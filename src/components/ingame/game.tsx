@@ -1465,11 +1465,22 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             <></>
                         )}
                         {/* Phase 2F: Show DECLARE BANKRUPTCY when in debt, else show ROLL THE DICE */}
-                        {prop.hasRolled && prop.isDebtState ? (
+                        {prop.isDebtState ? (
                             <button
                                 id="btn-declare-bankruptcy"
                                 className="action-btn"
-                                style={{ background: '#ff4444', color: '#fff', fontWeight: 700, border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}
+                                style={{
+                                    background: '#dc2626',
+                                    backgroundColor: '#dc2626',
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    border: '1px solid #991b1b',
+                                    borderRadius: '8px',
+                                    padding: '8px 16px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 0 12px rgba(220, 38, 38, 0.5)',
+                                    opacity: 1
+                                }}
                                 onClick={() => {
                                     prop.socket.emit("declare-bankruptcy");
                                     prop.onDeclaredBankruptcy?.();
