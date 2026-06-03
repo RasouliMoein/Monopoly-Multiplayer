@@ -1454,7 +1454,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             ></div>
                         </div>
                     </div>
-                    <div className="action-bar" style={prop.myTurn && !sended ? {} : { translate: "-50% 20vh" }}>
+                    <div className="action-bar" style={prop.myTurn && !sended && !(prop.players.find(v => v.id === prop.socket.id)?.isBankrupt) ? {} : { translate: "-50% 20vh" }}>
                         {prop.selectedMode.turnTimer !== undefined && prop.selectedMode.turnTimer > 0 ? (
                             <>
                                 <p style={{ display: "inline-block", opacity: 1, color: "rgb(0, 114, 187)", marginRight: 5 }}>
