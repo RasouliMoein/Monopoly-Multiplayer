@@ -332,9 +332,11 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         //#region socket handeling
         const socket_Initials = (args: { turn_id: string; other_players: Array<PlayerJSON>; selectedMode: MonopolyMode; gameStarted?: boolean; hostId?: string }) => {
             SetCurrent(args.turn_id.toString());
+            const newClients = new Map(clients);
             for (const x of args.other_players) {
-                SetClients(clients.set(x.id, new Player(x.id, x.username).recieveJson(x)));
+                newClients.set(x.id, new Player(x.id, x.username).recieveJson(x));
             }
+            SetClients(newClients);
             SetMode(args.selectedMode);
             if (args.gameStarted) {
                 SetGameStarted(true);
@@ -865,6 +867,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 x.position = p?.position ?? x.position;
                 p?.recieveJson(x);
             }
+            SetClients(new Map(clients));
 
             if (socket.id === args.playerId) {
                 engineRef.current?.applyAnimation(2);
