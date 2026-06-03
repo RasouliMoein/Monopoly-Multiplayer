@@ -644,11 +644,9 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                                 {isExpanded && v.balances && (
                                                     <div className="history-action-balances">
                                                         {v.balances.map((pl, idx) => {
-                                                            const prevEventWithDiff = sortedHistory.slice(i + 1).find(event => {
-                                                                const p = event.balances?.find(x => x.username === pl.username);
-                                                                return p && p.balance !== pl.balance;
-                                                            });
-                                                            const prevPl = prevEventWithDiff?.balances?.find(p => p.username === pl.username);
+                                                            const origIdx = prop.history.indexOf(v);
+                                                            const prevEvent = origIdx > 0 ? prop.history[origIdx - 1] : undefined;
+                                                            const prevPl = prevEvent?.balances?.find(p => p.username === pl.username);
                                                             const prevBalance = prevPl ? prevPl.balance : (prop.selectedMode?.startingCash ?? 1500);
                                                             const diff = pl.balance - prevBalance;
                                                             return (
