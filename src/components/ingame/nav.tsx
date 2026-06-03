@@ -568,13 +568,11 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                         return new Date(b.time).getTime() - new Date(a.time).getTime();
                                     });
                                     return sortedHistory.map((v, i) => {
-                                        const parsed = parseHistoryAction(v.action);
-                                        const prevEvent = sortedHistory[i + 1];
-                                        
                                         const getPlayerColor = (username: string) => {
                                             const p = prop.players.find(pl => pl.username === username);
                                             return p ? p.color : "#38bdf8";
                                         };
+                                        const parsed = parseHistoryAction(v.action);
                                         
                                         const playerColor = getPlayerColor(parsed.player);
                                         const targetColor = parsed.target ? PROPERTY_COLORS.get(parsed.target) : undefined;
@@ -646,7 +644,11 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                                 {isExpanded && v.balances && (
                                                     <div className="history-action-balances">
                                                         {v.balances.map((pl, idx) => {
-                                                            const prevPl = prevEvent?.balances?.find(p => p.username === pl.username);
+                                                            const prevEventWithDiff = sortedHistory.slice(i + 1).find(event => {
+                                                                const p = event.balances?.find(x => x.username === pl.username);
+                                                                return p && p.balance !== pl.balance;
+                                                            });
+                                                            const prevPl = prevEventWithDiff?.balances?.find(p => p.username === pl.username);
                                                             const prevBalance = prevPl ? prevPl.balance : (prop.selectedMode?.startingCash ?? 1500);
                                                             const diff = pl.balance - prevBalance;
                                                             return (
