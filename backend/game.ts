@@ -754,43 +754,51 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                             if (player.balance >= 0) return;
 
                             player.isBankrupt = true;
-                            const creditor = creditorMap.get(player.id) ?? "bank";
+                             const creditor = creditorMap.get(player.id) ?? "bank";
 
-                            if (creditor !== "bank") {
-                                const creditorClient = Clients.get(creditor as string);
-                                if (creditorClient) {
-                                    const cp = creditorClient.player;
-                                    for (const prp of player.properties) {
-                                        prp.count = 0;
-                                        if (prp.morgage === true) {
-                                            const propData = propertyById.get(prp.posistion?.toString()) ??
-                                                propertyByPosition.get(prp.posistion);
-                                            const fee = Math.round((propData?.price ?? 0) * 0.05);
-                                            cp.balance -= fee;
-                                        }
-                                        cp.properties.push(prp);
-                                    }
-                                }
-                            } else {
-                                for (const prp of player.properties) {
-                                    prp.count = 0;
-                                    prp.morgage = false;
-                                }
-                            }
-                            player.properties = [];
-                            player.balance = 0;
+                             if (creditor !== "bank") {
+                                 const creditorClient = Clients.get(creditor as string);
+                                 if (creditorClient) {
+                                     const cp = creditorClient.player;
+                                     emitServerHistory(`${player.username} declared bankruptcy to ${cp.username}`);
+                                     for (const prp of player.properties) {
+                                         prp.count = 0;
+                                         const propData = propertyById.get(prp.posistion?.toString()) ??
+                                             propertyByPosition.get(prp.posistion);
+                                         const propName = propData?.name ?? "a property";
+                                         emitServerHistory(`${cp.username} received ${propName} from ${player.username}`);
+                                         if (prp.morgage === true) {
+                                             const fee = Math.round((propData?.price ?? 0) * 0.05);
+                                             cp.balance -= fee;
+                                             emitServerHistory(`${cp.username} paid $${fee} interest to Bank for mortgaged ${propName}`);
+                                         }
+                                         cp.properties.push(prp);
+                                     }
+                                 }
+                             } else {
+                                 emitServerHistory(`${player.username} declared bankruptcy to the Bank`);
+                                 for (const prp of player.properties) {
+                                     prp.count = 0;
+                                     prp.morgage = false;
+                                     const propData = propertyById.get(prp.posistion?.toString()) ??
+                                         propertyByPosition.get(prp.posistion);
+                                     const propName = propData?.name ?? "a property";
+                                     emitServerHistory(`${propName} was returned to the Bank`);
+                                 }
+                             }
+                             player.properties = [];
+                             player.balance = 0;
 
-                            const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
-                            const arr = active.map((v) => v.player.id);
-                            let i = arr.indexOf(socket.id);
-                            i = arr.length > 0 ? (i + 1) % arr.length : -1;
-                            currentId = i === -1 ? "" : arr[i];
+                             const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
+                             const arr = active.map((v) => v.player.id);
+                             let i = arr.indexOf(socket.id);
+                             i = arr.length > 0 ? (i + 1) % arr.length : -1;
+                             currentId = i === -1 ? "" : arr[i];
 
-                            consecutiveDoublesMap.set(socket.id, 0);
-                            creditorMap.set(socket.id, null);
+                             consecutiveDoublesMap.set(socket.id, 0);
+                             creditorMap.set(socket.id, null);
 
-                            emitServerHistory(`${player.username} declared bankruptcy`);
-                            EmitAll("player-bankrupt", {
+                             EmitAll("player-bankrupt", {
                                 bankruptId: player.id,
                                 creditorId: creditor,
                                 turnId: currentId,

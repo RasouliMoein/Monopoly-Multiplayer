@@ -2072,6 +2072,31 @@ div.game div.trade-table div.trade-craft-buttons button:hover {
     color: #34d399; /* emerald-400 */
 }
 
+.history-balance-row .balance-prev {
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: line-through;
+}
+
+.history-balance-row .balance-arrow {
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0 4px;
+}
+
+.history-balance-row .balance-curr {
+    color: #38bdf8; /* sky-400 */
+    font-weight: 600;
+}
+
+.history-balance-row .balance-diff.positive {
+    color: #34d399; /* emerald-400 */
+    font-weight: 600;
+}
+
+.history-balance-row .balance-diff.negative {
+    color: #f87171; /* red-400 */
+    font-weight: 600;
+}
+
 @keyframes slideDownBalances {
     from {
         opacity: 0;

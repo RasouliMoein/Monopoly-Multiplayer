@@ -562,14 +562,14 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         <h3 style={{ textAlign: "center" }}>
                             History <h2>{calculateTimeDifference(prop.time, currentTime)}</h2>
                         </h3>
-
                         <div className="history-list">
-                                {[...prop.history]
-                                    .sort((a, b) => {
+                                {(() => {
+                                    const sortedHistory = [...prop.history].sort((a, b) => {
                                         return new Date(b.time).getTime() - new Date(a.time).getTime();
-                                    })
-                                    .map((v, i) => {
+                                    });
+                                    return sortedHistory.map((v, i) => {
                                         const parsed = parseHistoryAction(v.action);
+                                        const prevEvent = sortedHistory[i + 1];
                                         
                                         const getPlayerColor = (username: string) => {
                                             const p = prop.players.find(pl => pl.username === username);
@@ -645,17 +645,36 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                                 </div>
                                                 {isExpanded && v.balances && (
                                                     <div className="history-action-balances">
-                                                        {v.balances.map((pl, idx) => (
-                                                            <div key={idx} className="history-balance-row" style={{ borderLeft: `3px solid ${pl.color || "#64748b"}` }}>
-                                                                <span className="balance-username">{pl.username}</span>
-                                                                <span className="balance-value">{pl.balance}M</span>
-                                                            </div>
-                                                        ))}
+                                                        {v.balances.map((pl, idx) => {
+                                                            const prevPl = prevEvent?.balances?.find(p => p.username === pl.username);
+                                                            const prevBalance = prevPl ? prevPl.balance : (prop.selectedMode?.startingCash ?? 1500);
+                                                            const diff = pl.balance - prevBalance;
+                                                            return (
+                                                                <div key={idx} className="history-balance-row" style={{ borderLeft: `3px solid ${pl.color || "#64748b"}` }}>
+                                                                    <span className="balance-username">{pl.username}</span>
+                                                                    <span className="balance-value">
+                                                                        {diff !== 0 ? (
+                                                                            <>
+                                                                                <span className="balance-prev">{prevBalance}M</span>
+                                                                                <span className="balance-arrow"> ➔ </span>
+                                                                                <span className="balance-curr">{pl.balance}M</span>
+                                                                                <span className={`balance-diff ${diff > 0 ? "positive" : "negative"}`}>
+                                                                                    {diff > 0 ? ` (+${diff}M)` : ` (${diff}M)`}
+                                                                                </span>
+                                                                            </>
+                                                                        ) : (
+                                                                            <span>{pl.balance}M</span>
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
                                             </div>
                                         );
-                                    })}
+                                    });
+                                })()}
                         </div>
                     </>
                 ) : tabIndex == 4 ? (
