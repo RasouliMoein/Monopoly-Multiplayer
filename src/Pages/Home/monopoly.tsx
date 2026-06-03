@@ -1325,7 +1325,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         .debug-panel {
                             position: fixed;
                             bottom: 20px;
-                            left: 20px;
+                            right: 20px;
                             z-index: 99999;
                             background: rgba(15, 23, 42, 0.75);
                             backdrop-filter: blur(12px);

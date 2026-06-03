@@ -709,6 +709,14 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     socket.on("debug_set_balance", (args: { balance: number }) => {
                         try {
                             player.balance = args.balance ?? -1;
+                            // If player goes into debt and has no properties, give them Boardwalk & Park Place
+                            // so they have assets to mortgage or trade instead of losing immediately.
+                            if (player.balance < 0 && player.properties.length === 0) {
+                                player.properties = [
+                                    { posistion: 39, count: 0, group: "Darkblue" },
+                                    { posistion: 37, count: 0, group: "Darkblue" }
+                                ];
+                            }
                             EmitStateUpdate();
                         } catch (e) { server.logFunction(e); }
                     });
