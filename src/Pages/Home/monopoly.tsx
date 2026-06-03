@@ -34,9 +34,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
     const [currentId, SetCurrent] = useState<string>("");
     const [gameStarted, SetGameStarted] = useState<boolean>(false);
+    const gameStartedRef = useRef(gameStarted);
+    gameStartedRef.current = gameStarted;
     const [gameStartedDisplay, SetGameStartedDisplay] = useState<boolean>(false);
     const [imReady, SetReady] = useState<boolean>(false);
     const [selectedMode, SetMode] = useState<MonopolyMode>(MonopolyModes[0]);
+    const selectedModeRef = useRef(selectedMode);
+    selectedModeRef.current = selectedMode;
     const [hostId, SetHostId] = useState<string>("");
     const [reconnectAttempt, SetReconnectAttempt] = useState<number | null>(null);
     const [copiedCode, setCopiedCode] = useState<boolean>(false);
@@ -202,7 +206,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
         function mouseMove(e: MouseEvent) {
             const _pos = { x: e.clientX, y: e.clientY };
-            const xplayer = clients.get(socket.id);
+            const xplayer = clientsRef.current.get(socket.id);
             socket.emit("mouse", _pos);
             xplayer ? (xplayer.positions = _pos) : "";
         }
@@ -210,12 +214,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         function destroyPlayer(playerId: string) {
             // remove player from clients
             function removePlayer() {
-                clients.delete(playerId);
-                SetClients(new Map(clients));
+                const nextClients = new Map(clientsRef.current);
+                nextClients.delete(playerId);
+                SetClients(nextClients);
 
                 // 1 frame to check if it isnt removed
                 requestAnimationFrame(() => {
-                    if (clients.has(playerId)) {
+                    if (clientsRef.current.has(playerId)) {
                         // request a loop frame!
                         requestAnimationFrame(removePlayer);
                     } else {
@@ -294,7 +299,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             audio.loop = false;
                             audio.play();
                             addedMoney = true;
-                            SetClients(new Map(clients.set(_xplayer.id, _xplayer)));
+                            SetClients(new Map(clientsRef.current.set(_xplayer.id, _xplayer)));
                         }
                         if (i == sum_moves - 1) {
                             _xplayer.position = final_position;
@@ -310,7 +315,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 audio.loop = false;
                                 audio.play();
                                 addedMoney = true;
-                                SetClients(new Map(clients.set(_xplayer.id, _xplayer)));
+                                SetClients(new Map(clientsRef.current.set(_xplayer.id, _xplayer)));
                             }
                             animatingPlayersRef.current.delete(_xplayer.id);
                             if (afterFinished) afterFinished();
@@ -332,7 +337,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         //#region socket handeling
         const socket_Initials = (args: { turn_id: string; other_players: Array<PlayerJSON>; selectedMode: MonopolyMode; gameStarted?: boolean; hostId?: string }) => {
             SetCurrent(args.turn_id.toString());
-            const newClients = new Map(clients);
+            const newClients = new Map(clientsRef.current);
             for (const x of args.other_players) {
                 newClients.set(x.id, new Player(x.id, x.username).recieveJson(x));
             }
@@ -348,14 +353,17 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         };
 
         const socket_NewPlayer = (args: PlayerJSON) => {
-            SetClients(new Map(clients.set(args.id, new Player(args.id, args.username).recieveJson(args))));
+            const nextClients = new Map(clientsRef.current);
+            nextClients.set(args.id, new Player(args.id, args.username).recieveJson(args));
+            SetClients(nextClients);
         };
 
         const socket_Ready = (args: { id: string; state: boolean; selectedMode: MonopolyMode }) => {
-            const x = clients.get(args.id);
+            const nextClients = new Map(clientsRef.current);
+            const x = nextClients.get(args.id);
             if (x === undefined) return;
             x.ready = args.state;
-            SetClients(new Map(clients.set(x.id, x)));
+            SetClients(nextClients);
             SetMode(args.selectedMode);
         };
         const socket_StartGame = () => {
@@ -379,19 +387,21 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
         const socket_DisconnectedPlayer = (args: { id: string; turn: string; wasInGame?: boolean }) => {
             SetCurrent(args.turn);
-            const name = clients.get(args.id)?.username ?? "player";
+            const name = clientsRef.current.get(args.id)?.username ?? "player";
             if (args.wasInGame) {
                 notifyRef.current?.message(`${name} disconnected temporarily... waiting to reconnect!`, "info");
                 return; // Do not destroy the player!
             }
-            if (clients.size > 2) {
+            if (!gameStartedRef.current) {
+                notifyRef.current?.message(`${name} left the lobby`, "info");
+            } else if (clientsRef.current.size > 2) {
                 notifyRef.current?.message(`${name} disconnected`, "error");
-            } else if (clients.has(args.id)) {
+            } else if (clientsRef.current.has(args.id)) {
                 mainTheme.pause();
                 notifyRef.current?.dialog(
                     (close_func, createButton) => ({
                         innerHTML: `<h3> YOU WON! </h3> <p> your the only left player with the balance of ${
-                            clients.get(socket.id)?.balance ?? 0
+                            clientsRef.current.get(socket.id)?.balance ?? 0
                         } </p>`,
                         buttons: [
                             createButton("LEAVE GAME", () => {
@@ -407,7 +417,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         };
 
         const socket_TurnFinished = (args: { from: string; turnId: string; pJson: PlayerJSON; WinningMode: string }) => {
-            const x = clients.get(args.from);
+            const x = clientsRef.current.get(args.from);
 
             // Phase 2F: Reset turn-flow state when any turn ends
             setHasRolled(false);
@@ -423,7 +433,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
             if (args.from !== socket.id && x) {
                 x.recieveJson(args.pJson);
-                SetClients(new Map(clients.set(args.from, x)));
+                SetClients(new Map(clientsRef.current.set(args.from, x)));
             }
 
 
@@ -445,7 +455,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     // Return the uniqueList
                     return uniqueList;
                 }
-                for (const p of Array.from(clients.values())) {
+                for (const p of Array.from(clientsRef.current.values())) {
                     const prpGrups = [];
                     for (const prp of p.properties) {
                         if (!["Special", "Railroad", "Utilities"].includes(prp.group)) prpGrups.push(prp.group);
@@ -493,7 +503,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 }
                 if (args.WinningMode === "monopols & trains") {
                     // continue with trains winning state!
-                    for (const p of Array.from(clients.values())) {
+                    for (const p of Array.from(clientsRef.current.values())) {
                         const c = p.properties.filter((v) => v.group === "Railroad").length;
                         if (c === 4) {
                             mainTheme.pause();
@@ -532,7 +542,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
             SetCurrent(args.turnId);
             if (args.turnId === socket.id) {
-                const x = clients.get(args.turnId);
+                const x = clientsRef.current.get(args.turnId);
                 if (x && x.isInJail) {
                     engineRef.current?.showJailsButtons((x?.getoutCards ?? -1) > 0);
                 } else {
@@ -559,23 +569,23 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             forcedJailPayment?: number; // Fix #6: set to 50 when 3rd jail attempt forces payment
             allowRollAgain?: boolean;   // Phase 2E: true when player rolled doubles and may roll again
         }) => {
-            const xplayer = clients.get(args.turnId) as Player;
+            const xplayer = clientsRef.current.get(args.turnId) as Player;
             const wasInJail = xplayer?.isInJail;
             var audio = new Audio("./rolling.mp3");
             audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
             audio.loop = false;
             audio.play();
-
+ 
             const isActivePlayer = args.turnId === socket.id;
             const rolls = args.listOfNums[0] + args.listOfNums[1];
             const rolledPosition = args.listOfNums[2]; // position before jail correction
-
+ 
             // Phase 2F: Track hasRolled / allowRollAgain for the active player
             if (isActivePlayer) {
                 setHasRolled(true);
                 setAllowRollAgain(args.allowRollAgain ?? false);
             }
-
+ 
             // ── Go notification (balance already applied server-side) ──
             if (args.passedGo) {
                 var goAudio = new Audio("./moneyplus.mp3");
@@ -588,7 +598,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     engineRef.current?.applyAnimation(2);
                 }
             }
-
+ 
             // ── Landing notifications (taxes / rent — applied server-side) ──
             if (args.landingNote && isActivePlayer) {
                 const note = args.landingNote;
@@ -600,7 +610,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     taxAudio.play();
                     engineRef.current?.applyAnimation(1);
                 } else if (note.startsWith("luxerytax")) {
-                    if (settings?.notifications === true)
+                     if (settings?.notifications === true)
                         notifyRef.current?.message(`Paid $100 luxury tax`, "info", 2, () => {}, false);
                     var taxAudio2 = new Audio("./moneyminus.mp3");
                     taxAudio2.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
@@ -608,7 +618,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     engineRef.current?.applyAnimation(1);
                 } else if (note.startsWith("rent:")) {
                     const [, ownerId, rentAmt] = note.split(":");
-                    const ownerName = clients.get(ownerId)?.username ?? "someone";
+                    const ownerName = clientsRef.current.get(ownerId)?.username ?? "someone";
                     if (settings?.notifications === true)
                         notifyRef.current?.message(`Paid $${rentAmt} rent to ${ownerName}`, "info", 2, () => {}, false);
                     var rentAudio = new Audio("./moneyminus.mp3");
@@ -644,7 +654,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             socket.emit("player_action", { action: "buy" });
                             if (settings?.notifications === true)
                                 notifyRef.current?.message(
-                                    `${clients.get(socket.id)?.username ?? "you"} bought ${proprety?.name ?? "a property"} for $${proprety?.price ?? 0}`,
+                                    `${clientsRef.current.get(socket.id)?.username ?? "you"} bought ${proprety?.name ?? "a property"} for $${proprety?.price ?? 0}`,
                                     "info", 2, () => {}, false
                                 );
                             var buyAudio = new Audio("./buying1.mp3");
@@ -722,7 +732,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 if (args.pendingCard?.element?.action === "addfundsfromplayers" && !isActivePlayer) {
                     if (settings?.notifications === true)
                         notifyRef.current?.message(
-                            `Paid $${args.pendingCard.element.amount} to ${clients.get(args.turnId)?.username ?? "active player"}`,
+                            `Paid $${args.pendingCard.element.amount} to ${clientsRef.current.get(args.turnId)?.username ?? "active player"}`,
                             "info", 3, () => {}, false
                         );
                     engineRef.current?.applyAnimation(1);
@@ -730,7 +740,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 if (args.pendingCard?.element?.action === "removefundstoplayers" && !isActivePlayer) {
                     if (settings?.notifications === true)
                         notifyRef.current?.message(
-                            `Received $${args.pendingCard.element.amount} from ${clients.get(args.turnId)?.username ?? "active player"}`,
+                            `Received $${args.pendingCard.element.amount} from ${clientsRef.current.get(args.turnId)?.username ?? "active player"}`,
                             "info", 3, () => {}, false
                         );
                     engineRef.current?.applyAnimation(2);
@@ -760,7 +770,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 !isBackward,
                                 () => {
                                     xplayer.position = args.pendingCard.newPosition;
-                                    SetClients(new Map(clients.set(args.turnId, xplayer)));
+                                    SetClients(new Map(clientsRef.current.set(args.turnId, xplayer)));
                                     if (isActivePlayer) {
                                         if (args.pendingCard.requiresPurchaseDecision) {
                                             showBuyUI(args.pendingCard.newPosition);
@@ -828,7 +838,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         // Escaped with doubles — start movement after dice shown
                         setTimeout(() => { dice_generatorResults.func(); }, 2000);
                     }
-                    SetClients(new Map(clients.set(args.turnId, xplayer)));
+                    SetClients(new Map(clientsRef.current.set(args.turnId, xplayer)));
                 }, 1500);
             } else {
                 setTimeout(() => { dice_generatorResults.func(); }, 2000);
@@ -838,7 +848,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         const socket_Unjail = (args: { to: string; option: "card" | "pay" }) => {
             // Balance and jail state are updated server-side via state_update.
             // Only play audio/log here.
-            const x = clients.get(args.to);
+            const x = clientsRef.current.get(args.to);
             if (x) {
                 if (args.option === "pay") {
                     var audio = new Audio("./moneyminus.mp3");
@@ -863,11 +873,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             pJson: [PlayerJSON, PlayerJSON];
         }) => {
             for (const x of args.pJson) {
-                const p = clients.get(x.id);
-                x.position = p?.position ?? x.position;
-                p?.recieveJson(x);
+                const p = clientsRef.current.get(x.id);
+                if (p) {
+                    x.position = p.position;
+                    p.recieveJson(x);
+                }
             }
-            SetClients(new Map(clients));
+            SetClients(new Map(clientsRef.current));
 
             if (socket.id === args.playerId) {
                 engineRef.current?.applyAnimation(2);
@@ -878,10 +890,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         // This handler is kept for backwards compatibility but does nothing.
         const socket_ChorchResult = (_args: any) => { /* no-op: handled server-side */ };
         function socket_Mouse(args: { id: string; x: number; y: number }) {
-            const xplayer = clients.get(args.id);
+            const xplayer = clientsRef.current.get(args.id);
             if (xplayer === undefined) return;
             xplayer.positions = { x: args.x, y: args.y };
-            clients.set(args.id, xplayer);
         }
         function socket_networkDisconnect() {
             if (leavingRoomRef.current) {
@@ -910,9 +921,10 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         }
 
         function socket_playerUpdate(args: { playerId: string; pJson: PlayerJSON }) {
-            const x = clients.get(args.playerId);
+            const x = clientsRef.current.get(args.playerId);
             if (x === undefined) return;
             x.recieveJson(args.pJson);
+            SetClients(new Map(clientsRef.current));
         }
         document.addEventListener("mousemove", mouseMove);
         socket.on("initials", socket_Initials);
@@ -961,8 +973,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             if (args.hostId) {
                 SetHostId(args.hostId);
             }
+            const nextClients = new Map(clientsRef.current);
             for (const pJson of args.players) {
-                const p = clients.get(pJson.id);
+                const p = nextClients.get(pJson.id);
                 if (p) {
                     // Only preserve animated position for players currently animating
                     // (their piece is mid-animation via playerMoveGENERATOR)
@@ -972,9 +985,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     if (isBeingAnimated) {
                         p.position = savedPos;
                     }
+                } else {
+                    // Create if not exists to avoid losing newly connected players
+                    nextClients.set(pJson.id, new Player(pJson.id, pJson.username).recieveJson(pJson));
                 }
             }
-            SetClients(new Map(clients));
+            SetClients(nextClients);
             navRef.current?.reRenderPlayerList();
 
             // Restore debt state after page refresh:
@@ -988,29 +1004,30 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
         // Trade
         socket.on("trade", () => {
-            if (!selectedMode.AllowDeals) return;
+            if (!selectedModeRef.current.AllowDeals) return;
             setTrade(true);
         });
         socket.on("cancel-trade", () => {
-            if (!selectedMode.AllowDeals) return;
+            if (!selectedModeRef.current.AllowDeals) return;
             setTrade(undefined);
             // Also reset the action-bar sended state in case cancel came from server
             engineRef.current?.freeDice();
         });
         socket.on("trade-update", (x: GameTrading) => {
-            if (!selectedMode.AllowDeals) return;
+            if (!selectedModeRef.current.AllowDeals) return;
             setTrade(x);
         });
 
         socket.on("submit-trade", (args: { pJsons: [PlayerJSON, PlayerJSON]; action: string }) => {
-            if (!selectedMode.AllowDeals) return;
+            if (!selectedModeRef.current.AllowDeals) return;
             setTrade(undefined);
             // Reset the sended/action-bar state so players can act again after trade
             engineRef.current?.freeDice();
             // Phase 2G: Notify local player about cash involved in the trade
             const localPJson = args.pJsons.find((p) => p.id === socket.id);
+            const nextClients = new Map(clientsRef.current);
             if (localPJson && settings?.notifications === true) {
-                const prev = clients.get(socket.id)?.balance ?? localPJson.balance;
+                const prev = nextClients.get(socket.id)?.balance ?? localPJson.balance;
                 const diff = localPJson.balance - prev;
                 if (diff > 0)
                     notifyRef.current?.message(`Trade: received $${diff}`, "info", 2, () => {}, false);
@@ -1018,11 +1035,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     notifyRef.current?.message(`Trade: paid $${Math.abs(diff)}`, "info", 2, () => {}, false);
             }
             for (const PJS of args.pJsons) {
-                const client = clients.get(PJS.id);
+                const client = nextClients.get(PJS.id);
                 if (client !== undefined) {
                     client.recieveJson(PJS);
                 }
             }
+            SetClients(nextClients);
         });
 
         // Phase 2B: Handle player-bankrupt event
@@ -1032,18 +1050,19 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             turnId: string;
             pJsons: PlayerJSON[];
         }) => {
+            const nextClients = new Map(clientsRef.current);
             // Update all player states from server truth
             for (const pJson of args.pJsons) {
-                const p = clients.get(pJson.id);
+                const p = nextClients.get(pJson.id);
                 if (p) p.recieveJson(pJson);
             }
-            SetClients(new Map(clients));
+            SetClients(nextClients);
             SetCurrent(args.turnId);
             // Phase 2F: Reset turn-flow state on bankruptcy
             setHasRolled(false);
             setAllowRollAgain(false);
 
-            const bankruptName = clients.get(args.bankruptId)?.username ?? "A player";
+            const bankruptName = nextClients.get(args.bankruptId)?.username ?? "A player";
             if (args.bankruptId === socket.id) {
                 // Local player went bankrupt
                 mainTheme.pause();
@@ -1062,7 +1081,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             }
 
             // Check if only 1 active player remains → winner
-            const activePlayers = Array.from(clients.values()).filter((v) => !v.isBankrupt);
+            const activePlayers = Array.from(nextClients.values()).filter((v) => !v.isBankrupt);
             if (activePlayers.length === 1) {
                 const winner = activePlayers[0];
                 mainTheme.pause();
