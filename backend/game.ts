@@ -440,6 +440,8 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     socket.on("roll_dice", () => {
                         try {
                             if (currentId !== socket.id) return;
+                            // Guard: bankrupt players cannot roll — persists across page refreshes
+                            if (player.isBankrupt) return;
                             const d1 = Math.floor(Math.random() * 6) + 1;
                             const d2 = Math.floor(Math.random() * 6) + 1;
                             const sum = d1 + d2;
