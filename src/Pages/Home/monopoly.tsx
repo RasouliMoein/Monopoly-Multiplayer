@@ -998,6 +998,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             }
             SetClients(new Map(clients));
             navRef.current?.reRenderPlayerList();
+
+            // Restore debt state after page refresh:
+            // If it's our turn and we're insolvent, re-enter the "must declare bankruptcy" state.
+            const localPJson = args.players.find((p) => p.id === socket.id);
+            if (localPJson && localPJson.balance !== undefined && localPJson.balance < 0 && !hasRolledRef.current) {
+                setHasRolled(true);
+                setAllowRollAgain(false);
+            }
         });
 
         // Trade
