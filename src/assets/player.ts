@@ -14,6 +14,7 @@ export class Player {
     public ready: boolean;
     public positions: { x: number; y: number };
     public connected?: boolean;
+    public isBankrupt: boolean; // Phase 2A
 
     constructor(_id: string, _name: string) {
         this.id = _id;
@@ -28,6 +29,7 @@ export class Player {
         this.ready = false;
         this.positions = { x: 0, y: 0 };
         this.connected = true;
+        this.isBankrupt = false; // Phase 2A
     }
     recieveJson(json: PlayerJSON) {
         this.username = json.username;
@@ -39,6 +41,7 @@ export class Player {
         this.jailTurnsRemaining = json.jailTurnsRemaining;
         this.getoutCards = json.getoutCards;
         this.connected = json.connected ?? true;
+        this.isBankrupt = json.isBankrupt ?? false; // Phase 2A
         return this;
     }
 
@@ -54,6 +57,7 @@ export class Player {
             username: this.username,
             getoutCards: this.getoutCards,
             connected: this.connected,
+            isBankrupt: this.isBankrupt, // Phase 2A
         } as PlayerJSON;
     }
 
@@ -86,4 +90,5 @@ export type PlayerJSON = {
     jailTurnsRemaining: number;
     getoutCards: number;
     connected?: boolean;
+    isBankrupt?: boolean; // Phase 2A
 };

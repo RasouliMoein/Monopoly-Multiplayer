@@ -190,6 +190,11 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                     <p key={60} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                                         <span>
                                             {settings?.accessibility[2] ? `[${v.id}]` : ""} {v.username} {v.id === props.hostId && "👑"}
+                                            {v.isBankrupt && (
+                                                <span style={{ color: '#ff4444', fontSize: '0.8em', fontWeight: 700, marginLeft: 4 }}>
+                                                    (Bankrupt)
+                                                </span>
+                                            )}
                                         </span>
                                         {props.hostId === props.socket.id && v.id !== props.socket.id && (
                                             <button

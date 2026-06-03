@@ -24,6 +24,7 @@ class Player {
     public jailTurnsRemaining: number;
     public getoutCards: number;
     public connected?: boolean;
+    public isBankrupt: boolean; // Phase 2A
 
     constructor(_id: string, _name: string, _icon: number, cash?: number) {
         this.id = _id;
@@ -36,6 +37,7 @@ class Player {
         this.jailTurnsRemaining = 0;
         this.getoutCards = 0;
         this.connected = true;
+        this.isBankrupt = false; // Phase 2A
     }
 
     to_json(): PlayerJSON {
@@ -50,6 +52,7 @@ class Player {
             jailTurnsRemaining: this.jailTurnsRemaining,
             getoutCards: this.getoutCards,
             connected: this.connected,
+            isBankrupt: this.isBankrupt, // Phase 2A
         };
     }
 
@@ -62,6 +65,7 @@ class Player {
         this.jailTurnsRemaining = json.jailTurnsRemaining;
         this.getoutCards = json.getoutCards;
         this.connected = json.connected ?? true;
+        this.isBankrupt = json.isBankrupt ?? false; // Phase 2A
     }
 }
 
@@ -76,6 +80,7 @@ type PlayerJSON = {
     jailTurnsRemaining: number;
     getoutCards: number;
     connected?: boolean;
+    isBankrupt?: boolean; // Phase 2A
 };
 
 type PlayerActionArgs =
@@ -102,6 +107,10 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
     let gameStarted = false;
     let selectedMode: MonopolyMode = MonopolyModes[0];
     let hostId = "";
+
+    // Phase 2A — tracking maps
+    const consecutiveDoublesMap = new Map<string, number>(); // playerId → doubles streak
+    const creditorMap = new Map<string, string | "bank" | null>(); // playerId → who they owe
 
     function getCurrentTime() {
         const now = new Date();
@@ -479,6 +488,38 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                             }
 
                             // ── Normal roll ──
+                            const isDoubles = d1 === d2;
+
+                            // Phase 2D: Track consecutive doubles (jail-escape doubles don't count)
+                            if (!player.isInJail) {
+                                if (isDoubles) {
+                                    const streak = (consecutiveDoublesMap.get(socket.id) ?? 0) + 1;
+                                    consecutiveDoublesMap.set(socket.id, streak);
+                                    if (streak >= 3) {
+                                        // 3rd consecutive double — Go to Jail immediately
+                                        consecutiveDoublesMap.set(socket.id, 0);
+                                        player.position = 10;
+                                        player.isInJail = true;
+                                        player.jailTurnsRemaining = 3;
+                                        emitServerHistory(`${player.username} rolled doubles 3 times in a row and goes to Jail!`);
+                                        EmitAll("dice_roll_result", {
+                                            listOfNums: [d1, d2, 30],
+                                            turnId: currentId,
+                                            passedGo: false, goPayment: 0,
+                                            goingToJail: true, jailStayed: false, jailEscape: false,
+                                            rolledPosition: 30, finalPosition: 10,
+                                            requiresPurchaseDecision: false, pendingCard: null, landingNote: "",
+                                            forcedJailPayment: 0,
+                                            allowRollAgain: false,
+                                        });
+                                        EmitStateUpdate();
+                                        return;
+                                    }
+                                } else {
+                                    consecutiveDoublesMap.set(socket.id, 0);
+                                }
+                            }
+
                             const oldPos = player.position;
                             const rolledPosition = (oldPos + sum) % 40;
                             const passedGo = (oldPos + sum) >= 40;
@@ -535,12 +576,15 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
                                     if (landingNote.startsWith("incometax")) {
                                         emitServerHistory(`${player.username} paid $200 Income Tax`);
+                                        creditorMap.set(player.id, "bank"); // Phase 2E
                                     } else if (landingNote.startsWith("luxerytax")) {
                                         emitServerHistory(`${player.username} paid $100 Luxury Tax`);
+                                        creditorMap.set(player.id, "bank"); // Phase 2E
                                     } else if (landingNote.startsWith("rent:")) {
                                         const [, ownerId, rentAmt] = landingNote.split(":");
                                         const ownerName = Clients.get(ownerId)?.player.username ?? "someone";
                                         emitServerHistory(`${player.username} paid $${rentAmt} rent to ${ownerName}`);
+                                        creditorMap.set(player.id, ownerId); // Phase 2E
                                     }
                                 }
                             }
@@ -559,6 +603,8 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 rolledPosition, finalPosition,
                                 requiresPurchaseDecision, pendingCard, landingNote,
                                 forcedJailPayment,
+                                // Phase 2E: allow re-roll on doubles (unless going to jail)
+                                allowRollAgain: isDoubles && !goingToJail && !player.isInJail,
                             });
                             EmitStateUpdate();
                         } catch (e) { server.logFunction(e); }
@@ -623,16 +669,18 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         } catch (e) { server.logFunction(e); }
                     });
 
-                    // ── Legacy chorch_roll — now handled inside roll_dice ─────
-                    socket.on("chorch_roll", () => { /* no-op: server resolves cards in roll_dice */ });
-
-                    // ── Finish Turn ───────────────────────────────────────────
+                    // ── Finish Turn ───────────────────────────────────────
                     socket.on("finish-turn", () => {
                         try {
                             if (currentId !== socket.id) return;
-                            if (player.balance < 0) Clients.delete(socket.id);
+                            // Phase 2C: Reject finish-turn if still insolvent — must declare bankruptcy
+                            if (player.balance < 0) return;
 
-                            const active = Array.from(Clients.values()).filter((v) => v.player.balance > 0);
+                            // Phase 2A: Reset doubles streak and creditor on clean turn end
+                            consecutiveDoublesMap.set(socket.id, 0);
+                            creditorMap.set(socket.id, null);
+
+                            const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
                             const arr = active.map((v) => v.player.id);
                             let i = arr.indexOf(socket.id);
                             i = arr.length > 0 ? (i + 1) % arr.length : -1;
@@ -653,7 +701,66 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         } catch (e) { server.logFunction(e); }
                     });
 
-                    // ── Message ───────────────────────────────────────────────
+                    // ── Declare Bankruptcy ───────────────────────────────
+                    // Phase 2B: Full bankruptcy handler — asset transfer + 10% fee
+                    socket.on("declare-bankruptcy", () => {
+                        try {
+                            if (player.isBankrupt) return;
+                            if (player.balance >= 0) return;
+
+                            player.isBankrupt = true;
+                            const creditor = creditorMap.get(player.id) ?? "bank";
+
+                            if (creditor !== "bank") {
+                                const creditorClient = Clients.get(creditor as string);
+                                if (creditorClient) {
+                                    const cp = creditorClient.player;
+                                    for (const prp of player.properties) {
+                                        prp.count = 0;
+                                        if (prp.morgage === true) {
+                                            const propData = propertyById.get(prp.posistion?.toString()) ??
+                                                propertyByPosition.get(prp.posistion);
+                                            const fee = Math.round((propData?.price ?? 0) * 0.05);
+                                            cp.balance -= fee;
+                                        }
+                                        cp.properties.push(prp);
+                                    }
+                                }
+                            } else {
+                                for (const prp of player.properties) {
+                                    prp.count = 0;
+                                    prp.morgage = false;
+                                }
+                            }
+                            player.properties = [];
+                            player.balance = 0;
+
+                            const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
+                            const arr = active.map((v) => v.player.id);
+                            let i = arr.indexOf(socket.id);
+                            i = arr.length > 0 ? (i + 1) % arr.length : -1;
+                            currentId = i === -1 ? "" : arr[i];
+
+                            consecutiveDoublesMap.set(socket.id, 0);
+                            creditorMap.set(socket.id, null);
+
+                            emitServerHistory(`${player.username} declared bankruptcy`);
+                            EmitAll("player-bankrupt", {
+                                bankruptId: player.id,
+                                creditorId: creditor,
+                                turnId: currentId,
+                                pJsons: Array.from(Clients.values()).map((c) => c.player.to_json()),
+                            });
+                            EmitStateUpdate();
+
+                            if (active.length <= 1) {
+                                gameStarted = false;
+                                for (const c of Array.from(Clients.values())) c.ready = false;
+                            }
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    // ── Message ───────────────────────────────────────
                     socket.on("message", (message: string) => {
                         try {
                             server.logFunction(`{${getCurrentTime()}} [${socket.id}] "${Clients.get(socket.id)?.player.username}" messaged "${message}".`);

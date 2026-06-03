@@ -20,6 +20,10 @@ interface MonopolyGameProps {
         onSelectPlayer: (pId: string) => void;
     };
     selectedMode: MonopolyMode;
+    // Phase 2F — turn-flow state passed from parent
+    hasRolled?: boolean;
+    isDebtState?: boolean;
+    onDeclaredBankruptcy?: () => void;
 }
 export interface MonopolyGameRef {
     diceResults: (args: { l: [number, number]; time: number; onDone: () => void }) => void;
@@ -546,7 +550,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
     useEffect(() => {
         var continue_to_animate = true;
         var animate = () => {
-            for (const x of prop.players.filter((v) => v.balance >= 0)) {
+            for (const x of prop.players.filter((v) => !v.isBankrupt)) {
                 const location = x.position;
                 const icon = x.icon + 1;
                 const injail = x.isInJail && x.position === 10;
@@ -1461,10 +1465,25 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                         ) : (
                             <></>
                         )}
-                        <button data-button-type="roll" aria-disabled={false}>
-                            <p>ROLL THE DICE</p>
-                            <span style={{ marginLeft: 8, fontSize: 18 }}>🎲</span>
-                        </button>
+                        {/* Phase 2F: Show DECLARE BANKRUPTCY when in debt, else show ROLL THE DICE */}
+                        {prop.hasRolled && prop.isDebtState ? (
+                            <button
+                                id="btn-declare-bankruptcy"
+                                className="action-btn"
+                                style={{ background: '#ff4444', color: '#fff', fontWeight: 700, border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}
+                                onClick={() => {
+                                    prop.socket.emit("declare-bankruptcy");
+                                    prop.onDeclaredBankruptcy?.();
+                                }}
+                            >
+                                DECLARE BANKRUPTCY 💀
+                            </button>
+                        ) : (
+                            <button data-button-type="roll" aria-disabled={false}>
+                                <p>ROLL THE DICE</p>
+                                <span style={{ marginLeft: 8, fontSize: 18 }}>🎲</span>
+                            </button>
+                        )}
                         <button data-button-type="pay" data-tooltip-hover="pay" aria-disabled={true}>
                             <img src="pay1.png" />
                         </button>

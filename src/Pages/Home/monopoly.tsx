@@ -40,6 +40,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const [hostId, SetHostId] = useState<string>("");
     const [reconnectAttempt, SetReconnectAttempt] = useState<number | null>(null);
     const [copiedCode, setCopiedCode] = useState<boolean>(false);
+    // Phase 2F — turn-flow state
+    const [hasRolled, setHasRolled] = useState<boolean>(false);
+    const [allowRollAgain, setAllowRollAgain] = useState<boolean>(false);
+    const [isDebtState, setIsDebtState] = useState<boolean>(false);
+    const hasRolledRef = useRef(hasRolled);
+    hasRolledRef.current = hasRolled;
+    const allowRollAgainRef = useRef(allowRollAgain);
+    allowRollAgainRef.current = allowRollAgain;
     const [globalSettings, SetSettings] = useState<MonopolySettings>(() => {
         try {
             const cookieStr = CookieManager.get("monopolySettings");
@@ -104,6 +112,16 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             mainTheme.volume = (globalSettings.audio[0] / 100) * (globalSettings.audio[2] / 100);
         }
     }, [globalSettings]);
+
+    // Phase 2F — keep isDebtState in sync with local player's balance after rolling
+    useEffect(() => {
+        const localPlayer = clients.get(socket.id);
+        if (localPlayer && hasRolled && !allowRollAgain) {
+            setIsDebtState(localPlayer.balance < 0);
+        } else {
+            setIsDebtState(false);
+        }
+    }, [clients, hasRolled, allowRollAgain]);
 
     const engineRef = useRef<MonopolyGameRef>(null);
     const navRef = useRef<MonopolyNavRef>(null);
@@ -350,6 +368,10 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         const socket_TurnFinished = (args: { from: string; turnId: string; pJson: PlayerJSON; WinningMode: string }) => {
             const x = clients.get(args.from);
 
+            // Phase 2F: Reset turn-flow state when any turn ends
+            setHasRolled(false);
+            setAllowRollAgain(false);
+
             if (x !== undefined && JSON.stringify(x.properties) != JSON.stringify(args.pJson.properties)) {
                 // sound part - other player part
                 var audio = new Audio("./buying1.mp3");
@@ -558,6 +580,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             pendingCard?: any;
             landingNote?: string;
             forcedJailPayment?: number; // Fix #6: set to 50 when 3rd jail attempt forces payment
+            allowRollAgain?: boolean;   // Phase 2E: true when player rolled doubles and may roll again
         }) => {
             const xplayer = clients.get(args.turnId) as Player;
             const wasInJail = xplayer?.isInJail;
@@ -569,6 +592,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             const isActivePlayer = args.turnId === socket.id;
             const rolls = args.listOfNums[0] + args.listOfNums[1];
             const rolledPosition = args.listOfNums[2]; // position before jail correction
+
+            // Phase 2F: Track hasRolled / allowRollAgain for the active player
+            if (isActivePlayer) {
+                setHasRolled(true);
+                setAllowRollAgain(args.allowRollAgain ?? false);
+            }
 
             // ── Go notification (balance already applied server-side) ──
             if (args.passedGo) {
@@ -702,8 +731,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     return;
                 }
                 // Fix #6: forced jail payment ($50 on 3rd failed attempt)
-                // The server has already applied the charge and set isInJail=false;
-                // just show the player a notification and continue to normal movement.
                 if (args.forcedJailPayment && args.forcedJailPayment > 0 && isActivePlayer) {
                     if (settings?.notifications === true)
                         notifyRef.current?.message(
@@ -713,6 +740,24 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     engineRef.current?.applyAnimation(1);
                 }
                 if (args.goingToJail) return; // handled in afterMovementFinished
+
+                // Phase 2G: Inter-player card notifications
+                if (args.pendingCard?.element?.action === "addfundsfromplayers" && !isActivePlayer) {
+                    if (settings?.notifications === true)
+                        notifyRef.current?.message(
+                            `Paid $${args.pendingCard.element.amount} to ${clients.get(args.turnId)?.username ?? "active player"}`,
+                            "info", 3, () => {}, false
+                        );
+                    engineRef.current?.applyAnimation(1);
+                }
+                if (args.pendingCard?.element?.action === "removefundstoplayers" && !isActivePlayer) {
+                    if (settings?.notifications === true)
+                        notifyRef.current?.message(
+                            `Received $${args.pendingCard.element.amount} from ${clients.get(args.turnId)?.username ?? "active player"}`,
+                            "info", 3, () => {}, false
+                        );
+                    engineRef.current?.applyAnimation(2);
+                }
 
                 if (args.pendingCard) {
                     // Show card animation for ALL clients
@@ -728,7 +773,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         // If card triggers a movement, animate it for ALL clients
                         if (args.pendingCard.newPosition !== undefined && args.pendingCard.newPosition !== rolledPosition) {
                             // Fix #5: detect backward moves (e.g. "Go Back 3 Spaces" has count: -3)
-                            // and pass adding=false so the token steps backward instead of forward.
                             const isBackward = (
                                 args.pendingCard.element?.count !== undefined &&
                                 typeof args.pendingCard.element.count === "number" &&
@@ -736,31 +780,40 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             );
                             const cardMoveGen = playerMoveGENERATOR(
                                 args.pendingCard.newPosition, xplayer,
-                                !isBackward, // get200whengo: false for backward moves (no $200 when going back)
+                                !isBackward,
                                 () => {
-                                    // After card movement finishes
                                     xplayer.position = args.pendingCard.newPosition;
                                     SetClients(new Map(clients.set(args.turnId, xplayer)));
                                     if (isActivePlayer) {
                                         if (args.pendingCard.requiresPurchaseDecision) {
                                             showBuyUI(args.pendingCard.newPosition);
                                         } else {
-                                            engineRef.current?.freeDice();
-                                            socket.emit("finish-turn");
+                                            // Phase 2E: Re-roll on doubles if applicable
+                                            if (args.allowRollAgain) {
+                                                engineRef.current?.freeDice();
+                                            } else {
+                                                engineRef.current?.freeDice();
+                                                socket.emit("finish-turn");
+                                            }
                                         }
                                     }
                                 },
-                                !isBackward // adding: false makes the token step backward
+                                !isBackward
                             );
                             cardMoveGen.func();
                         } else {
-                            // No movement from card (e.g. addfunds, removefunds, getout-of-jail-free)
+                            // No movement from card
                             if (isActivePlayer) {
                                 if (args.pendingCard.requiresPurchaseDecision && args.pendingCard.newPosition !== undefined) {
                                     showBuyUI(args.pendingCard.newPosition);
                                 } else {
-                                    engineRef.current?.freeDice();
-                                    socket.emit("finish-turn");
+                                    // Phase 2E: Re-roll on doubles if applicable
+                                    if (args.allowRollAgain) {
+                                        engineRef.current?.freeDice();
+                                    } else {
+                                        engineRef.current?.freeDice();
+                                        socket.emit("finish-turn");
+                                    }
                                 }
                             }
                         }
@@ -769,9 +822,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     if (args.requiresPurchaseDecision) {
                         showBuyUI(args.finalPosition ?? rolledPosition);
                     } else {
-                        // Rent/tax/free-parking etc. — all handled server-side already
-                        engineRef.current?.freeDice();
-                        socket.emit("finish-turn");
+                        // Phase 2E: Re-roll on doubles if applicable
+                        if (args.allowRollAgain) {
+                            // Doubles! Re-enable roll button — do NOT emit finish-turn
+                            engineRef.current?.freeDice();
+                        } else {
+                            engineRef.current?.freeDice();
+                            socket.emit("finish-turn");
+                        }
                     }
                 }
             };
@@ -810,6 +868,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     audio.loop = false;
                     audio.play();
+                    // Phase 2G: Notify local player about the $50 unjail payment
+                    if (args.to === socket.id && settings?.notifications === true)
+                        notifyRef.current?.message("Paid $50 to leave Jail", "info", 2, () => {}, false);
                 } else {
                     var cardAudio = new Audio("./moneyplus.mp3");
                     cardAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
@@ -960,12 +1021,84 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             setTrade(undefined);
             // Reset the sended/action-bar state so players can act again after trade
             engineRef.current?.freeDice();
+            // Phase 2G: Notify local player about cash involved in the trade
+            const localPJson = args.pJsons.find((p) => p.id === socket.id);
+            if (localPJson && settings?.notifications === true) {
+                const prev = clients.get(socket.id)?.balance ?? localPJson.balance;
+                const diff = localPJson.balance - prev;
+                if (diff > 0)
+                    notifyRef.current?.message(`Trade: received $${diff}`, "info", 2, () => {}, false);
+                else if (diff < 0)
+                    notifyRef.current?.message(`Trade: paid $${Math.abs(diff)}`, "info", 2, () => {}, false);
+            }
             for (const PJS of args.pJsons) {
                 const client = clients.get(PJS.id);
                 if (client !== undefined) {
                     client.recieveJson(PJS);
                 }
             }
+        });
+
+        // Phase 2B: Handle player-bankrupt event
+        socket.on("player-bankrupt", (args: {
+            bankruptId: string;
+            creditorId: string | "bank";
+            turnId: string;
+            pJsons: PlayerJSON[];
+        }) => {
+            // Update all player states from server truth
+            for (const pJson of args.pJsons) {
+                const p = clients.get(pJson.id);
+                if (p) p.recieveJson(pJson);
+            }
+            SetClients(new Map(clients));
+            SetCurrent(args.turnId);
+            // Phase 2F: Reset turn-flow state on bankruptcy
+            setHasRolled(false);
+            setAllowRollAgain(false);
+
+            const bankruptName = clients.get(args.bankruptId)?.username ?? "A player";
+            if (args.bankruptId === socket.id) {
+                // Local player went bankrupt
+                mainTheme.pause();
+                notifyRef.current?.dialog(
+                    (close_func, createButton) => ({
+                        innerHTML: `<h3>YOU WENT BANKRUPT</h3><p>You can continue watching the game as a spectator.</p>`,
+                        buttons: [
+                            createButton("CONTINUE WATCHING", () => { close_func(); }),
+                            createButton("LEAVE GAME", () => { close_func(); leaveGameSession(); }),
+                        ],
+                    }),
+                    "loosing"
+                );
+            } else {
+                notifyRef.current?.message(`${bankruptName} declared bankruptcy!`, "error", 3);
+            }
+
+            // Check if only 1 active player remains → winner
+            const activePlayers = Array.from(clients.values()).filter((v) => !v.isBankrupt);
+            if (activePlayers.length === 1) {
+                const winner = activePlayers[0];
+                mainTheme.pause();
+                if (winner.id === socket.id) {
+                    notifyRef.current?.dialog(
+                        (close_func, createButton) => ({
+                            innerHTML: `<h3>YOU WON!</h3><p>All other players went bankrupt.</p>`,
+                            buttons: [createButton("LEAVE GAME", () => { close_func(); leaveGameSession(); })],
+                        }),
+                        "winning"
+                    );
+                } else {
+                    notifyRef.current?.dialog(
+                        (close_func, createButton) => ({
+                            innerHTML: `<h3>${winner.username} WON!</h3><p>All other players went bankrupt.</p>`,
+                            buttons: [createButton("LEAVE GAME", () => { close_func(); leaveGameSession(); })],
+                        }),
+                        "winning"
+                    );
+                }
+            }
+            navRef.current?.reRenderPlayerList();
         });
 
         var to_emit_name = true;
@@ -1110,6 +1243,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         },
                     }}
                     selectedMode={selectedMode}
+                    hasRolled={hasRolled}
+                    isDebtState={isDebtState}
+                    onDeclaredBankruptcy={() => {
+                        setHasRolled(false);
+                        setAllowRollAgain(false);
+                    }}
                 />
             </main>
             <NotifyElement ref={notifyRef} />
