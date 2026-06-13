@@ -161,8 +161,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         const localPlayer = clients.get(socket.id);
         if (localPlayer) {
             setIsDebtState(localPlayer.balance < 0);
+            setHasRolled(localPlayer.hasRolled);
+            setAllowRollAgain(localPlayer.allowRollAgain);
         } else {
             setIsDebtState(false);
+            setHasRolled(false);
+            setAllowRollAgain(false);
         }
     }, [clients]);
 
@@ -993,13 +997,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             SetClients(nextClients);
             navRef.current?.reRenderPlayerList();
 
-            // Restore debt state after page refresh:
-            // If it's our turn and we're insolvent, re-enter the "must declare bankruptcy" state.
-            const localPJson = args.players.find((p) => p.id === socket.id);
-            if (localPJson && localPJson.balance !== undefined && localPJson.balance < 0 && !hasRolledRef.current) {
-                setHasRolled(true);
-                setAllowRollAgain(false);
-            }
+            // Turn state is now synchronized directly via player class properties
         });
 
         // Trade
@@ -1249,6 +1247,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     }}
                     selectedMode={selectedMode}
                     hasRolled={hasRolled}
+                    allowRollAgain={allowRollAgain}
                     isDebtState={isDebtState}
                     onDeclaredBankruptcy={() => {
                         setHasRolled(false);

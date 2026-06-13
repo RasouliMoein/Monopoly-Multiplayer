@@ -25,6 +25,8 @@ class Player {
     getoutCards;
     connected;
     isBankrupt; // Phase 2A
+    hasRolled;
+    allowRollAgain;
     constructor(_id, _name, _icon, cash) {
         this.id = _id;
         this.username = _name;
@@ -37,6 +39,8 @@ class Player {
         this.getoutCards = 0;
         this.connected = true;
         this.isBankrupt = false; // Phase 2A
+        this.hasRolled = false;
+        this.allowRollAgain = false;
     }
     to_json() {
         return {
@@ -50,7 +54,9 @@ class Player {
             jailTurnsRemaining: this.jailTurnsRemaining,
             getoutCards: this.getoutCards,
             connected: this.connected,
-            isBankrupt: this.isBankrupt, // Phase 2A
+            isBankrupt: this.isBankrupt,
+            hasRolled: this.hasRolled,
+            allowRollAgain: this.allowRollAgain,
         };
     }
     from_json(json) {
@@ -64,6 +70,8 @@ class Player {
         this.getoutCards = json.getoutCards;
         this.connected = json.connected ?? true;
         this.isBankrupt = json.isBankrupt ?? false; // Phase 2A
+        this.hasRolled = json.hasRolled ?? false;
+        this.allowRollAgain = json.allowRollAgain ?? false;
     }
 }
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -272,7 +280,7 @@ async function main(playersCount, f) {
                     player.balance += 200;
                 player.position = targetPos;
                 const landing = processLanding(player, targetPos, rolls);
-                return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: targetPos };
+                return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: targetPos, landingNote: landing.landingNote };
             }
             case "movenearest": {
                 const group = card.groupid === "utility" ? "Utilities" : "Railroad";
@@ -294,10 +302,10 @@ async function main(playersCount, f) {
                     const d1 = Math.floor(Math.random() * 6) + 1;
                     const d2 = Math.floor(Math.random() * 6) + 1;
                     const landing = processLanding(player, nearest, d1 + d2, card.rentmultiplier ?? 1);
-                    return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest, extraRoll: [d1, d2] };
+                    return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest, extraRoll: [d1, d2], landingNote: landing.landingNote };
                 }
                 const landing = processLanding(player, nearest, rolls, card.rentmultiplier ?? 1);
-                return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest };
+                return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest, landingNote: landing.landingNote };
             }
             case "propertycharges": {
                 const houses = player.properties
@@ -415,6 +423,9 @@ async function main(playersCount, f) {
                         // Guard: insolvent players must declare bankruptcy before rolling again
                         if (player.balance < 0)
                             return;
+                        // Guard: already rolled and no roll again allowed
+                        if (player.hasRolled && !player.allowRollAgain)
+                            return;
                         let rolledD1 = Math.floor(Math.random() * 6) + 1;
                         let rolledD2 = Math.floor(Math.random() * 6) + 1;
                         const override = debugDiceOverrideMap.get(socket.id);
@@ -448,6 +459,8 @@ async function main(playersCount, f) {
                                 }
                                 else {
                                     emitServerHistory(`${player.username} failed doubles roll and stayed in Jail`);
+                                    player.hasRolled = true;
+                                    player.allowRollAgain = false;
                                     EmitAll("dice_roll_result", {
                                         listOfNums: [d1, d2, player.position],
                                         turnId: currentId,
@@ -482,6 +495,8 @@ async function main(playersCount, f) {
                                     player.isInJail = true;
                                     player.jailTurnsRemaining = 3;
                                     emitServerHistory(`${player.username} rolled doubles 3 times in a row and goes to Jail!`);
+                                    player.hasRolled = true;
+                                    player.allowRollAgain = false;
                                     EmitAll("dice_roll_result", {
                                         listOfNums: [d1, d2, 30],
                                         turnId: currentId,
@@ -546,6 +561,24 @@ async function main(playersCount, f) {
                                 if (player.balance >= balanceBeforeCard + 200 && (card.action === "move" || card.action === "movenearest")) {
                                     emitServerHistory(`${player.username} passed Go and collected $200`);
                                 }
+                                // Capture landingNote from card resolution!
+                                if (result.landingNote) {
+                                    const cardLandingNote = result.landingNote;
+                                    if (cardLandingNote.startsWith("incometax")) {
+                                        emitServerHistory(`${player.username} paid $200 Income Tax`);
+                                        creditorMap.set(player.id, "bank"); // Phase 2E
+                                    }
+                                    else if (cardLandingNote.startsWith("luxerytax")) {
+                                        emitServerHistory(`${player.username} paid $100 Luxury Tax`);
+                                        creditorMap.set(player.id, "bank"); // Phase 2E
+                                    }
+                                    else if (cardLandingNote.startsWith("rent:")) {
+                                        const [, ownerId, rentAmt] = cardLandingNote.split(":");
+                                        const ownerName = Clients.get(ownerId)?.player.username ?? "someone";
+                                        emitServerHistory(`${player.username} paid $${rentAmt} rent to ${ownerName}`);
+                                        creditorMap.set(player.id, ownerId); // Phase 2E
+                                    }
+                                }
                             }
                             else {
                                 const landing = processLanding(player, rolledPosition, sum);
@@ -572,6 +605,8 @@ async function main(playersCount, f) {
                             const propName = propertyByPosition.get(rolledPosition)?.name ?? "";
                             emitServerHistory(`${player.username} rolled [${d1}, ${d2}] moving to "${propName}"`);
                         }
+                        player.hasRolled = true;
+                        player.allowRollAgain = isDoubles && !goingToJail && !player.isInJail;
                         EmitAll("dice_roll_result", {
                             listOfNums: [d1, d2, rolledPosition],
                             turnId: currentId,
@@ -581,7 +616,7 @@ async function main(playersCount, f) {
                             requiresPurchaseDecision, pendingCard, landingNote,
                             forcedJailPayment,
                             // Phase 2E: allow re-roll on doubles (unless going to jail)
-                            allowRollAgain: isDoubles && !goingToJail && !player.isInJail,
+                            allowRollAgain: player.allowRollAgain,
                         });
                         EmitStateUpdate();
                     }
@@ -671,6 +706,8 @@ async function main(playersCount, f) {
                         // Phase 2A: Reset doubles streak and creditor on clean turn end
                         consecutiveDoublesMap.set(socket.id, 0);
                         creditorMap.set(socket.id, null);
+                        player.hasRolled = false;
+                        player.allowRollAgain = false;
                         const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
                         const arr = active.map((v) => v.player.id);
                         let i = arr.indexOf(socket.id);
@@ -733,32 +770,53 @@ async function main(playersCount, f) {
                 // Phase 2B: Full bankruptcy handler — asset transfer + 10% fee
                 socket.on("declare-bankruptcy", () => {
                     try {
-                        if (player.isBankrupt)
+                        server.logFunction(`[BANKRUPTCY] Player ${player.username} is declaring bankruptcy. Balance: ${player.balance}`);
+                        if (player.isBankrupt) {
+                            server.logFunction(`[BANKRUPTCY] Player is already bankrupt.`);
                             return;
-                        if (player.balance >= 0)
+                        }
+                        if (player.balance >= 0) {
+                            server.logFunction(`[BANKRUPTCY] Player balance is not negative: ${player.balance}. Rejecting.`);
                             return;
+                        }
                         player.isBankrupt = true;
                         const creditor = creditorMap.get(player.id) ?? "bank";
+                        server.logFunction(`[BANKRUPTCY] Creditor for ${player.username}: ${creditor}`);
                         if (creditor !== "bank") {
                             const creditorClient = Clients.get(creditor);
                             if (creditorClient) {
                                 const cp = creditorClient.player;
+                                server.logFunction(`[BANKRUPTCY] Found creditor player: ${cp.username}`);
+                                emitServerHistory(`${player.username} declared bankruptcy to ${cp.username}`);
                                 for (const prp of player.properties) {
                                     prp.count = 0;
-                                    if (prp.morgage === true) {
-                                        const propData = propertyById.get(prp.posistion?.toString()) ??
-                                            propertyByPosition.get(prp.posistion);
+                                    const propData = propertyById.get(prp.posistion?.toString()) ??
+                                        propertyByPosition.get(prp.posistion);
+                                    const propName = propData?.name ?? "a property";
+                                    server.logFunction(`[BANKRUPTCY] Transferring property ${propName} (morgage: ${prp.morgage}, type: ${typeof prp.morgage})`);
+                                    emitServerHistory(`${cp.username} received ${propName} from ${player.username}`);
+                                    if (prp.morgage === true || prp.morgage === "true") {
                                         const fee = Math.round((propData?.price ?? 0) * 0.05);
                                         cp.balance -= fee;
+                                        server.logFunction(`[BANKRUPTCY] Creditor ${cp.username} charged fee $${fee} for mortgaged ${propName}. New balance: ${cp.balance}`);
+                                        emitServerHistory(`${cp.username} paid $${fee} interest to Bank for mortgaged ${propName}`);
                                     }
                                     cp.properties.push(prp);
                                 }
                             }
+                            else {
+                                server.logFunction(`[BANKRUPTCY] Creditor client not found for id: ${creditor}`);
+                            }
                         }
                         else {
+                            emitServerHistory(`${player.username} declared bankruptcy to the Bank`);
                             for (const prp of player.properties) {
                                 prp.count = 0;
                                 prp.morgage = false;
+                                const propData = propertyById.get(prp.posistion?.toString()) ??
+                                    propertyByPosition.get(prp.posistion);
+                                const propName = propData?.name ?? "a property";
+                                emitServerHistory(`${propName} was returned to the Bank`);
                             }
                         }
                         player.properties = [];
@@ -770,7 +828,8 @@ async function main(playersCount, f) {
                         currentId = i === -1 ? "" : arr[i];
                         consecutiveDoublesMap.set(socket.id, 0);
                         creditorMap.set(socket.id, null);
-                        emitServerHistory(`${player.username} declared bankruptcy`);
+                        player.hasRolled = false;
+                        player.allowRollAgain = false;
                         EmitAll("player-bankrupt", {
                             bankruptId: player.id,
                             creditorId: creditor,

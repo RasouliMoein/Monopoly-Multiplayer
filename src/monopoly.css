@@ -1727,6 +1727,9 @@ div.history-action.hist-chance { border-left: 4px solid #f97316; }
 div.history-action.hist-chest { border-left: 4px solid #0ea5e9; }
 div.history-action.hist-go { border-left: 4px solid #10b981; }
 div.history-action.hist-trade { border-left: 4px solid #d97706; }
+div.history-action.hist-bankruptcy { border-left: 4px solid #ef4444; }
+div.history-action.hist-fee { border-left: 4px solid #f43f5e; }
+div.history-action.hist-transfer { border-left: 4px solid #3b82f6; }
 div.history-action.hist-default { border-left: 4px solid #64748b; }
 
 div.history-action-header {

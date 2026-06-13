@@ -13,6 +13,8 @@ class Player {
     getoutCards;
     ready;
     positions;
+    hasRolled;
+    allowRollAgain;
     constructor(_id, _name) {
         this.id = _id;
         this.username = _name;
@@ -25,6 +27,8 @@ class Player {
         this.getoutCards = 0;
         this.ready = false;
         this.positions = { x: 0, y: 0 };
+        this.hasRolled = false;
+        this.allowRollAgain = false;
     }
     recieveJson(json) {
         this.username = json.username;
@@ -35,6 +39,8 @@ class Player {
         this.isInJail = json.isInJail;
         this.jailTurnsRemaining = json.jailTurnsRemaining;
         this.getoutCards = json.getoutCards;
+        this.hasRolled = json.hasRolled ?? false;
+        this.allowRollAgain = json.allowRollAgain ?? false;
         return this;
     }
     toJson() {
@@ -48,6 +54,8 @@ class Player {
             properties: this.properties,
             username: this.username,
             getoutCards: this.getoutCards,
+            hasRolled: this.hasRolled,
+            allowRollAgain: this.allowRollAgain,
         };
     }
     get color() {

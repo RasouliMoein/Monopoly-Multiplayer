@@ -303,6 +303,55 @@ function parseHistoryAction(action: string): ParsedHistory {
         }
     }
     
+    // 12. Bankruptcy: "chrome declared bankruptcy to edge" or "chrome declared bankruptcy to the Bank"
+    if (text.includes(" declared bankruptcy to ")) {
+        const bankruptMatch = text.match(/(.*?) declared bankruptcy to (.*)/);
+        if (bankruptMatch) {
+            return {
+                type: "bankruptcy",
+                emoji: "💀",
+                player: bankruptMatch[1],
+                details: "declared bankruptcy to ",
+                targetPlayer: bankruptMatch[2],
+                bgClass: "hist-bankruptcy",
+            };
+        }
+    }
+
+    // 13. Mortgage Fee: "edge paid $10 interest to Bank for mortgaged St. Charles Place"
+    if (text.includes(" paid $") && text.includes(" interest to Bank for mortgaged ")) {
+        const feeMatch = text.match(/(.*?) paid \$(.*?) interest to Bank for mortgaged (.*)/);
+        if (feeMatch) {
+            return {
+                type: "bankruptcy-fee",
+                emoji: "💸",
+                player: feeMatch[1],
+                details: "paid ",
+                amount: `$${feeMatch[2]} interest`,
+                details2: " to Bank for mortgaged ",
+                target: feeMatch[3],
+                bgClass: "hist-fee",
+            };
+        }
+    }
+
+    // 14. Property Transfer: "edge received St. Charles Place from chrome"
+    if (text.includes(" received ") && text.includes(" from ")) {
+        const transferMatch = text.match(/(.*?) received (.*?) from (.*)/);
+        if (transferMatch) {
+            return {
+                type: "transfer",
+                emoji: "📋",
+                player: transferMatch[1],
+                details: "received ",
+                target: transferMatch[2],
+                details2: " from ",
+                targetPlayer: transferMatch[3],
+                bgClass: "hist-transfer",
+            };
+        }
+    }
+
     // Default fallback
     return {
         type: "event",
@@ -580,7 +629,7 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                         
                                         const key = `${v.time}-${i}`;
                                         const isExpanded = !!expandedIndex[key];
-                                        const balanceChangingTypes = ["buy", "upgrade", "rent", "tax", "unmortgage", "mortgage", "go", "trade", "chance", "chest"];
+                                        const balanceChangingTypes = ["buy", "upgrade", "rent", "tax", "unmortgage", "mortgage", "go", "trade", "chance", "chest", "bankruptcy", "bankruptcy-fee", "transfer"];
                                         const isUnjailPay = parsed.type === "unjail" && v.action.includes("paid $50");
                                         const showBalancesDropdown = v.balances && v.balances.length > 0 && (balanceChangingTypes.includes(parsed.type) || isUnjailPay);
                                         return (

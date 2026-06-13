@@ -22,6 +22,7 @@ interface MonopolyGameProps {
     selectedMode: MonopolyMode;
     // Phase 2F — turn-flow state passed from parent
     hasRolled?: boolean;
+    allowRollAgain?: boolean;
     isDebtState?: boolean;
     onDeclaredBankruptcy?: () => void;
 }
@@ -200,6 +201,14 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         audio.play();
     }
 
+    const localFreeDice = () => {
+        const element = document.getElementById("dice-panel") as HTMLDivElement;
+        if (element) {
+            element.innerHTML = "";
+        }
+        SetSended(false);
+    };
+
     useImperativeHandle(ref, () => ({
         diceResults: (args) => {
             diceAnimation(...args.l);
@@ -210,9 +219,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
             }, args.time);
         },
         freeDice: () => {
-            const element = document.getElementById("dice-panel") as HTMLDivElement;
-            element.innerHTML = "";
-            SetSended(false);
+            localFreeDice();
         },
         setStreet: (args) => {
             // find data based on location
@@ -1464,11 +1471,11 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                         ) : (
                             <></>
                         )}
-                        {/* Phase 2F: Show DECLARE BANKRUPTCY when in debt, else show ROLL THE DICE */}
+                        {/* Phase 2F: Render buttons based on turn state */}
                         {prop.isDebtState ? (
                             <button
                                 id="btn-declare-bankruptcy"
-                                className="action-btn"
+                                className="action-btn bankruptcy-btn"
                                 style={{
                                     background: '#dc2626',
                                     backgroundColor: '#dc2626',
@@ -1488,10 +1495,33 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             >
                                 DECLARE BANKRUPTCY 💀
                             </button>
-                        ) : (
+                        ) : !(prop.hasRolled && !prop.allowRollAgain) ? (
                             <button data-button-type="roll" aria-disabled={false} onClick={handleRoll}>
                                 <p>ROLL THE DICE</p>
                                 <span style={{ marginLeft: 8, fontSize: 18 }}>🎲</span>
+                            </button>
+                        ) : (
+                            <button
+                                id="btn-end-turn"
+                                className="action-btn end-turn-btn"
+                                style={{
+                                    background: '#10b981',
+                                    backgroundColor: '#10b981',
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    border: '1px solid #047857',
+                                    borderRadius: '8px',
+                                    padding: '8px 16px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 0 12px rgba(16, 185, 129, 0.5)',
+                                    opacity: 1
+                                }}
+                                onClick={() => {
+                                    localFreeDice();
+                                    prop.socket.emit("finish-turn");
+                                }}
+                            >
+                                END TURN
                             </button>
                         )}
                         <button data-button-type="pay" data-tooltip-hover="pay" aria-disabled={true}>

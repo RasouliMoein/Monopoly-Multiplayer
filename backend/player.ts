@@ -13,6 +13,9 @@ export class Player {
     public getoutCards: number;
     public ready: boolean;
     public positions: { x: number; y: number };
+    public hasRolled: boolean;
+    public allowRollAgain: boolean;
+
     constructor(_id: string, _name: string) {
         this.id = _id;
         this.username = _name;
@@ -25,6 +28,8 @@ export class Player {
         this.getoutCards = 0;
         this.ready = false;
         this.positions = { x: 0, y: 0 };
+        this.hasRolled = false;
+        this.allowRollAgain = false;
     }
     recieveJson(json: PlayerJSON) {
         this.username = json.username;
@@ -35,6 +40,8 @@ export class Player {
         this.isInJail = json.isInJail;
         this.jailTurnsRemaining = json.jailTurnsRemaining;
         this.getoutCards = json.getoutCards;
+        this.hasRolled = json.hasRolled ?? false;
+        this.allowRollAgain = json.allowRollAgain ?? false;
         return this;
     }
 
@@ -49,6 +56,8 @@ export class Player {
             properties: this.properties,
             username: this.username,
             getoutCards: this.getoutCards,
+            hasRolled: this.hasRolled,
+            allowRollAgain: this.allowRollAgain,
         } as PlayerJSON;
     }
 
@@ -80,4 +89,6 @@ export type PlayerJSON = {
     isInJail: boolean;
     jailTurnsRemaining: number;
     getoutCards: number;
+    hasRolled?: boolean;
+    allowRollAgain?: boolean;
 };

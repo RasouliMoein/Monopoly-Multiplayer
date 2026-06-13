@@ -62,7 +62,11 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
                 props.Morgage.onCanc(cost, propData.name ?? "");
 
                 SetCardPos(-1);
-                props.socket.emit("player_update", { playerId: props.socket.id, pJson: localP.toJson() });
+                props.socket.emit("mortgage_action", {
+                    action: "unmortgage",
+                    amount: cost,
+                    propertyPosition: location
+                });
             },
             pay: () => {
                 const location = currentCardPosition;
@@ -84,7 +88,11 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
                 props.Morgage.onMort(mortgageVal, propData.name ?? "");
 
                 SetCardPos(-1);
-                props.socket.emit("player_update", { playerId: props.socket.id, pJson: localP.toJson() });
+                props.socket.emit("mortgage_action", {
+                    action: "mortgage",
+                    amount: -mortgageVal,
+                    propertyPosition: location
+                });
             },
         },
     };
