@@ -374,8 +374,10 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             SetGameStarted(true);
             function A(n: number) {
                 const p = document.querySelector("p#floating-clock") as HTMLParagraphElement;
-                p.innerHTML = `${n}`;
-                p.className = "clocking";
+                if (p) {
+                    p.innerHTML = `${n}`;
+                    p.className = "clocking";
+                }
             }
             A(3);
             setTimeout(() => {
@@ -383,6 +385,11 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 setTimeout(() => {
                     A(1);
                     setTimeout(() => {
+                        const p = document.querySelector("p#floating-clock") as HTMLParagraphElement;
+                        if (p) {
+                            p.innerHTML = "";
+                            p.className = "";
+                        }
                         SetGameStartedDisplay(true);
                     }, 1000);
                 }, 1000);

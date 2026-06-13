@@ -1477,40 +1477,6 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             <button
                                 id="btn-declare-bankruptcy"
                                 className="action-btn bankruptcy-btn"
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    fontFamily: 'var(--font-outfit, \'Outfit\', sans-serif)',
-                                    fontSize: '12px',
-                                    fontWeight: 700,
-                                    letterSpacing: '0.04em',
-                                    textTransform: 'uppercase',
-                                    color: '#fca5a5',
-                                    background: 'rgba(220, 38, 38, 0.12)',
-                                    border: '1px solid rgba(220, 38, 38, 0.35)',
-                                    borderRadius: '10px',
-                                    padding: '0 18px',
-                                    height: '40px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    backdropFilter: 'blur(8px)',
-                                    marginRight: '6px',
-                                }}
-                                onMouseEnter={e => {
-                                    const el = e.currentTarget;
-                                    el.style.background = 'rgba(220, 38, 38, 0.25)';
-                                    el.style.borderColor = 'rgba(220, 38, 38, 0.6)';
-                                    el.style.color = '#ffffff';
-                                    el.style.transform = 'translateY(-1px)';
-                                }}
-                                onMouseLeave={e => {
-                                    const el = e.currentTarget;
-                                    el.style.background = 'rgba(220, 38, 38, 0.12)';
-                                    el.style.borderColor = 'rgba(220, 38, 38, 0.35)';
-                                    el.style.color = '#fca5a5';
-                                    el.style.transform = '';
-                                }}
                                 onClick={() => {
                                     prop.socket.emit("declare-bankruptcy");
                                     prop.onDeclaredBankruptcy?.();
@@ -1528,40 +1494,6 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             <button
                                 id="btn-end-turn"
                                 className="action-btn end-turn-btn"
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    fontFamily: 'var(--font-outfit, \'Outfit\', sans-serif)',
-                                    fontSize: '12px',
-                                    fontWeight: 700,
-                                    letterSpacing: '0.04em',
-                                    textTransform: 'uppercase',
-                                    color: '#6ee7b7',
-                                    background: 'rgba(16, 185, 129, 0.12)',
-                                    border: '1px solid rgba(16, 185, 129, 0.35)',
-                                    borderRadius: '10px',
-                                    padding: '0 18px',
-                                    height: '40px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    backdropFilter: 'blur(8px)',
-                                    marginRight: '6px',
-                                }}
-                                onMouseEnter={e => {
-                                    const el = e.currentTarget;
-                                    el.style.background = 'rgba(16, 185, 129, 0.22)';
-                                    el.style.borderColor = 'rgba(16, 185, 129, 0.6)';
-                                    el.style.color = '#ffffff';
-                                    el.style.transform = 'translateY(-1px)';
-                                }}
-                                onMouseLeave={e => {
-                                    const el = e.currentTarget;
-                                    el.style.background = 'rgba(16, 185, 129, 0.12)';
-                                    el.style.borderColor = 'rgba(16, 185, 129, 0.35)';
-                                    el.style.color = '#6ee7b7';
-                                    el.style.transform = '';
-                                }}
                                 onClick={() => {
                                     localFreeDice();
                                     prop.socket.emit("finish-turn");

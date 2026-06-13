@@ -2240,6 +2240,46 @@ div.action-bar button[data-button-type="roll"] span {
     line-height: 1 !important;
 }
 
+div.action-bar button.bankruptcy-btn {
+    background: rgba(239, 68, 68, 0.15) !important;
+    border: 1.5px solid rgba(239, 68, 68, 0.45) !important;
+    color: #fca5a5 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-right: 8px !important;
+    gap: 8px !important;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15) !important;
+}
+
+div.action-bar button.bankruptcy-btn:hover {
+    background: rgba(239, 68, 68, 0.28) !important;
+    border-color: rgba(239, 68, 68, 0.7) !important;
+    color: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3) !important;
+    transform: translateY(-1px) scale(1.02) !important;
+}
+
+div.action-bar button.end-turn-btn {
+    background: rgba(16, 185, 129, 0.15) !important;
+    border: 1.5px solid rgba(16, 185, 129, 0.45) !important;
+    color: #6ee7b7 !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-right: 8px !important;
+    gap: 8px !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15) !important;
+}
+
+div.action-bar button.end-turn-btn:hover {
+    background: rgba(16, 185, 129, 0.28) !important;
+    border-color: rgba(16, 185, 129, 0.7) !important;
+    color: #ffffff !important;
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3) !important;
+    transform: translateY(-1px) scale(1.02) !important;
+}
+
 div.action-bar button img {
     height: 18px !important;
     width: auto !important;
