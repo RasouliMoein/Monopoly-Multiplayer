@@ -388,11 +388,19 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                             hostId = socket.id;
                         }
                     } else {
+                        // Two-tab fix: disconnect the old socket before adopting the new one.
+                        // The old socket's disconnect event is harmless because the dc.socket
+                        // guard below will detect it as an orphaned socket and return early.
+                        const oldSocket = client!.socket;
                         client!.socket = socket;
                         client!.connected = true;
                         client!.player.connected = true;
                         client!.socket.emit("assign_id", socket.id);
+                        if (oldSocket !== socket) oldSocket.disconnect();
                     }
+
+                    // Clear idle / empty-room cleanup timer now that a player is here.
+                    server.clearCleanupTimer();
 
                     const player = client!.player;
                     const logMsg = `{${getCurrentTime()}} [${socket.id}] Player "${player.username}" has ${isReconnecting ? "reconnected" : "connected"}.`;
@@ -426,6 +434,8 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 }
                                 EmitAll("disconnected-player", { id: targetId, turn: currentId, wasInGame: gameStarted });
                                 EmitStateUpdate();
+                                // Destroy room immediately if it is now empty
+                                if (Clients.size === 0) server.destroy();
                             }
                         } catch (e) { server.logFunction(e); }
                     });
@@ -1000,7 +1010,11 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         }
                         EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame: gameStarted });
                         EmitStateUpdate();
-                        if (Array.from(Clients.keys()).length === 0) { if (gameStarted) server.logFunction("Game has Ended."); gameStarted = false; }
+                        if (Array.from(Clients.keys()).length === 0) {
+                            if (gameStarted) server.logFunction("Game has Ended.");
+                            gameStarted = false;
+                            server.destroy();
+                        }
                     });
 
                 } catch (e) { server.logFunction(e); }
@@ -1016,7 +1030,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     Clients.set(socket.id, client);
                     EmitAll("ready", { id: socket.id, state: client.ready, selectedMode });
                     const readys = Array.from(Clients.values()).map((v) => v.ready);
-                    if (!readys.includes(false)) {
+                    if (!readys.includes(false) && Clients.size >= 2) {
                         server.logFunction("Game has Started, No more Players can join the Server");
                         gameStarted = true;
                         EmitAll("start-game", {});
@@ -1027,33 +1041,92 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
             // ── Disconnect ────────────────────────────────────────────────────
             socket.on("disconnect", () => {
                 try {
-                    let wasInGame = false;
-                    if (Clients.has(socket.id)) {
-                        const logMsg = `{${getCurrentTime()}} [${socket.id}] Player "${Clients.get(socket.id)?.player.username}" has disconnected.`;
-                        server.logFunction(logMsg); logs_strings.push(logMsg);
-                        wasInGame = gameStarted;
-                    }
                     const dc = Clients.get(socket.id);
+
+                    // Orphaned-socket guard: if this socket was replaced by a reconnect
+                    // (two-tab or mid-session refresh), the client entry already points at
+                    // the new socket. Ignore the close event from the old one.
+                    if (dc && dc.socket !== socket) return;
+
                     if (dc) {
-                        dc.ready = false;
-                        dc.connected = false;
-                        dc.player.connected = false;
+                        const logMsg = `{${getCurrentTime()}} [${socket.id}] Player "${dc.player.username}" has disconnected.`;
+                        server.logFunction(logMsg); logs_strings.push(logMsg);
                     }
 
-                    if (hostId === socket.id && !gameStarted) {
-                        const nextHost = Array.from(Clients.values()).find((c) => c.connected && c.player.id !== socket.id);
-                        if (nextHost) {
-                            hostId = nextHost.player.id;
-                            const logMsg = `[Host promoted] Player "${nextHost.player.username}" is now the host.`;
-                            server.logFunction(logMsg); logs_strings.push(logMsg);
+                    if (!gameStarted) {
+                        // ── Pre-game: remove player entirely to free slot + unblock ready check ──
+                        Clients.delete(socket.id);
+
+                        // Host promotion (pre-game)
+                        if (hostId === socket.id) {
+                            const nextHost = Array.from(Clients.values()).find((c) => c.connected);
+                            hostId = nextHost ? nextHost.player.id : "";
+                            if (nextHost) {
+                                const hMsg = `[Host promoted] "${nextHost.player.username}" is now the host.`;
+                                server.logFunction(hMsg); logs_strings.push(hMsg);
+                            }
                         }
-                    }
 
-                    EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame });
-                    EmitStateUpdate();
-                    if (Array.from(Clients.values()).filter((c) => c.connected).length === 0) {
-                        if (gameStarted) server.logFunction("Game has Ended. Server is currently Open to new Players");
-                        gameStarted = false;
+                        // Repair currentId if it pointed at the removed player
+                        if (currentId === socket.id) {
+                            const arr = Array.from(Clients.values()).map((v) => v.player.id);
+                            currentId = arr.length > 0 ? arr[0] : "";
+                        }
+
+                        EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame: false });
+                        EmitStateUpdate();
+
+                        // Destroy room immediately when the last player leaves pre-game
+                        if (Clients.size === 0) server.destroy();
+
+                    } else {
+                        // ── Mid-game: keep player for potential reconnect, mark disconnected ──
+                        if (dc) {
+                            dc.ready = false;
+                            dc.connected = false;
+                            dc.player.connected = false;
+                        }
+
+                        // Host promotion during active game (removed && !gameStarted guard)
+                        if (hostId === socket.id) {
+                            const nextHost = Array.from(Clients.values()).find(
+                                (c) => c.connected && c.player.id !== socket.id
+                            );
+                            if (nextHost) {
+                                hostId = nextHost.player.id;
+                                const hMsg = `[Host promoted] "${nextHost.player.username}" is now the host.`;
+                                server.logFunction(hMsg); logs_strings.push(hMsg);
+                            }
+                        }
+
+                        // Turn advancement: if the disconnected player held the active turn,
+                        // move it forward so the game is not permanently frozen.
+                        if (currentId === socket.id && dc) {
+                            dc.player.hasRolled = false;
+                            dc.player.allowRollAgain = false;
+                            const activeAll = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
+                            const arr = activeAll.map((v) => v.player.id);
+                            let i = arr.indexOf(socket.id);
+                            i = arr.length > 0 ? (i + 1) % arr.length : -1;
+                            currentId = i === -1 ? "" : arr[i];
+                            EmitAll("turn-finished", {
+                                from: socket.id,
+                                turnId: currentId,
+                                pJson: dc.player.to_json(),
+                                WinningMode: selectedMode.WinningMode,
+                            });
+                        }
+
+                        EmitAll("disconnected-player", { id: socket.id, turn: currentId, wasInGame: true });
+                        EmitStateUpdate();
+
+                        // If everyone is gone, reset game state and start 2-min cleanup timer
+                        const connectedCount = Array.from(Clients.values()).filter((c) => c.connected).length;
+                        if (connectedCount === 0) {
+                            server.logFunction("All players disconnected. Starting 2-minute cleanup timer.");
+                            gameStarted = false;
+                            server.resetCleanupTimer(2 * 60 * 1000);
+                        }
                     }
                 } catch (e) { server.logFunction(e); }
             });

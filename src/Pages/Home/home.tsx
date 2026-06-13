@@ -91,6 +91,9 @@ export default function Home() {
             sessionStorage.removeItem(key);
         }
 
+        // Also clear the persistent username so it doesn't interfere with a fresh start
+        localStorage.removeItem("current_name");
+
         SetDisabled(false);
         SetSocket(undefined);
         SetName("");
@@ -128,7 +131,7 @@ export default function Home() {
         }
 
         sessionStorage.setItem("current_room", joinAddr);
-        sessionStorage.setItem("current_name", joinName);
+        localStorage.setItem("current_name", joinName);
 
         try {
             const cookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
@@ -168,12 +171,16 @@ export default function Home() {
                         SetDisabled(false);
                         break;
                     case 1:
+                        // Game already started — clear saved room so page reload doesn't auto-rejoin
+                        sessionStorage.removeItem("current_room");
                         notifyRef.current?.message("the game has already begun", "error", 2, () => {
                             SetDisabled(false);
                         });
                         socket.disconnect();
                         break;
                     case 2:
+                        // Room full — clear saved room so page reload doesn't auto-rejoin
+                        sessionStorage.removeItem("current_room");
                         notifyRef.current?.message("too many players on the server", "error", 2, () => {
                             SetDisabled(false);
                         });
@@ -189,7 +196,12 @@ export default function Home() {
                 }
             });
         } catch (r) {
-            notifyRef.current?.message(`Could not connect to peer ${addr}`, "error", 2, () => {
+            // Clear the stale session so the next page refresh doesn't auto-rejoin
+            // a room that no longer exists, causing an infinite retry loop.
+            sessionStorage.removeItem("current_room");
+            sessionStorage.removeItem("monopoly_token_" + TranslateCode(joinAddr));
+            const errMsg = r === "Room not found" ? "Room not found — session cleared" : `Could not connect to peer ${addr}`;
+            notifyRef.current?.message(errMsg, "error", 2, () => {
                 SetDisabled(false);
             });
         }
@@ -202,7 +214,7 @@ export default function Home() {
         }
 
         const storedRoom = sessionStorage.getItem("current_room");
-        const storedName = sessionStorage.getItem("current_name");
+        const storedName = localStorage.getItem("current_name") || sessionStorage.getItem("current_name");
         if (storedName) {
             SetName(storedName);
         }
@@ -215,7 +227,7 @@ export default function Home() {
 
     useEffect(() => {
         if (name) {
-            sessionStorage.setItem("current_name", name);
+            localStorage.setItem("current_name", name);
         }
     }, [name]);
 
@@ -236,7 +248,7 @@ export default function Home() {
                 const data = await response.json();
                 if (data.success) {
                     sessionStorage.setItem("current_room", data.hostCode);
-                    sessionStorage.setItem("current_name", name);
+                    localStorage.setItem("current_name", name);
                     
                     const virtualServer = new Server();
                     virtualServer.code = data.translatedCode; // RAW code
@@ -283,7 +295,7 @@ export default function Home() {
                 const data = await response.json();
                 if (data.success) {
                     sessionStorage.setItem("current_room", data.hostCode);
-                    sessionStorage.setItem("current_name", name);
+                    localStorage.setItem("current_name", name);
                     
                     const virtualServer = new Server();
                     virtualServer.code = data.translatedCode; // RAW code

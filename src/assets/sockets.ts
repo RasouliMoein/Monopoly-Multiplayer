@@ -1,31 +1,47 @@
 export function io(uri: string, forceToken?: string): Promise<Socket> {
-        return new Promise((resolve, reject) => {
-                let token = forceToken;
-                if (!token) {
-                        token = sessionStorage.getItem("monopoly_token_" + uri) || undefined;
-                        if (!token) {
-                                token = Date.now().toString(36) + Math.random().toString(36).substring(2);
-                                sessionStorage.setItem("monopoly_token_" + uri, token);
-                        }
-                }
+	return new Promise((resolve, reject) => {
+		let token = forceToken;
+		if (!token) {
+			token = sessionStorage.getItem("monopoly_token_" + uri) || undefined;
+			if (!token) {
+				token = Date.now().toString(36) + Math.random().toString(36).substring(2);
+				sessionStorage.setItem("monopoly_token_" + uri, token);
+			}
+		}
 
-                const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-                const ws = new WebSocket(`${protocol}//${window.location.host}/room/${uri}?token=${token}`);
+		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+		const ws = new WebSocket(`${protocol}//${window.location.host}/room/${uri}?token=${token}`);
 
-                const checkOpen = setTimeout(() => {
-                        if (ws.readyState !== WebSocket.OPEN) {
+		const checkOpen = setTimeout(() => {
+			if (ws.readyState !== WebSocket.OPEN) {
+				reject("Connection timeout");
 			}
 		}, 5000);
 
+		// Register onclose BEFORE onopen so a pre-open close (e.g. 1008 Room not found)
+		// is always caught and the promise is properly rejected.
+		ws.onclose = (event) => {
+			clearTimeout(checkOpen);
+			if (event.code === 1008) {
+				reject("Room not found");
+			} else {
+				reject(`Connection closed before open (code ${event.code})`);
+			}
+		};
+
 		ws.onopen = () => {
 			clearTimeout(checkOpen);
+			// Hand off close-event handling to the Socket class.
+			ws.onclose = null;
 			const sock = new Socket(ws, uri, token!);
 			resolve(sock);
 		};
+
 		ws.onerror = (_e) => {
-reject("WebSocket error");
-};
-});
+			clearTimeout(checkOpen);
+			reject("WebSocket error");
+		};
+	});
 }
 
 // class For websocket
@@ -102,23 +118,46 @@ private reconnect() {
 const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 const newWs = new WebSocket(`${protocol}//${window.location.host}/room/${this.uri}?token=${this.token}`);
 
+// Register onclose BEFORE onopen so a failed reconnect attempt (backend still down)
+// is properly detected and the retry loop continues rather than stalling.
+newWs.onclose = () => {
+	if (this.reconnectAttempts < this.maxReconnectAttempts) {
+		this.reconnectAttempts += 1;
+		console.log(`Reconnect failed. Retrying ${this.reconnectAttempts}/${this.maxReconnectAttempts}...`);
+		try {
+			const reconHandler = this.events.get("reconnecting");
+			if (reconHandler !== undefined) reconHandler(this.reconnectAttempts);
+		} catch {}
+		setTimeout(() => this.reconnect(), 2000);
+	} else {
+		try {
+			const xhandler = this.events.get("disconnect");
+			if (xhandler !== undefined) xhandler("");
+		} catch {}
+	}
+};
+
 newWs.onopen = () => {
-console.log("Reconnected successfully!");
-this.client = newWs;
-this.reconnectAttempts = 0;
-this.setupSocketHandlers();
-const name = sessionStorage.getItem("current_name") || "";
-if (name) {
-this.emit("name", name);
-}
-try {
-const reconHandler = this.events.get("reconnected");
-if (reconHandler !== undefined) reconHandler("");
-} catch {}
+	console.log("Reconnected successfully!");
+	// Clear the pre-open close handler; Socket class takes over from here.
+	newWs.onclose = null;
+	this.client = newWs;
+	this.reconnectAttempts = 0;
+	this.setupSocketHandlers();
+	// Use localStorage so the name survives tab closes and lobby leaves.
+	const name = localStorage.getItem("current_name") || sessionStorage.getItem("current_name") || "";
+	if (name) {
+		this.emit("name", name);
+	}
+	try {
+		const reconHandler = this.events.get("reconnected");
+		if (reconHandler !== undefined) reconHandler("");
+	} catch {}
 };
 
 newWs.onerror = () => {
-newWs.close();
+	// onerror is always followed by onclose, which handles the retry.
+	newWs.close();
 };
 }
 

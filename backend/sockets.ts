@@ -60,6 +60,7 @@ public logFunction: (...data: any[]) => void;
 public renderFunction: (v: Array<any[]>) => void;
 public logs: Array<any[]> = [];
 public code: string;
+private cleanupTimer?: ReturnType<typeof setTimeout>;
 
 // Dynamic fields to expose game loop state to outer index API
 public clientsCount?: () => number;
@@ -93,6 +94,9 @@ this.renderFunction = () => {};
             socket.emit("assign_id", id);
             if (onf) onf(socket, this);
         };
+
+        // Start idle timeout — destroy room if no player connects within 5 minutes
+        this.resetCleanupTimer(5 * 60 * 1000);
 }
 
     public onConnection: (client: WSWebSocket, id: string) => void;
@@ -103,5 +107,26 @@ this.logFunction = v;
 
 public RenderLogs(f: (v: Array<any[]>) => void) {
 this.renderFunction = f;
+}
+
+/** Start (or restart) the room cleanup countdown. */
+public resetCleanupTimer(delayMs: number) {
+    this.clearCleanupTimer();
+    this.cleanupTimer = setTimeout(() => this.destroy(), delayMs);
+}
+
+/** Cancel any running cleanup timer. */
+public clearCleanupTimer() {
+    if (this.cleanupTimer !== undefined) {
+        clearTimeout(this.cleanupTimer);
+        this.cleanupTimer = undefined;
+    }
+}
+
+/** Permanently remove this room from activeServers. */
+public destroy() {
+    this.clearCleanupTimer();
+    activeServers.delete(TranslateCode(this.code));
+    this.logFunction(`[Lifecycle] Room ${this.code} has been destroyed and removed from active servers.`);
 }
 }
