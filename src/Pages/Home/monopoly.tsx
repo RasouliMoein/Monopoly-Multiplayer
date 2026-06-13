@@ -6,6 +6,7 @@ import MonopolyNav, { MonopolyNavRef } from "../../components/ingame/nav.tsx";
 import MonopolyGame, { MonopolyGameRef } from "../../components/ingame/game.tsx";
 import NotifyElement, { NotificatorRef } from "../../components/notificator.tsx";
 import monopolyJSON from "../../assets/monopoly.json";
+import { Icons } from "../../assets/icons.tsx";
 import { MonopolySettings, MonopolyModes, historyAction, history, GameTrading, MonopolyMode, MonopolyCookie } from "../../assets/types.ts";
 import { CookieManager } from "../../assets/cookieManager.ts";
 function App({ socket, name, server }: { socket: Socket; name: string; server: Server | undefined }) {
@@ -16,7 +17,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
     const leaveGameSession = () => {
         sessionStorage.removeItem("current_room");
-        sessionStorage.removeItem("current_name");
         document.location.reload();
     };
 
@@ -1154,7 +1154,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     onLeave={() => {
                         leavingRoomRef.current = true;
                         sessionStorage.removeItem("current_room");
-                        sessionStorage.removeItem("current_name");
                         socket.emit("leave-room");
                         socket.disconnect();
                         document.location.reload();
@@ -1378,36 +1377,32 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             border-color: rgba(167, 139, 250, 0.5);
                             color: #ffffff;
                         }
-                        .debug-toggle-trigger {
-                            font-size: 20px;
-                            line-height: 1;
-                        }
                     `}</style>
                     {debugCollapsed ? (
                         <div className="debug-panel collapsed" onClick={() => setDebugCollapsed(false)} title="Open Debug Panel">
-                            <span className="debug-toggle-trigger">🛠️</span>
+                            <Icons.Wrench width={20} height={20} />
                         </div>
                     ) : (
                         <div className="debug-panel">
                             <h4>
-                                <span>🛠️ Game Debugger</span>
+                                <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}><Icons.Wrench width={14} height={14}/>Game Debugger</span>
                                 <button className="debug-close-btn" onClick={() => setDebugCollapsed(true)}>×</button>
                             </h4>
                             <div className="debug-panel-content">
                                 <button className="debug-btn debug-btn-primary" onClick={handleTriggerInsolvency}>
-                                    💸 Trigger Debt (-$1)
+                                    <Icons.DebtTrigger width={13} height={13} /> Trigger Debt (-$1)
                                 </button>
                                 <button className="debug-btn" onClick={handleTakeTurn}>
-                                    👑 Force My Turn
+                                    <Icons.ForceTurn width={13} height={13} /> Force My Turn
                                 </button>
                                 <button className="debug-btn" onClick={() => handleAdjustBalance(1000)}>
-                                    💰 Gain $1,000
+                                    <Icons.ArrowUp width={13} height={13} /> Gain $1,000
                                 </button>
                                 <button className="debug-btn" onClick={() => handleAdjustBalance(-500)}>
-                                    📉 Lose $500
+                                    <Icons.ArrowDown width={13} height={13} /> Lose $500
                                 </button>
                                 <button className="debug-btn" onClick={handleClearBalance}>
-                                    ⚖️ Set Balance $0
+                                    <Icons.Scale width={13} height={13} /> Set Balance $0
                                 </button>
                                 <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "8px", paddingTop: "8px" }}>
                                     <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "6px", fontWeight: "600", textTransform: "uppercase" }}>
@@ -1487,8 +1482,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         </button>
                     </div>
                 <div className="user-profile">
-                    <div className="profile-avatar" style={{ backgroundColor: '#ffc107', color: '#111', fontWeight: 'bold' }}>
-                        👑
+                    <div className="profile-avatar" style={{ backgroundColor: '#ffc107', color: '#111', fontWeight: 'bold', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <Icons.Crown width={18} height={18} />
                     </div>
                     <div className="profile-info">
                         <span className="profile-name">Game Lobby</span>
@@ -1528,7 +1523,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                             <span className="player-name-label">
                                                 {v.username} {isLocal && <span className="local-user-indicator">(You)</span>}
                                             </span>
-                                            {isHost && <span className="host-badge">👑 Host</span>}
+                                            {isHost && <span className="host-badge"><Icons.Crown width={10} height={10} style={{verticalAlign:'middle', marginRight:2}} />Host</span>}
                                             {!v.connected && <span className="offline-badge">Offline</span>}
                                         </div>
                                         <div className="lobby-row-right">
@@ -1568,7 +1563,6 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             <button
                                 onClick={() => {
                                     sessionStorage.removeItem("current_room");
-                                    sessionStorage.removeItem("current_name");
                                     socket.emit("leave-room");
                                     socket.disconnect();
                                     document.location.reload();
@@ -1649,27 +1643,27 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             <label className="section-label">MATCH SETUP SUMMARY</label>
                             
                             <div className="details-info-row">
-                                <span className="details-icon">🏆</span>
+                                <span className="details-icon"><Icons.Trophy width={13} height={13} /></span>
                                 <span className="details-text">Winning Mode: <strong className="highlight-text">{selectedMode.WinningMode.toUpperCase()}</strong></span>
                             </div>
                             
                             <div className="details-info-row">
-                                <span className="details-icon">🤝</span>
+                                <span className="details-icon"><Icons.Handshake width={13} height={13} /></span>
                                 <span className="details-text">Trades: <strong className="highlight-text">{selectedMode.AllowDeals ? "ALLOWED" : "DISABLED"}</strong></span>
                             </div>
 
                             <div className="details-info-row">
-                                <span className="details-icon">🏢</span>
+                                <span className="details-icon"><Icons.Building width={13} height={13} /></span>
                                 <span className="details-text">Mortgages: <strong className="highlight-text">{selectedMode.mortageAllowed ? "ALLOWED" : "DISABLED"}</strong></span>
                             </div>
 
                             <div className="details-info-row">
-                                <span className="details-icon">💰</span>
+                                <span className="details-icon"><Icons.Coin width={13} height={13} /></span>
                                 <span className="details-text">Starting Cash: <strong className="highlight-text">{selectedMode.startingCash}M</strong></span>
                             </div>
 
                             <div className="details-info-row">
-                                <span className="details-icon">⏱️</span>
+                                <span className="details-icon"><Icons.Timer width={13} height={13} /></span>
                                 <span className="details-text">
                                     Turn Timer: <strong className="highlight-text">
                                         {selectedMode.turnTimer === undefined ||
@@ -1703,10 +1697,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 </div>
             </div>
 
-            <p id="floating-clock"></p>
         </div>
         </>
     )}
+
+    {/* Floating countdown clock — must always be in the DOM so socket_StartGame
+        can query it via getElementById before gameStartedDisplay becomes true. */}
+    <p id="floating-clock"></p>
 
     {reconnectAttempt !== null && (
         <div style={{

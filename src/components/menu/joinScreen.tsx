@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { User, botInitial } from "../../assets/types";
+import { Icons } from "../../assets/icons";
 
 export default function JoinScreen(props: {
     joinViaCode: () => void;
@@ -56,7 +57,7 @@ export default function JoinScreen(props: {
                         <div className="lobbies-scroll-list">
                             {activeRooms.length === 0 ? (
                                 <div className="no-lobbies-fallback">
-                                    <div className="fallback-icon">📡</div>
+                                    <div className="fallback-icon" style={{ display:'flex', alignItems:'center', justifyContent:'center' }}><Icons.Antenna width={24} height={24} style={{ opacity:0.4 }} /></div>
                                     <p>No active public lobbies found.</p>
                                     <span>Be the first to host a multiplayer room!</span>
                                 </div>
@@ -83,10 +84,10 @@ export default function JoinScreen(props: {
                                                 </span>
                                             </div>
                                             <div className="lobby-row-middle">
-                                                <span className="host-name-label">👑 {room.hostName}</span>
+                                                <span className="host-name-label"><Icons.Crown width={12} height={12} style={{verticalAlign:'middle', marginRight:3}} />{room.hostName}</span>
                                             </div>
                                             <div className="lobby-row-right">
-                                                <span className="player-count-label">👥 {room.clientsCount}/{room.maxPlayers}</span>
+                                                <span className="player-count-label"><Icons.Users width={12} height={12} style={{verticalAlign:'middle', marginRight:3}} />{room.clientsCount}/{room.maxPlayers}</span>
                                                 {isJoinable && <span className="join-arrow-btn">Join →</span>}
                                             </div>
                                         </div>
@@ -109,7 +110,7 @@ export default function JoinScreen(props: {
                                 className="pill-text-field"
                                 style={{ width: '100%' }}
                             />
-                            <span className="pill-icon">📍</span>
+                            <span className="pill-icon"><Icons.MapPin width={12} height={12} /></span>
                         </div>
                         <button
                             onClick={props.joinViaCode}
@@ -117,7 +118,7 @@ export default function JoinScreen(props: {
                             className="primary-action-btn"
                             style={{ height: '40px', padding: '0 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
-                            ⚡ Join Lobby
+                            <Icons.Zap width={14} height={14} style={{flexShrink:0}} /> Join Lobby
                         </button>
                     </div>
                 </div>
