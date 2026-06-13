@@ -1,7 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 
-import HouseIcon from "../../../public/h.png";
-import HotelIcon from "../../../public/ho.png";
+import { Icons } from "../../assets/icons.tsx";
+import HouseIcon from "/h.png";
+import HotelIcon from "/ho.png";
 import { Player } from "./../../assets/player.ts";
 import { Socket } from "../../assets/sockets.ts";
 import StreetCard, { StreetDisplayInfo, UtilitiesDisplayInfo, RailroadDisplayInfo, translateGroup } from "./streetCard.tsx";
@@ -1477,51 +1478,97 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 id="btn-declare-bankruptcy"
                                 className="action-btn bankruptcy-btn"
                                 style={{
-                                    background: '#dc2626',
-                                    backgroundColor: '#dc2626',
-                                    color: '#ffffff',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    fontFamily: 'var(--font-outfit, \'Outfit\', sans-serif)',
+                                    fontSize: '12px',
                                     fontWeight: 700,
-                                    border: '1px solid #991b1b',
-                                    borderRadius: '8px',
-                                    padding: '8px 16px',
+                                    letterSpacing: '0.04em',
+                                    textTransform: 'uppercase',
+                                    color: '#fca5a5',
+                                    background: 'rgba(220, 38, 38, 0.12)',
+                                    border: '1px solid rgba(220, 38, 38, 0.35)',
+                                    borderRadius: '10px',
+                                    padding: '0 18px',
+                                    height: '40px',
                                     cursor: 'pointer',
-                                    boxShadow: '0 0 12px rgba(220, 38, 38, 0.5)',
-                                    opacity: 1
+                                    transition: 'all 0.2s ease',
+                                    backdropFilter: 'blur(8px)',
+                                    marginRight: '6px',
+                                }}
+                                onMouseEnter={e => {
+                                    const el = e.currentTarget;
+                                    el.style.background = 'rgba(220, 38, 38, 0.25)';
+                                    el.style.borderColor = 'rgba(220, 38, 38, 0.6)';
+                                    el.style.color = '#ffffff';
+                                    el.style.transform = 'translateY(-1px)';
+                                }}
+                                onMouseLeave={e => {
+                                    const el = e.currentTarget;
+                                    el.style.background = 'rgba(220, 38, 38, 0.12)';
+                                    el.style.borderColor = 'rgba(220, 38, 38, 0.35)';
+                                    el.style.color = '#fca5a5';
+                                    el.style.transform = '';
                                 }}
                                 onClick={() => {
                                     prop.socket.emit("declare-bankruptcy");
                                     prop.onDeclaredBankruptcy?.();
                                 }}
                             >
-                                DECLARE BANKRUPTCY 💀
+                                <Icons.Skull width={15} height={15} style={{ flexShrink: 0 }} />
+                                Declare Bankruptcy
                             </button>
                         ) : !(prop.hasRolled && !prop.allowRollAgain) ? (
                             <button data-button-type="roll" aria-disabled={false} onClick={handleRoll}>
                                 <p>ROLL THE DICE</p>
-                                <span style={{ marginLeft: 8, fontSize: 18 }}>🎲</span>
+                                <Icons.Dice width={18} height={18} style={{ marginLeft: 8, flexShrink: 0 }} />
                             </button>
                         ) : (
                             <button
                                 id="btn-end-turn"
                                 className="action-btn end-turn-btn"
                                 style={{
-                                    background: '#10b981',
-                                    backgroundColor: '#10b981',
-                                    color: '#ffffff',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    fontFamily: 'var(--font-outfit, \'Outfit\', sans-serif)',
+                                    fontSize: '12px',
                                     fontWeight: 700,
-                                    border: '1px solid #047857',
-                                    borderRadius: '8px',
-                                    padding: '8px 16px',
+                                    letterSpacing: '0.04em',
+                                    textTransform: 'uppercase',
+                                    color: '#6ee7b7',
+                                    background: 'rgba(16, 185, 129, 0.12)',
+                                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                                    borderRadius: '10px',
+                                    padding: '0 18px',
+                                    height: '40px',
                                     cursor: 'pointer',
-                                    boxShadow: '0 0 12px rgba(16, 185, 129, 0.5)',
-                                    opacity: 1
+                                    transition: 'all 0.2s ease',
+                                    backdropFilter: 'blur(8px)',
+                                    marginRight: '6px',
+                                }}
+                                onMouseEnter={e => {
+                                    const el = e.currentTarget;
+                                    el.style.background = 'rgba(16, 185, 129, 0.22)';
+                                    el.style.borderColor = 'rgba(16, 185, 129, 0.6)';
+                                    el.style.color = '#ffffff';
+                                    el.style.transform = 'translateY(-1px)';
+                                }}
+                                onMouseLeave={e => {
+                                    const el = e.currentTarget;
+                                    el.style.background = 'rgba(16, 185, 129, 0.12)';
+                                    el.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+                                    el.style.color = '#6ee7b7';
+                                    el.style.transform = '';
                                 }}
                                 onClick={() => {
                                     localFreeDice();
                                     prop.socket.emit("finish-turn");
                                 }}
                             >
-                                END TURN
+                                End Turn
+                                <Icons.EndTurn width={16} height={16} style={{ flexShrink: 0 }} />
                             </button>
                         )}
                         <button data-button-type="pay" data-tooltip-hover="pay" aria-disabled={true}>

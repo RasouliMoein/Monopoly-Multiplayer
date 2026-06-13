@@ -1,6 +1,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
-import HouseIcon from "../../../public/h.png";
-import HotelIcon from "../../../public/ho.png";
+import { Icons } from "../../assets/icons.tsx";
+import HouseIcon from "/h.png";
+import HotelIcon from "/ho.png";
 import { translateGroup } from "./streetCard.tsx";
 import CardViewer from "./cardViewer.tsx";
 import monopolyJSON from "../../assets/monopoly.json";
@@ -327,11 +328,11 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
                                     <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%", alignItems: "center", marginTop: "10px" }}>
                                         {mortgageApi.isMortaged(currentCardPosition) ? (
                                             <button className="railroads-actions" onClick={mortgageApi.buttons.cancel} style={{ width: "100%" }}>
-                                                🔓 Unmortgage — Pay {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.55)}M
+                                                <Icons.Unlock width={13} height={13} style={{verticalAlign:'middle', marginRight:4}} />Unmortgage — Pay {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.55)}M
                                             </button>
                                         ) : (
                                             <button className="railroads-actions" onClick={mortgageApi.buttons.pay} style={{ width: "100%" }}>
-                                                🔒 Mortgage — Get {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.5)}M
+                                                <Icons.Lock width={13} height={13} style={{verticalAlign:'middle', marginRight:4}} />Mortgage — Get {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.5)}M
                                             </button>
                                         )}
 
@@ -351,7 +352,7 @@ const propretyTab = forwardRef<PropretyTabRef, PropretyTabProps>((props, ref) =>
                                                         ""
                                                     }
                                                 >
-                                                    🏠 {targetCount === 4 ? "Build Hotel" : "Build House"} — Pay {buildCost}M
+                                                    <Icons.Home width={13} height={13} style={{verticalAlign:'middle', marginRight:4}} />{targetCount === 4 ? "Build Hotel" : "Build House"} — Pay {buildCost}M
                                                 </button>
 
                                                 <button

@@ -1,4 +1,5 @@
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
+import { Icons } from "../../assets/icons.tsx";
 import { Socket } from "../../assets/sockets.ts";
 import { Player } from "../../assets/player.ts";
 import DiceIcon from "../../../public/roll.png";
@@ -189,7 +190,7 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                 >
                                     <p key={60} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                                         <span>
-                                            {settings?.accessibility[2] ? `[${v.id}]` : ""} {v.username} {v.id === props.hostId && "👑"}
+                                            {settings?.accessibility[2] ? `[${v.id}]` : ""} {v.username} {v.id === props.hostId && <Icons.Crown width={12} height={12} style={{verticalAlign:'middle', marginLeft:3, color:'#fbbf24'}} />}
                                             {v.isBankrupt && (
                                                 <span style={{ color: '#ff4444', fontSize: '0.8em', fontWeight: 700, marginLeft: 4 }}>
                                                     (Bankrupt)
