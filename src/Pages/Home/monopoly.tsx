@@ -48,6 +48,15 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const [hasRolled, setHasRolled] = useState<boolean>(false);
     const [allowRollAgain, setAllowRollAgain] = useState<boolean>(false);
     const [isDebtState, setIsDebtState] = useState<boolean>(false);
+    // Fix 5b: mortgage transfer choice state (for the creditor when a bankruptcy happens)
+    const [mortgageTransferPending, setMortgageTransferPending] = useState<{
+        position: number;
+        name: string;
+        mortgageValue: number;
+        interestFee: number;
+        unmortgageCost: number;
+    }[] | null>(null);
+    const [mortgageBankruptName, setMortgageBankruptName] = useState<string>("");
     const hasRolledRef = useRef(hasRolled);
     hasRolledRef.current = hasRolled;
     const allowRollAgainRef = useRef(allowRollAgain);
@@ -88,6 +97,27 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         setAllowRollAgain(false);
         setIsDebtState(true);
         notifyRef.current?.message("Bankruptcy test triggered! Check your turn options.", "info", 3);
+    };
+
+    const handlePreviewMortgageModal = () => {
+        setMortgageBankruptName("BankruptcyBot");
+        setMortgageTransferPending([
+            {
+                position: 1,
+                name: "Mediterranean Avenue",
+                mortgageValue: 30,
+                interestFee: 3,
+                unmortgageCost: 33,
+            },
+            {
+                position: 39,
+                name: "Boardwalk",
+                mortgageValue: 200,
+                interestFee: 20,
+                unmortgageCost: 220,
+            }
+        ]);
+        notifyRef.current?.message("Previewing Mortgage Transfer Modal!", "info", 2);
     };
 
     const handleTakeTurn = () => {
@@ -1066,6 +1096,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             // Phase 2F: Reset turn-flow state on bankruptcy
             setHasRolled(false);
             setAllowRollAgain(false);
+            // Fix 5b: clear any pending mortgage modal when bankruptcy finalizes
+            setMortgageTransferPending(null);
 
             const bankruptName = nextClients.get(args.bankruptId)?.username ?? "A player";
             if (args.bankruptId === socket.id) {
@@ -1109,6 +1141,21 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 }
             }
             navRef.current?.reRenderPlayerList();
+        });
+
+        // Fix 5b: creditor receives mortgaged properties — show choice modal
+        socket.on("mortgage-transfer-pending", (args: {
+            properties: {
+                position: number;
+                name: string;
+                mortgageValue: number;
+                interestFee: number;
+                unmortgageCost: number;
+            }[];
+            bankruptName: string;
+        }) => {
+            setMortgageBankruptName(args.bankruptName);
+            setMortgageTransferPending(args.properties);
         });
 
         var to_emit_name = true;
@@ -1255,6 +1302,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     hasRolled={hasRolled}
                     allowRollAgain={allowRollAgain}
                     isDebtState={isDebtState}
+                    mortgageTransferPending={mortgageTransferPending}
+                    mortgageBankruptName={mortgageBankruptName}
+                    onMortgageTransferResolve={(choices) => {
+                        socket.emit("mortgage-transfer-resolve", { choices });
+                        setMortgageTransferPending(null);
+                    }}
                     onDeclaredBankruptcy={() => {
                         setHasRolled(false);
                         setAllowRollAgain(false);
@@ -1398,6 +1451,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             <div className="debug-panel-content">
                                 <button className="debug-btn debug-btn-primary" onClick={handleTriggerInsolvency}>
                                     <Icons.DebtTrigger width={13} height={13} /> Trigger Debt (-$1)
+                                </button>
+                                <button className="debug-btn" onClick={handlePreviewMortgageModal}>
+                                    <Icons.Scale width={13} height={13} /> Preview Mortgage Modal
                                 </button>
                                 <button className="debug-btn" onClick={handleTakeTurn}>
                                     <Icons.ForceTurn width={13} height={13} /> Force My Turn

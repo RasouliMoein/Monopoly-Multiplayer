@@ -2674,4 +2674,283 @@ main nav.content table tr td:nth-child(2) {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     pointer-events: none;
 }
+
+/* ==========================================================================
+   MORTGAGE TRANSFER MODAL
+   ========================================================================== */
+
+.mortgage-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(10px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.mortgage-modal-card {
+    background: var(--bg-page, #0d0c12);
+    border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+    border-radius: 20px;
+    padding: 28px 32px 24px;
+    width: 100%;
+    max-width: 780px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+    font-family: var(--font-outfit, 'Josefin Sans', sans-serif);
+    color: var(--text-main, #fff);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.mortgage-modal-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
+}
+
+.mortgage-modal-title {
+    margin: 0 0 6px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+}
+
+.mortgage-modal-subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted, rgba(255,255,255,0.55));
+    line-height: 1.55;
+}
+
+.mortgage-modal-rules {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 12.5px;
+    color: var(--text-muted, rgba(255,255,255,0.55));
+    line-height: 1.6;
+}
+
+.mortgage-modal-rules-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--color-primary, #4f8eff);
+    margin-bottom: 6px;
+}
+
+.mortgage-modal-rules p {
+    margin: 0;
+}
+
+/* Two-column grid — one row per property */
+.mortgage-modal-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.mortgage-prop-row {
+    background: var(--bg-sidebar, rgba(255,255,255,0.04));
+    border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    align-items: center;
+}
+
+.mortgage-prop-name {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mortgage-prop-name > span:first-child {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.mortgage-prop-value {
+    font-size: 11px;
+    color: var(--text-muted, rgba(255,255,255,0.45));
+}
+
+.mortgage-choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.mortgage-choice-btn {
+    font-family: var(--font-outfit, 'Josefin Sans', sans-serif);
+    background: var(--bg-input, rgba(255,255,255,0.04));
+    border: 1.5px solid var(--border-color, rgba(255,255,255,0.1));
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--text-main, #fff);
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mortgage-choice-btn:hover:not(:disabled) {
+    border-color: var(--border-color-hover, rgba(255,255,255,0.2));
+    transform: translateY(-1px);
+}
+
+.mortgage-choice-btn.selected.unmortgage-btn {
+    border-color: rgba(74, 222, 128, 0.55);
+    background: rgba(74, 222, 128, 0.08);
+}
+
+.mortgage-choice-btn.selected.keep-btn {
+    border-color: rgba(241, 181, 62, 0.55);
+    background: rgba(241, 181, 62, 0.08);
+}
+
+.mortgage-choice-btn.cant-afford {
+    opacity: 0.42;
+    cursor: not-allowed;
+}
+
+.mortgage-choice-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+}
+
+.choice-icon {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted, rgba(255,255,255,0.4));
+    font-family: monospace;
+    flex-shrink: 0;
+}
+
+.unmortgage-btn .choice-icon { color: #4ade80; }
+.keep-btn .choice-icon { color: #f1b53e; }
+
+.choice-title {
+    font-size: 12px;
+    font-weight: 700;
+    flex: 1;
+}
+
+.choice-price {
+    font-size: 12px;
+    font-weight: 800;
+    font-family: monospace;
+    color: var(--text-muted, rgba(255,255,255,0.6));
+}
+
+.unmortgage-btn.selected .choice-price { color: #4ade80; }
+.keep-btn.selected .choice-price { color: #f1b53e; }
+
+.choice-desc {
+    font-size: 11px;
+    color: var(--text-muted, rgba(255,255,255,0.45));
+    line-height: 1.45;
+}
+
+.cant-afford-note {
+    color: #fb923c;
+    font-weight: 600;
+    display: block;
+    margin-top: 3px;
+}
+
+.mortgage-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color, rgba(255,255,255,0.08));
+}
+
+.mortgage-modal-footer-note {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-muted, rgba(255,255,255,0.4));
+    flex: 1;
+}
+
+.mortgage-confirm-btn {
+    font-family: var(--font-outfit, 'Josefin Sans', sans-serif);
+    background: var(--color-primary, #4f8eff);
+    border: none;
+    border-radius: 12px;
+    padding: 12px 28px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 0.4px;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    box-shadow: 0 4px 14px var(--color-primary-glow, rgba(79,142,255,0.3));
+}
+
+.mortgage-confirm-btn:hover {
+    background: var(--color-primary-hover, #5e9aff);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(79, 142, 255, 0.45);
+}
+
+/* Balances inside Mortgage Transfer Modal */
+.mortgage-modal-balances {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
+}
+
+.mortgage-balance-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.mortgage-balance-item.you {
+    background: rgba(79, 142, 255, 0.08);
+    border-color: rgba(79, 142, 255, 0.3);
+}
+
+.mortgage-balance-badge {
+    background: var(--color-primary, #4f8eff);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 4px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.mortgage-balance-name {
+    font-weight: 600;
+}
+
+.mortgage-balance-val {
+    font-family: monospace;
+    font-weight: 700;
+    color: #4ade80;
+}
 

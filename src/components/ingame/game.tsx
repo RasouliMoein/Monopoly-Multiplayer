@@ -21,11 +21,21 @@ interface MonopolyGameProps {
         onSelectPlayer: (pId: string) => void;
     };
     selectedMode: MonopolyMode;
-    // Phase 2F — turn-flow state passed from parent
+    // Phase 2F â€” turn-flow state passed from parent
     hasRolled?: boolean;
     allowRollAgain?: boolean;
     isDebtState?: boolean;
     onDeclaredBankruptcy?: () => void;
+    // Fix 5b â€” mortgage transfer choice
+    mortgageTransferPending?: {
+        position: number;
+        name: string;
+        mortgageValue: number;
+        interestFee: number;
+        unmortgageCost: number;
+    }[] | null;
+    mortgageBankruptName?: string;
+    onMortgageTransferResolve?: (choices: { position: number; action: "unmortgage" | "keep" }[]) => void;
 }
 export interface MonopolyGameRef {
     diceResults: (args: { l: [number, number]; time: number; onDone: () => void }) => void;
@@ -92,6 +102,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         };
     });
     const [timer, SetTimer] = useState<number>(0);
+    // Fix 5b: local selection state for the mortgage transfer choice modal
+    const [mortgageChoices, setMortgageChoices] = useState<Record<number, "unmortgage" | "keep">>({});
 
     const handleRoll = () => {
         SetSended(true);
@@ -1658,7 +1670,12 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                     .map((v) => JSON.stringify(v))
                                                                     .includes(JSON.stringify(v))
                                                         )
-                                                        .filter((v) => v.morgage === undefined || (v.morgage !== undefined && v.morgage === false))
+                                                        .filter((v) => {
+                                                            // Fix 7: block properties whose color group has any buildings on any property
+                                                            if (!v.group || v.group === "Railroad" || v.group === "Utilities") return true;
+                                                            const ownerProps = prop.players.find(p => p.id === (prop.tradeObj as GameTrading).againstPlayer.id)?.properties ?? [];
+                                                            return !ownerProps.filter(p => p.group === v.group).some(p => p.count !== 0 && p.count !== undefined);
+                                                        })
                                                         .map((v, i) => (
                                                             <div
                                                                 key={i}
@@ -1709,7 +1726,12 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                     .map((v) => JSON.stringify(v))
                                                                     .includes(JSON.stringify(v))
                                                         )
-                                                        .filter((v) => v.morgage === undefined || (v.morgage !== undefined && v.morgage === false))
+                                                        .filter((v) => {
+                                                            // Fix 7: block properties whose color group has any buildings on any property
+                                                            if (!v.group || v.group === "Railroad" || v.group === "Utilities") return true;
+                                                            const ownerProps = prop.players.find(p => p.id === (prop.tradeObj as GameTrading).turnPlayer.id)?.properties ?? [];
+                                                            return !ownerProps.filter(p => p.group === v.group).some(p => p.count !== 0 && p.count !== undefined);
+                                                        })
                                                         .map((v, i) => (
                                                             <div
                                                                 key={i}
@@ -1775,7 +1797,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                         display: "inline-block",
                                                         verticalAlign: "middle"
                                                     }}>
-                                                        ✓ ACCEPTED
+                                                        âœ“ ACCEPTED
                                                     </span>
                                                 )}
                                                 <h2>
@@ -1856,7 +1878,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                         display: "inline-block",
                                                         verticalAlign: "middle"
                                                      }}>
-                                                         ✓ ACCEPTED
+                                                         âœ“ ACCEPTED
                                                      </span>
                                                  )}
                                                 <h2>
@@ -1968,7 +1990,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                  {(prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
                                                      ? (prop.tradeObj as GameTrading).turnPlayer.accepted
                                                      : (prop.tradeObj as GameTrading).againstPlayer.accepted)
-                                                     ? "✓ Accepted"
+                                                     ? "âœ“ Accepted"
                                                      : "Accept Offer"}
                                              </button>
                                          </div>
@@ -1981,6 +2003,131 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                     </div>
                 </div>
             </div>
+
+            {/* Fix 5b: Mortgage Transfer Choice Modal */}
+            {prop.mortgageTransferPending && prop.mortgageTransferPending.length > 0 && (() => {
+                const myPlayer = prop.players.find(v => v.id === prop.socket.id);
+                const myBalance = myPlayer?.balance ?? 0;
+                return (
+                    <div className="mortgage-modal-overlay">
+                        <div className="mortgage-modal-card">
+
+                            {/* Header */}
+                            <div className="mortgage-modal-header">
+                                <div>
+                                    <h3 className="mortgage-modal-title">Mortgage Transfer</h3>
+                                    <p className="mortgage-modal-subtitle">
+                                        <strong>{prop.mortgageBankruptName ?? "A player"}</strong> went bankrupt.
+                                        Decide what to do with each mortgaged property you received.
+                                        The game is paused until you confirm.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Balances Section */}
+                            <div className="mortgage-modal-balances">
+                                <div className="mortgage-balance-item you">
+                                    <span className="mortgage-balance-badge">YOU</span>
+                                    <span className="mortgage-balance-name">{myPlayer?.username}</span>
+                                    <span className="mortgage-balance-val">${myBalance}</span>
+                                </div>
+                                {prop.players
+                                    .filter((p) => p.id !== prop.socket.id && !p.isBankrupt)
+                                    .map((p) => (
+                                        <div key={p.id} className="mortgage-balance-item">
+                                            <span className="mortgage-balance-name" style={{ color: p.color || "var(--text-main)" }}>
+                                                {p.username}
+                                            </span>
+                                            <span className="mortgage-balance-val">${p.balance}</span>
+                                        </div>
+                                    ))}
+                            </div>
+
+                            {/* Rules box */}
+                            <div className="mortgage-modal-rules">
+                                <span className="mortgage-modal-rules-label">How it works</span>
+                                <p>
+                                    A mortgaged property earns no rent and cannot have houses built on it.
+                                    <strong> Unmortgage Now</strong> activates it immediately (you pay principal + 10% interest).
+                                    <strong> Keep Mortgaged</strong> means you pay only the 10% interest today
+                                    and can unmortgage it later for the same total cost.
+                                </p>
+                            </div>
+
+                            {/* Property grid */}
+                            <div className="mortgage-modal-grid">
+                                {prop.mortgageTransferPending.map((item) => {
+                                    const choice = mortgageChoices[item.position] ?? "keep";
+                                    const canAfford = myBalance >= item.unmortgageCost;
+                                    return (
+                                        <div key={item.position} className="mortgage-prop-row">
+                                            <div className="mortgage-prop-name">
+                                                <span>{item.name}</span>
+                                                <span className="mortgage-prop-value">Mortgaged for ${item.mortgageValue}</span>
+                                            </div>
+                                            <div className="mortgage-choices">
+                                                <button
+                                                    id={`mortgage-choice-unmortgage-${item.position}`}
+                                                    className={"mortgage-choice-btn unmortgage-btn" + (choice === "unmortgage" ? " selected" : "") + (!canAfford ? " cant-afford" : "")}
+                                                    disabled={!canAfford}
+                                                    onClick={() => setMortgageChoices(c => ({ ...c, [item.position]: "unmortgage" }))}
+                                                >
+                                                    <div className="mortgage-choice-top">
+                                                        <span className="choice-icon">[+]</span>
+                                                        <span className="choice-title">Unmortgage Now</span>
+                                                        <span className="choice-price">${item.unmortgageCost}</span>
+                                                    </div>
+                                                    <div className="choice-desc">
+                                                        Pays off the debt. Property becomes active — collect rent, build houses right away.
+                                                        {!canAfford && <span className="cant-afford-note"> You need ${item.unmortgageCost} but only have ${myBalance}.</span>}
+                                                    </div>
+                                                </button>
+                                                <button
+                                                    id={`mortgage-choice-keep-${item.position}`}
+                                                    className={"mortgage-choice-btn keep-btn" + (choice !== "unmortgage" ? " selected" : "")}
+                                                    onClick={() => setMortgageChoices(c => ({ ...c, [item.position]: "keep" }))}
+                                                >
+                                                    <div className="mortgage-choice-top">
+                                                        <span className="choice-icon">[~]</span>
+                                                        <span className="choice-title">Keep Mortgaged</span>
+                                                        <span className="choice-price">${item.interestFee} now</span>
+                                                    </div>
+                                                    <div className="choice-desc">
+                                                        Pays transfer interest only. Property stays inactive.
+                                                        Unmortgage later for ${item.unmortgageCost} total.
+                                                    </div>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="mortgage-modal-footer">
+                                <p className="mortgage-modal-footer-note">
+                                    Once confirmed, the game resumes and the next player's turn begins.
+                                </p>
+                                <button
+                                    id="btn-confirm-mortgage-choices"
+                                    className="mortgage-confirm-btn"
+                                    onClick={() => {
+                                        const resolved = (prop.mortgageTransferPending ?? []).map(item => ({
+                                            position: item.position,
+                                            action: (mortgageChoices[item.position] ?? "keep") as "unmortgage" | "keep",
+                                        }));
+                                        prop.onMortgageTransferResolve?.(resolved);
+                                        setMortgageChoices({});
+                                    }}
+                                >
+                                    Confirm All Decisions
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                );
+            })()}
         </>
     );
 });
