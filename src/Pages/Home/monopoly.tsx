@@ -57,6 +57,22 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         unmortgageCost: number;
     }[] | null>(null);
     const [mortgageBankruptName, setMortgageBankruptName] = useState<string>("");
+
+    // Phase 2 — Housing & Hotel pool states
+    const [bankHouses, setBankHouses] = useState<number>(32);
+    const [bankHotels, setBankHotels] = useState<number>(12);
+
+    // Phase 2 — Property Auction states
+    const [currentAuction, setCurrentAuction] = useState<{
+        position: number;
+        name: string;
+        price: number;
+        currentBid: number;
+        bidderId: string;
+        bidderName: string;
+        timerSeconds: number;
+        bids: Array<{ bidderName: string; amount: number }>;
+    } | null>(null);
     const hasRolledRef = useRef(hasRolled);
     hasRolledRef.current = hasRolled;
     const allowRollAgainRef = useRef(allowRollAgain);
@@ -721,7 +737,11 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         // "nothing" / skip — just end turn
                         setTimeout(() => {
                             engineRef.current?.freeDice();
-                            socket.emit("finish-turn");
+                            if (b === "nothing") {
+                                socket.emit("player_action", { action: "skip" });
+                            } else {
+                                socket.emit("finish-turn");
+                            }
                         }, time_till_free);
                     },
                 });
@@ -967,6 +987,66 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             x.recieveJson(args.pJson);
             SetClients(new Map(clientsRef.current));
         }
+
+        const socket_AuctionStart = (args: {
+            position: number;
+            name: string;
+            price: number;
+            startingBid: number;
+            timerSeconds: number;
+            bids: Array<{ bidderName: string; amount: number }>;
+        }) => {
+            setCurrentAuction({
+                position: args.position,
+                name: args.name,
+                price: args.price,
+                currentBid: 0,
+                bidderId: "",
+                bidderName: "",
+                timerSeconds: args.timerSeconds,
+                bids: args.bids
+            });
+        };
+
+        const socket_AuctionUpdate = (args: {
+            bid: number;
+            bidderId: string;
+            bidderName: string;
+            timerSeconds: number;
+            bids: Array<{ bidderName: string; amount: number }>;
+        }) => {
+            setCurrentAuction((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          currentBid: args.bid,
+                          bidderId: args.bidderId,
+                          bidderName: args.bidderName,
+                          timerSeconds: args.timerSeconds,
+                          bids: args.bids
+                      }
+                    : null
+            );
+        };
+
+        const socket_AuctionTick = (args: { timerSeconds: number }) => {
+            setCurrentAuction((prev) => (prev ? { ...prev, timerSeconds: args.timerSeconds } : null));
+        };
+
+        const socket_AuctionEnd = (args: { winnerId: string; winnerName: string; bid: number; position: number }) => {
+            setCurrentAuction(null);
+            notifyRef.current?.message(`Auction finished! ${args.winnerName} won the auction for $${args.bid}.`, "info", 4);
+        };
+
+        const socket_AuctionSkip = (_args: { position: number }) => {
+            setCurrentAuction(null);
+            notifyRef.current?.message("Auction finished with no bids.", "info", 3);
+        };
+
+        const socket_PoolShortage = (args: { type: string; message: string }) => {
+            notifyRef.current?.message(args.message, "error", 4);
+        };
+
         document.addEventListener("mousemove", mouseMove);
         socket.on("initials", socket_Initials);
         socket.on("new-player", socket_NewPlayer);
@@ -983,6 +1063,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         socket.on("disconnect", socket_networkDisconnect);
         socket.on("player_update", socket_playerUpdate);
         socket.on("history", socket_history);
+        socket.on("auction-start", socket_AuctionStart);
+        socket.on("auction-update", socket_AuctionUpdate);
+        socket.on("auction-tick", socket_AuctionTick);
+        socket.on("auction-end", socket_AuctionEnd);
+        socket.on("auction-skip", socket_AuctionSkip);
+        socket.on("pool-shortage", socket_PoolShortage);
 
         socket.on("reconnecting", (attempt: number) => {
             SetReconnectAttempt(attempt);
@@ -1010,10 +1096,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         // state_update: server-authoritative balance/status sync.
         // Only preserve position for the player currently being animated.
         // Everyone else accepts the server's authoritative position.
-        socket.on("state_update", (args: { players: PlayerJSON[]; hostId?: string }) => {
+        socket.on("state_update", (args: { players: PlayerJSON[]; hostId?: string; bankHouses?: number; bankHotels?: number }) => {
             if (args.hostId) {
                 SetHostId(args.hostId);
             }
+            if (args.bankHouses !== undefined) setBankHouses(args.bankHouses);
+            if (args.bankHotels !== undefined) setBankHotels(args.bankHotels);
             const nextClients = new Map(clientsRef.current);
             for (const pJson of args.players) {
                 const p = nextClients.get(pJson.id);
@@ -1265,6 +1353,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     time={startTIme}
                     selectedMode={selectedMode}
                     hostId={hostId}
+                    bankHouses={bankHouses}
+                    bankHotels={bankHotels}
                 />
 
                 <MonopolyGame
@@ -1304,6 +1394,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     isDebtState={isDebtState}
                     mortgageTransferPending={mortgageTransferPending}
                     mortgageBankruptName={mortgageBankruptName}
+                    currentAuction={currentAuction}
                     onMortgageTransferResolve={(choices) => {
                         socket.emit("mortgage-transfer-resolve", { choices });
                         setMortgageTransferPending(null);

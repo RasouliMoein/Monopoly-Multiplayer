@@ -16,6 +16,8 @@ interface PlayersTabProps {
     currentTurn: string;
     clickedOnPlayer: (position: number) => void;
     hostId: string;
+    bankHouses?: number;
+    bankHotels?: number;
 }
 export interface PlayersTabRef {
     clickdOnPlayer: (playerId: string) => void;
@@ -94,6 +96,12 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                 >
                     Players
                 </h3>
+                {current === undefined && (
+                    <div className="bank-pool-status">
+                        <span className="pool-item houses">🏠 Houses: <strong>{props.bankHouses ?? 32}</strong>/32</span>
+                        <span className="pool-item hotels">🏨 Hotels: <strong>{props.bankHotels ?? 12}</strong>/12</span>
+                    </div>
+                )}
                 {current !== undefined ? (
                     <>
                         <table>

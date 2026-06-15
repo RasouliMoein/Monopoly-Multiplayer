@@ -91,6 +91,11 @@ async function main(playersCount, f) {
     const pendingBankruptMap = new Map(); // creditorId → bankruptId
     // Rent debt: maps debtor playerId → { creditorId, amount } for deferred rent payment
     const debtAmountMap = new Map();
+    // Phase 2 — Housing & hotel pool
+    let bankHouses = 32;
+    let bankHotels = 12;
+    let currentAuction = null;
+    let auctionIntervalId = null;
     function getCurrentTime() {
         const now = new Date();
         return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -137,7 +142,9 @@ async function main(playersCount, f) {
     function EmitStateUpdate() {
         EmitAll("state_update", {
             players: Array.from(Clients.values()).map((c) => c.player.to_json()),
-            hostId: hostId
+            hostId: hostId,
+            bankHouses,
+            bankHotels
         });
     }
     /**
@@ -332,6 +339,76 @@ async function main(playersCount, f) {
             default:
                 return { requiresPurchaseDecision: false };
         }
+    }
+    function startAuction(position) {
+        const prop = propertyByPosition.get(position);
+        if (!prop)
+            return;
+        if (auctionIntervalId)
+            clearInterval(auctionIntervalId);
+        currentAuction = {
+            propertyPosition: position,
+            currentBid: 0,
+            currentBidderId: "",
+            timerSeconds: 20,
+            bids: []
+        };
+        EmitAll("auction-start", {
+            position,
+            name: prop.name,
+            price: prop.price,
+            startingBid: 1,
+            timerSeconds: 20,
+            bids: []
+        });
+        emitServerHistory(`Auction started for ${prop.name} (list price: $${prop.price})`);
+        auctionIntervalId = setInterval(() => {
+            if (!currentAuction) {
+                if (auctionIntervalId)
+                    clearInterval(auctionIntervalId);
+                return;
+            }
+            currentAuction.timerSeconds -= 1;
+            EmitAll("auction-tick", { timerSeconds: currentAuction.timerSeconds });
+            if (currentAuction.timerSeconds <= 0) {
+                if (auctionIntervalId)
+                    clearInterval(auctionIntervalId);
+                endAuction();
+            }
+        }, 1000);
+    }
+    function endAuction() {
+        if (!currentAuction)
+            return;
+        const auction = currentAuction;
+        currentAuction = null;
+        if (auctionIntervalId)
+            clearInterval(auctionIntervalId);
+        if (auction.currentBidderId === "" || auction.currentBid === 0) {
+            EmitAll("auction-skip", { position: auction.propertyPosition });
+            emitServerHistory(`Auction ended with no bids — property returned to Bank`);
+            EmitStateUpdate();
+            return;
+        }
+        const winnerClient = Clients.get(auction.currentBidderId);
+        const prop = propertyByPosition.get(auction.propertyPosition);
+        if (!winnerClient || !prop)
+            return;
+        const winner = winnerClient.player;
+        winner.balance -= auction.currentBid;
+        winner.properties.push({
+            posistion: auction.propertyPosition,
+            count: 0,
+            group: prop.group ?? "",
+        });
+        EmitAll("auction-end", {
+            winnerId: winner.id,
+            winnerName: winner.username,
+            bid: auction.currentBid,
+            position: auction.propertyPosition,
+        });
+        emitServerHistory(`${winner.username} won the auction for ${prop.name} at $${auction.currentBid}`);
+        EmitStateUpdate();
     }
     // ── WebSocket server ──────────────────────────────────────────────────────
     const gameServer = new sockets_1.Server((server) => {
@@ -696,10 +773,21 @@ async function main(playersCount, f) {
                             if (args.newCount !== expectedNext)
                                 return; // must step one level at a time
                             if (args.newCount === 5) {
+                                if (bankHotels < 1) {
+                                    socket.emit("pool-shortage", { type: "hotel", message: "No hotels left in the Bank!" });
+                                    return;
+                                }
+                                bankHotels -= 1;
+                                bankHouses += 4;
                                 player.balance -= targetProp?.ohousecost ?? 0;
                                 player.properties[idx].count = "h";
                             }
                             else {
+                                if (bankHouses < args.housesAdded) {
+                                    socket.emit("pool-shortage", { type: "house", message: `Not enough houses left in the Bank! Only ${bankHouses} available.` });
+                                    return;
+                                }
+                                bankHouses -= args.housesAdded;
                                 player.balance -= (targetProp?.housecost ?? 0) * args.housesAdded;
                                 player.properties[idx].count = args.newCount;
                             }
@@ -720,17 +808,32 @@ async function main(playersCount, f) {
                             const currentCount = player.properties[idx].count;
                             let refund = 0;
                             if (currentCount === "h") {
+                                if (bankHouses < 4) {
+                                    socket.emit("pool-shortage", { type: "demote-shortage", message: "Cannot sell hotel: not enough houses in the Bank to replace it!" });
+                                    return;
+                                }
+                                bankHotels += 1;
+                                bankHouses -= 4;
                                 refund = Math.round((targetProp?.ohousecost ?? 0) * 0.5);
                                 player.properties[idx].count = 4;
                             }
                             else if (typeof currentCount === "number" && currentCount > 0) {
+                                bankHouses += 1;
                                 refund = Math.round((targetProp?.housecost ?? 0) * 0.5);
                                 player.properties[idx].count = currentCount - 1;
                             }
                             player.balance += refund;
                             emitServerHistory(`${player.username} demoted ${targetProp.name}`);
                         }
-                        // "skip" → no mutations
+                        if (args.action === "skip") {
+                            const landedProp = propertyByPosition.get(player.position);
+                            if (landedProp && landedProp.price !== undefined && landedProp.group !== "Special") {
+                                const isUnowned = Array.from(Clients.values()).every((c) => !c.player.properties.some((p) => p.posistion === player.position));
+                                if (isUnowned) {
+                                    startAuction(player.position);
+                                }
+                            }
+                        }
                         EmitStateUpdate();
                     }
                     catch (e) {
@@ -775,6 +878,34 @@ async function main(playersCount, f) {
                             emitServerHistory(`${player.username} unmortgaged ${propData.name} for $${unmortgageCost}`);
                         }
                         EmitStateUpdate();
+                    }
+                    catch (e) {
+                        server.logFunction(e);
+                    }
+                });
+                // ── Auction Bid ──────────────────────────────────────────
+                socket.on("auction-bid", (args) => {
+                    try {
+                        if (!currentAuction)
+                            return;
+                        if (player.isBankrupt)
+                            return;
+                        if (args.bid <= currentAuction.currentBid)
+                            return;
+                        if (args.bid > player.balance)
+                            return;
+                        currentAuction.currentBid = args.bid;
+                        currentAuction.currentBidderId = socket.id;
+                        currentAuction.timerSeconds = 15;
+                        currentAuction.bids.push({ bidderName: player.username, amount: args.bid });
+                        EmitAll("auction-update", {
+                            bid: args.bid,
+                            bidderId: socket.id,
+                            bidderName: player.username,
+                            timerSeconds: 15,
+                            bids: currentAuction.bids
+                        });
+                        emitServerHistory(`${player.username} bid $${args.bid} at auction`);
                     }
                     catch (e) {
                         server.logFunction(e);

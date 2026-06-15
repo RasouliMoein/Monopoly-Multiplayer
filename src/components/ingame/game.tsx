@@ -36,6 +36,17 @@ interface MonopolyGameProps {
     }[] | null;
     mortgageBankruptName?: string;
     onMortgageTransferResolve?: (choices: { position: number; action: "unmortgage" | "keep" }[]) => void;
+    // Phase 2 — Property Auction state
+    currentAuction?: {
+        position: number;
+        name: string;
+        price: number;
+        currentBid: number;
+        bidderId: string;
+        bidderName: string;
+        timerSeconds: number;
+        bids: Array<{ bidderName: string; amount: number }>;
+    } | null;
 }
 export interface MonopolyGameRef {
     diceResults: (args: { l: [number, number]; time: number; onDone: () => void }) => void;
@@ -104,6 +115,20 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
     const [timer, SetTimer] = useState<number>(0);
     // Fix 5b: local selection state for the mortgage transfer choice modal
     const [mortgageChoices, setMortgageChoices] = useState<Record<number, "unmortgage" | "keep">>({});
+
+    // Phase 2 — Property Auction States & Handlers
+    const [customBidValue, setCustomBidValue] = useState<number>(1);
+    useEffect(() => {
+        if (prop.currentAuction) {
+            setCustomBidValue(prop.currentAuction.currentBid + 1);
+        }
+    }, [prop.currentAuction?.currentBid]);
+
+    const handleBidSubmit = (bid: number) => {
+        if (prop.currentAuction && bid > prop.currentAuction.currentBid) {
+            prop.socket.emit("auction-bid", { bid });
+        }
+    };
 
     const handleRoll = () => {
         SetSended(true);
@@ -2124,6 +2149,116 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 </button>
                             </div>
 
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Phase 2: Property Auction Modal Overlay */}
+            {prop.currentAuction && (() => {
+                const myPlayer = prop.players.find(v => v.id === prop.socket.id);
+                if (!myPlayer) return null;
+                const myBalance = myPlayer.balance;
+                const auctionProp = propretyMap.get(prop.currentAuction.position);
+                if (!auctionProp) return null;
+
+                const isUtility = auctionProp.group === "Utilities";
+                const isRailroad = auctionProp.group === "Railroad";
+
+                return (
+                    <div className="auction-modal-overlay">
+                        <div className="auction-modal-card animate-pop">
+                            <div className="auction-modal-header">
+                                <div>
+                                    <h3 className="auction-modal-title">🏛️ Property Auction</h3>
+                                    <p className="auction-modal-subtitle">
+                                        Active bidding for <strong>{auctionProp.name}</strong>. Listing price is ${auctionProp.price}.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Timer Bar */}
+                            <div className="auction-timer-container">
+                                <div 
+                                    className={`auction-timer-bar ${prop.currentAuction.timerSeconds <= 5 ? "pulse" : ""}`}
+                                    style={{ width: `${Math.min(100, Math.max(0, (prop.currentAuction.timerSeconds / 20) * 100))}%` }}
+                                />
+                                <span className="auction-timer-text">{prop.currentAuction.timerSeconds}s</span>
+                            </div>
+
+                            <div className="auction-modal-body">
+                                {/* Left side: Card Preview */}
+                                <div className="auction-prop-preview">
+                                    {isUtility ? (
+                                        <StreetCard utility={{ title: auctionProp.name ?? "", cardCost: auctionProp.price ?? 0, type: auctionProp.id?.includes("water") ? "water" : "electricity" }} />
+                                    ) : isRailroad ? (
+                                        <StreetCard railroad={{ title: auctionProp.name ?? "", cardCost: auctionProp.price ?? 0 }} />
+                                    ) : (
+                                        <StreetCard street={{ title: auctionProp.name ?? "", cardCost: auctionProp.price ?? 0, hotelsCost: auctionProp.ohousecost ?? 0, housesCost: auctionProp.housecost ?? 0, rent: auctionProp.rent ?? 0, multpliedrent: (auctionProp.multpliedrent as [number, number, number, number, number]) || [0, 0, 0, 0, 0], rentWithColorSet: (auctionProp.rent ?? 0) * 2, group: auctionProp.group ?? "" }} />
+                                    )}
+                                </div>
+
+                                {/* Right side: Bidding details and controls */}
+                                <div className="auction-controls-panel">
+                                    <div className="auction-bidding-status">
+                                        <div className="status-label">Current Bid</div>
+                                        <div className="status-value">${prop.currentAuction.currentBid === 0 ? "No bids yet" : prop.currentAuction.currentBid}</div>
+                                        {prop.currentAuction.bidderId ? (
+                                            <div className="status-bidder" style={{ color: prop.players.find(p => p.id === prop.currentAuction!.bidderId)?.color || "var(--text-main)" }}>
+                                                by {prop.currentAuction.bidderName}
+                                            </div>
+                                        ) : (
+                                            <div className="status-bidder no-bids">Be the first to bid! Minimum bid is $1.</div>
+                                        )}
+                                    </div>
+
+                                    {/* Quick Bids */}
+                                    <div className="auction-quick-bids">
+                                        <button disabled={myPlayer.isBankrupt || myBalance <= prop.currentAuction.currentBid} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 1)}>+$1</button>
+                                        <button disabled={myPlayer.isBankrupt || myBalance <= prop.currentAuction.currentBid + 9} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 10)}>+$10</button>
+                                        <button disabled={myPlayer.isBankrupt || myBalance <= prop.currentAuction.currentBid + 49} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 50)}>+$50</button>
+                                        <button disabled={myPlayer.isBankrupt || myBalance <= prop.currentAuction.currentBid + 99} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 100)}>+$100</button>
+                                    </div>
+
+                                    {/* Custom Bid Input */}
+                                    <div className="auction-input-group">
+                                        <input
+                                            type="number"
+                                            id="auction-custom-bid"
+                                            min={prop.currentAuction.currentBid + 1}
+                                            max={myBalance}
+                                            value={customBidValue}
+                                            onChange={(e) => setCustomBidValue(parseInt(e.target.value) || 0)}
+                                            placeholder={`Min: $${prop.currentAuction.currentBid + 1}`}
+                                            disabled={myPlayer.isBankrupt}
+                                        />
+                                        <button
+                                            className="bid-btn"
+                                            disabled={myPlayer.isBankrupt || customBidValue <= prop.currentAuction.currentBid || customBidValue > myBalance}
+                                            onClick={() => handleBidSubmit(customBidValue)}
+                                        >
+                                            Place Bid
+                                        </button>
+                                    </div>
+
+                                    {/* Bid History */}
+                                    <div className="auction-history-scroller">
+                                        <label className="history-label">Bid Log</label>
+                                        <div className="history-list">
+                                            {prop.currentAuction.bids.length === 0 ? (
+                                                <div className="no-bids-msg">No bids placed yet.</div>
+                                            ) : (
+                                                [...prop.currentAuction.bids].reverse().map((bid, index) => (
+                                                    <div key={index} className="history-row animate-fade">
+                                                        <span className="history-bidder">{bid.bidderName}</span>
+                                                        <span className="history-amount">${bid.amount}</span>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 );

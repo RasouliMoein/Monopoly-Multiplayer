@@ -379,6 +379,8 @@ interface MonopolyNavProps {
     time: Date;
     selectedMode: MonopolyMode;
     hostId: string;
+    bankHouses?: number;
+    bankHotels?: number;
 }
 export interface MonopolyNavRef {
     addMessage: (arg: { from: string; message: string }) => void;
@@ -741,6 +743,8 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         socket={prop.socket}
                         currentTurn={prop.currentTurn}
                         hostId={prop.hostId}
+                        bankHouses={prop.bankHouses}
+                        bankHotels={prop.bankHotels}
                     />
                 )}
             </nav>
