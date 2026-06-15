@@ -87,6 +87,10 @@ async function main(playersCount, f) {
     const consecutiveDoublesMap = new Map(); // playerId → doubles streak
     const creditorMap = new Map(); // playerId → who they owe
     const debugDiceOverrideMap = new Map();
+    // Fix 5b: maps creditor socketId → bankrupt socketId while awaiting mortgage choices
+    const pendingBankruptMap = new Map(); // creditorId → bankruptId
+    // Rent debt: maps debtor playerId → { creditorId, amount } for deferred rent payment
+    const debtAmountMap = new Map();
     function getCurrentTime() {
         const now = new Date();
         return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -215,8 +219,16 @@ async function main(playersCount, f) {
                 return { requiresPurchaseDecision: true, landingNote: `own:${position}` };
             if (amount > 0) {
                 player.balance -= amount;
-                owner.balance += amount;
-                return { requiresPurchaseDecision: false, landingNote: `rent:${owner.id}:${amount}` };
+                if (player.balance >= 0) {
+                    // Player can fully afford rent — normal transfer
+                    owner.balance += amount;
+                    return { requiresPurchaseDecision: false, landingNote: `rent:${owner.id}:${amount}` };
+                }
+                else {
+                    // Player cannot afford rent — store the owed amount to settle on finish-turn or handle in bankruptcy.
+                    debtAmountMap.set(player.id, { creditorId: owner.id, amount });
+                    return { requiresPurchaseDecision: false, landingNote: `rent:${owner.id}:${amount}` };
+                }
             }
             return { requiresPurchaseDecision: false, landingNote: "" };
         }
@@ -237,14 +249,16 @@ async function main(playersCount, f) {
                 player.balance -= card.amount ?? 0;
                 return { requiresPurchaseDecision: false };
             case "addfundsfromplayers": {
-                for (const { player: p } of Array.from(Clients.values()).filter((c) => c.player.id !== player.id)) {
+                // Fix 6: Exclude bankrupt players from card payments
+                for (const { player: p } of Array.from(Clients.values()).filter((c) => c.player.id !== player.id && !c.player.isBankrupt)) {
                     p.balance -= card.amount ?? 0;
                     player.balance += card.amount ?? 0;
                 }
                 return { requiresPurchaseDecision: false };
             }
             case "removefundstoplayers": {
-                for (const { player: p } of Array.from(Clients.values()).filter((c) => c.player.id !== player.id)) {
+                // Fix 6: Exclude bankrupt players from card payments
+                for (const { player: p } of Array.from(Clients.values()).filter((c) => c.player.id !== player.id && !c.player.isBankrupt)) {
                     p.balance += card.amount ?? 0;
                     player.balance -= card.amount ?? 0;
                 }
@@ -454,6 +468,8 @@ async function main(playersCount, f) {
                         server.logFunction(logStr);
                         // ── In Jail branch ──
                         let forcedJailPayment = 0; // Fix #6: tracks forced $50 on 3rd jail attempt
+                        // Fix 1: capture jail state BEFORE it may be cleared, to block re-roll on escape
+                        const startedInJail = player.isInJail;
                         if (player.isInJail) {
                             const doubles = d1 === d2;
                             if (!doubles) {
@@ -608,6 +624,11 @@ async function main(playersCount, f) {
                                     const ownerName = Clients.get(ownerId)?.player.username ?? "someone";
                                     emitServerHistory(`${player.username} paid $${rentAmt} rent to ${ownerName}`);
                                     creditorMap.set(player.id, ownerId); // Phase 2E
+                                    // Track deferred rent if player couldn't afford it
+                                    const rentNum = parseInt(rentAmt, 10);
+                                    if (player.balance < 0) {
+                                        debtAmountMap.set(player.id, { creditorId: ownerId, amount: rentNum });
+                                    }
                                 }
                             }
                         }
@@ -617,7 +638,8 @@ async function main(playersCount, f) {
                             emitServerHistory(`${player.username} rolled [${d1}, ${d2}] moving to "${propName}"`);
                         }
                         player.hasRolled = true;
-                        player.allowRollAgain = isDoubles && !goingToJail && !player.isInJail;
+                        // Fix 1: jail-escape doubles must NOT grant an extra roll
+                        player.allowRollAgain = isDoubles && !goingToJail && !player.isInJail && !startedInJail;
                         EmitAll("dice_roll_result", {
                             listOfNums: [d1, d2, rolledPosition],
                             turnId: currentId,
@@ -656,6 +678,23 @@ async function main(playersCount, f) {
                             const idx = player.properties.findIndex((p) => p.posistion === targetPosition);
                             if (idx === -1)
                                 return;
+                            // Fix 2: Server-side build validation
+                            if (!targetProp || targetProp.group === "Railroad" || targetProp.group === "Utilities" || targetProp.group === "Special")
+                                return;
+                            const groupProps2 = monopoly_json_1.default.properties.filter((p) => p.group === targetProp.group);
+                            const ownedInGroup2 = player.properties.filter((p) => p.group === targetProp.group);
+                            if (ownedInGroup2.length !== groupProps2.length)
+                                return; // must own full set
+                            if (ownedInGroup2.some((p) => p.morgage === true))
+                                return; // no mortgaged props in set
+                            const toNum = (v) => (v === "h" ? 5 : typeof v === "number" ? v : 0);
+                            const groupCounts = ownedInGroup2.map((p) => toNum(p.count));
+                            const minCount = Math.min(...groupCounts);
+                            if (toNum(player.properties[idx].count) > minCount)
+                                return; // must build evenly
+                            const expectedNext = toNum(player.properties[idx].count) + 1;
+                            if (args.newCount !== expectedNext)
+                                return; // must step one level at a time
                             if (args.newCount === 5) {
                                 player.balance -= targetProp?.ohousecost ?? 0;
                                 player.properties[idx].count = "h";
@@ -672,6 +711,12 @@ async function main(playersCount, f) {
                             const idx = player.properties.findIndex((p) => p.posistion === targetPosition);
                             if (idx === -1)
                                 return;
+                            // Fix 2: Must sell evenly — only sell from property with the most houses
+                            const toNum2 = (v) => (v === "h" ? 5 : typeof v === "number" ? v : 0);
+                            const ownedInGroup3 = player.properties.filter((p) => p.group === targetProp.group);
+                            const maxCount = Math.max(...ownedInGroup3.map((p) => toNum2(p.count)));
+                            if (toNum2(player.properties[idx].count) < maxCount)
+                                return; // uneven sell rejected
                             const currentCount = player.properties[idx].count;
                             let refund = 0;
                             if (currentCount === "h") {
@@ -695,11 +740,40 @@ async function main(playersCount, f) {
                 // ── Mortgage Action ───────────────────────────────────────
                 socket.on("mortgage_action", (args) => {
                     try {
-                        // amount > 0: player pays (unmortgage); amount < 0: player receives (mortgage)
-                        player.balance -= args.amount;
+                        // Fix 3: Compute amounts server-side; ignore client-supplied amount
                         const idx = player.properties.findIndex((p) => p.posistion === args.propertyPosition);
-                        if (idx !== -1)
-                            player.properties[idx].morgage = args.action === "mortgage";
+                        if (idx === -1)
+                            return;
+                        const propData = propertyByPosition.get(args.propertyPosition);
+                        if (!propData || propData.price === undefined)
+                            return;
+                        const ownedProp = player.properties[idx];
+                        if (args.action === "mortgage") {
+                            if (ownedProp.morgage === true)
+                                return; // already mortgaged
+                            // Cannot mortgage if any property in the color group has buildings
+                            if (propData.group !== "Railroad" && propData.group !== "Utilities") {
+                                const groupHasBuildings = player.properties
+                                    .filter((p) => p.group === propData.group)
+                                    .some((p) => p.count !== 0 && p.count !== undefined);
+                                if (groupHasBuildings)
+                                    return;
+                            }
+                            const mortgageValue = Math.round(propData.price * 0.5);
+                            player.balance += mortgageValue;
+                            player.properties[idx].morgage = true;
+                            emitServerHistory(`${player.username} mortgaged ${propData.name} for $${mortgageValue}`);
+                        }
+                        else if (args.action === "unmortgage") {
+                            if (ownedProp.morgage !== true)
+                                return; // not mortgaged
+                            const unmortgageCost = Math.round(propData.price * 0.55);
+                            if (player.balance < unmortgageCost)
+                                return; // cannot afford
+                            player.balance -= unmortgageCost;
+                            player.properties[idx].morgage = false;
+                            emitServerHistory(`${player.username} unmortgaged ${propData.name} for $${unmortgageCost}`);
+                        }
                         EmitStateUpdate();
                     }
                     catch (e) {
@@ -714,6 +788,18 @@ async function main(playersCount, f) {
                         // Phase 2C: Reject finish-turn if still insolvent — must declare bankruptcy
                         if (player.balance < 0)
                             return;
+                        // Settle any deferred rent debt now that the player has raised enough money
+                        const debt = debtAmountMap.get(socket.id);
+                        if (debt) {
+                            const creditorClient = Clients.get(debt.creditorId);
+                            if (creditorClient) {
+                                // Rent was already deducted from debtor's balance in processLanding.
+                                // We only need to add it to the creditor's balance here.
+                                creditorClient.player.balance += debt.amount;
+                                emitServerHistory(`${player.username} settled $${debt.amount} rent debt to ${creditorClient.player.username}`);
+                            }
+                            debtAmountMap.delete(socket.id);
+                        }
                         // Phase 2A: Reset doubles streak and creditor on clean turn end
                         consecutiveDoublesMap.set(socket.id, 0);
                         creditorMap.set(socket.id, null);
@@ -736,6 +822,7 @@ async function main(playersCount, f) {
                             pJson: player.to_json(),
                             WinningMode: selectedMode.WinningMode,
                         });
+                        EmitStateUpdate();
                     }
                     catch (e) {
                         server.logFunction(e);
@@ -778,7 +865,39 @@ async function main(playersCount, f) {
                     }
                 });
                 // ── Declare Bankruptcy ───────────────────────────────
-                // Phase 2B: Full bankruptcy handler — asset transfer + 10% fee
+                // Fix 4/5/5b: Full bankruptcy handler with cash transfer, house liquidation,
+                // and interactive mortgage-transfer-choice flow.
+                // Helper: finalize bankruptcy after all mortgage choices are resolved
+                const finalizeBankruptcy = (bankruptSocketId) => {
+                    const bankruptClient = Clients.get(bankruptSocketId);
+                    if (!bankruptClient)
+                        return;
+                    const bp = bankruptClient.player;
+                    bp.properties = [];
+                    bp.balance = 0;
+                    consecutiveDoublesMap.set(bankruptSocketId, 0);
+                    creditorMap.set(bp.id, null);
+                    debtAmountMap.delete(bankruptSocketId);
+                    bp.hasRolled = false;
+                    bp.allowRollAgain = false;
+                    const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
+                    const arr = active.map((v) => v.player.id);
+                    let i = arr.indexOf(bankruptSocketId);
+                    i = arr.length > 0 ? (i + 1) % arr.length : -1;
+                    currentId = i === -1 ? "" : arr[i];
+                    EmitAll("player-bankrupt", {
+                        bankruptId: bp.id,
+                        creditorId: creditorMap.get(bp.id) ?? "bank",
+                        turnId: currentId,
+                        pJsons: Array.from(Clients.values()).map((c) => c.player.to_json()),
+                    });
+                    if (active.length <= 1) {
+                        gameStarted = false;
+                        for (const c of Array.from(Clients.values()))
+                            c.ready = false;
+                    }
+                    EmitStateUpdate();
+                };
                 socket.on("declare-bankruptcy", () => {
                     try {
                         server.logFunction(`[BANKRUPTCY] Player ${player.username} is declaring bankruptcy. Balance: ${player.balance}`);
@@ -799,21 +918,66 @@ async function main(playersCount, f) {
                                 const cp = creditorClient.player;
                                 server.logFunction(`[BANKRUPTCY] Found creditor player: ${cp.username}`);
                                 emitServerHistory(`${player.username} declared bankruptcy to ${cp.username}`);
+                                // Fix 4: Transfer remaining cash to creditor (excluding the unpaid rent debt)
+                                const debt = debtAmountMap.get(player.id);
+                                const rentAmt = debt ? debt.amount : 0;
+                                const actualCash = player.balance + rentAmt;
+                                if (actualCash > 0) {
+                                    cp.balance += actualCash;
+                                    emitServerHistory(`${cp.username} received $${actualCash} cash from ${player.username}`);
+                                }
                                 for (const prp of player.properties) {
-                                    prp.count = 0;
                                     const propData = propertyById.get(prp.posistion?.toString()) ??
                                         propertyByPosition.get(prp.posistion);
                                     const propName = propData?.name ?? "a property";
-                                    server.logFunction(`[BANKRUPTCY] Transferring property ${propName} (morgage: ${prp.morgage}, type: ${typeof prp.morgage})`);
-                                    emitServerHistory(`${cp.username} received ${propName} from ${player.username}`);
-                                    if (prp.morgage === true || prp.morgage === "true") {
-                                        const fee = Math.round((propData?.price ?? 0) * 0.05);
-                                        cp.balance -= fee;
-                                        server.logFunction(`[BANKRUPTCY] Creditor ${cp.username} charged fee $${fee} for mortgaged ${propName}. New balance: ${cp.balance}`);
-                                        emitServerHistory(`${cp.username} paid $${fee} interest to Bank for mortgaged ${propName}`);
+                                    // Fix 5: Liquidate buildings → 50% refund to creditor
+                                    if (prp.count === "h") {
+                                        const refund = Math.round((propData?.ohousecost ?? 0) * 0.5);
+                                        cp.balance += refund;
+                                        emitServerHistory(`${cp.username} received $${refund} from hotel sold on ${propName}`);
                                     }
+                                    else if (typeof prp.count === "number" && prp.count > 0) {
+                                        const refund = Math.round((propData?.housecost ?? 0) * 0.5) * prp.count;
+                                        cp.balance += refund;
+                                        emitServerHistory(`${cp.username} received $${refund} from ${prp.count} house(s) sold on ${propName}`);
+                                    }
+                                    prp.count = 0;
+                                    // Transfer property to creditor
                                     cp.properties.push(prp);
+                                    emitServerHistory(`${cp.username} received ${propName} from ${player.username}`);
                                 }
+                                // Fix 5b: If there are mortgaged properties, pause and ask creditor
+                                const mortgagedPending = cp.properties
+                                    .filter((prp) => prp.morgage === true || prp.morgage === "true")
+                                    .filter((prp) => {
+                                    // Only consider ones just received (from this bankrupt player)
+                                    // We track them by checking against the original bankrupt player's position list
+                                    return player.properties.some((orig) => orig.posistion === prp.posistion);
+                                })
+                                    .map((prp) => {
+                                    const propData = propertyByPosition.get(prp.posistion);
+                                    const price = propData?.price ?? 0;
+                                    return {
+                                        position: prp.posistion,
+                                        name: propData?.name ?? "Unknown",
+                                        mortgageValue: Math.round(price * 0.5),
+                                        interestFee: Math.round(price * 0.05),
+                                        unmortgageCost: Math.round(price * 0.55),
+                                    };
+                                });
+                                if (mortgagedPending.length > 0) {
+                                    // Store who is waiting so the resolve handler can call finalizeBankruptcy
+                                    pendingBankruptMap.set(creditor, socket.id);
+                                    creditorClient.socket.emit("mortgage-transfer-pending", {
+                                        properties: mortgagedPending,
+                                        bankruptName: player.username,
+                                    });
+                                    // Broadcast pending state so other players see the new ownership
+                                    EmitStateUpdate();
+                                    return; // turn finalization over to mortgage-transfer-resolve
+                                }
+                                // No mortgaged properties — finalize immediately
+                                finalizeBankruptcy(socket.id);
                             }
                             else {
                                 server.logFunction(`[BANKRUPTCY] Creditor client not found for id: ${creditor}`);
@@ -829,30 +993,41 @@ async function main(playersCount, f) {
                                 const propName = propData?.name ?? "a property";
                                 emitServerHistory(`${propName} was returned to the Bank`);
                             }
+                            finalizeBankruptcy(socket.id);
                         }
-                        player.properties = [];
-                        player.balance = 0;
-                        const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
-                        const arr = active.map((v) => v.player.id);
-                        let i = arr.indexOf(socket.id);
-                        i = arr.length > 0 ? (i + 1) % arr.length : -1;
-                        currentId = i === -1 ? "" : arr[i];
-                        consecutiveDoublesMap.set(socket.id, 0);
-                        creditorMap.set(socket.id, null);
-                        player.hasRolled = false;
-                        player.allowRollAgain = false;
-                        EmitAll("player-bankrupt", {
-                            bankruptId: player.id,
-                            creditorId: creditor,
-                            turnId: currentId,
-                            pJsons: Array.from(Clients.values()).map((c) => c.player.to_json()),
-                        });
-                        EmitStateUpdate();
-                        if (active.length <= 1) {
-                            gameStarted = false;
-                            for (const c of Array.from(Clients.values()))
-                                c.ready = false;
+                    }
+                    catch (e) {
+                        server.logFunction(e);
+                    }
+                });
+                // Fix 5b: Creditor resolves mortgage transfer choices
+                socket.on("mortgage-transfer-resolve", (args) => {
+                    try {
+                        const bankruptSocketId = pendingBankruptMap.get(socket.id);
+                        if (!bankruptSocketId)
+                            return; // not awaiting any decisions
+                        pendingBankruptMap.delete(socket.id);
+                        for (const choice of args.choices) {
+                            const idx = player.properties.findIndex((p) => p.posistion === choice.position);
+                            if (idx === -1)
+                                continue;
+                            const propData = propertyByPosition.get(choice.position);
+                            if (!propData)
+                                continue;
+                            const interestFee = Math.round((propData.price ?? 0) * 0.05);
+                            const unmortgageCost = Math.round((propData.price ?? 0) * 0.55);
+                            if (choice.action === "unmortgage" && player.balance >= unmortgageCost) {
+                                player.balance -= unmortgageCost;
+                                player.properties[idx].morgage = false;
+                                emitServerHistory(`${player.username} unmortgaged ${propData.name} for $${unmortgageCost}`);
+                            }
+                            else {
+                                // Keep mortgaged — pay only interest
+                                player.balance -= interestFee;
+                                emitServerHistory(`${player.username} kept ${propData.name} mortgaged, paid $${interestFee} interest`);
+                            }
                         }
+                        finalizeBankruptcy(bankruptSocketId);
                     }
                     catch (e) {
                         server.logFunction(e);
