@@ -3,7 +3,7 @@ import Monopoly from "./monopoly.tsx";
 import "../../home.css";
 import { Server, Socket, io } from "../../assets/sockets.ts";
 import NotifyElement, { NotificatorRef } from "../../components/notificator.tsx";
-import { MonopolyCookie, User, botInitial } from "../../assets/types.ts";
+import { MonopolyCookie, User } from "../../assets/types.ts";
 import SettingsNav from "../../components/settingsNav.tsx";
 
 // import LoginScreen from "../../components/menu/loginscreen.tsx";
@@ -12,8 +12,6 @@ import JoinScreen from "../../components/menu/joinScreen.tsx";
 // import { FirebaseApp, initializeApp } from "firebase/app";
 // import { doc, getDoc, getFirestore } from "firebase/firestore";
 
-// import { main as botServer } from "../../assets/bot/server.ts";
-import { main as runBot } from "../../assets/bot/bot.ts";
 import { TranslateCode } from "../../assets/code.ts";
 import { CookieManager } from "../../assets/cookieManager.ts";
 
@@ -278,72 +276,6 @@ export default function Home() {
         }
     }
 
-    async function startButtonClicked(bots: botInitial[]) {
-        try {
-            if (name.replace(" ", "").length === 0) {
-                notifyRef.current?.message("please add your name before joining", "info", 2);
-                return;
-            }
-
-            SetDisabled(true);
-            try {
-                const response = await fetch("/api/create-room", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ playersCount: bots.length + 1 })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    sessionStorage.setItem("current_room", data.hostCode);
-                    localStorage.setItem("current_name", name);
-                    
-                    const virtualServer = new Server();
-                    virtualServer.code = data.translatedCode; // RAW code
-                    
-                    const socket = await io(TranslateCode(virtualServer.code));
-                    for (const x of bots) {
-                        runBot(TranslateCode(virtualServer.code), x, Date.now().toString(36) + Math.random().toString(36).substring(2));
-                    }
-                    socket.on("state", (args: number) => {
-                        switch (args) {
-                            case 0:
-                                SetSocket(socket);
-                                SetSignedIn(true);
-                                SetServer(virtualServer);
-                                SetDisabled(false);
-
-                                break;
-                            case 1:
-                                notifyRef.current?.message("the game has already begun", "error", 2, () => {
-                                    SetDisabled(false);
-                                });
-                                socket.disconnect();
-                                break;
-                            case 2:
-                                notifyRef.current?.message("too many players on the server", "error", 2, () => {
-                                    SetDisabled(false);
-                                });
-                                socket.disconnect();
-                                break;
-                            default:
-                                notifyRef.current?.message("unkown error", "error", 2, () => {
-                                    SetDisabled(false);
-                                });
-                                socket.disconnect();
-
-                                break;
-                        }
-                    });
-                }
-            } catch (err) {
-                console.error(err);
-                SetDisabled(false);
-            }
-        } catch {
-            SetDisabled(false);
-        }
-    }
-
     return socket !== undefined && isSignedIn === true ? (
         <Monopoly socket={socket} name={name} server={server} />
     ) : (
@@ -399,9 +331,6 @@ export default function Home() {
                             <JoinScreen
                                 disabled={disabled}
                                 fbUser={fbUser}
-                                joinBots={(x) => {
-                                    startButtonClicked(x);
-                                }}
                                 joinViaCode={() => {
                                     joinButtonClicked();
                                 }}

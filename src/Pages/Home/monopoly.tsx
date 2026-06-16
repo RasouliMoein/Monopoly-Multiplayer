@@ -318,6 +318,16 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 }
             }
 
+            if (sum_moves === 0) {
+                return {
+                    func: () => {
+                        animatingPlayersRef.current.delete(_xplayer.id);
+                        if (afterFinished) afterFinished();
+                    },
+                    time: 0,
+                };
+            }
+
             const time = 0.35 * 1000 * sum_moves;
 
             console.log(`${new Date().toTimeString()} generator ${Math.random()} target ${final_position} time ${time} current ${_xplayer.position}`);
@@ -328,7 +338,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 const element = document.querySelector(`div.player[player-id="${_xplayer.id}"]`) as HTMLDivElement;
 
                 firstPosition = _xplayer.position;
-                _xplayer.position += 1;
+                _xplayer.position = (_xplayer.position + (adding ? 1 : -1) + 40) % 40;
                 var audio = new Audio("./step2.mp3");
                 audio.volume = 0.1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                 audio.loop = false;
@@ -341,7 +351,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         audio.volume = 1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                         audio.loop = false;
                         audio.play();
-                        _xplayer.position = (_xplayer.position + (adding ? 1 : -1)) % 40;
+                        _xplayer.position = (_xplayer.position + (adding ? 1 : -1) + 40) % 40;
                         if (_xplayer.position == 0 && get200whengo) {
                             // Go payment is handled server-side — just play audio/animation
                             var audio = new Audio("./moneyplus.mp3");
@@ -358,7 +368,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 element.style.animation = "";
                             }, 900);
 
-                            if (!addedMoney && firstPosition > _xplayer.position && get200whengo) {
+                            if (!addedMoney && firstPosition > _xplayer.position && get200whengo && adding) {
                                 // Go payment is handled server-side — just play audio
                                 var audio = new Audio("./moneyplus.mp3");
                                 audio.volume = 1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
@@ -701,7 +711,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             // ── Helper: show property buy/upgrade UI and emit player_action ──
             const showBuyUI = (location: number) => {
                 const proprety = propretyMap.get(location);
-                if (!proprety) { engineRef.current?.freeDice(); socket.emit("finish-turn"); return; }
+                if (!proprety) {
+                    engineRef.current?.freeDice();
+                    if (!allowRollAgainRef.current) {
+                        socket.emit("finish-turn");
+                    }
+                    return;
+                }
                 engineRef.current?.setStreet({
                     location,
                     rolls,
@@ -740,7 +756,11 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             if (b === "nothing") {
                                 socket.emit("player_action", { action: "skip" });
                             } else {
-                                socket.emit("finish-turn");
+                                if (allowRollAgainRef.current) {
+                                    // Doubles! Do NOT finish turn, just free dice for another roll!
+                                } else {
+                                    socket.emit("finish-turn");
+                                }
                             }
                         }, time_till_free);
                     },
@@ -832,16 +852,41 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 () => {
                                     xplayer.position = args.pendingCard.newPosition;
                                     SetClients(new Map(clientsRef.current.set(args.turnId, xplayer)));
-                                    if (isActivePlayer) {
-                                        if (args.pendingCard.requiresPurchaseDecision) {
-                                            showBuyUI(args.pendingCard.newPosition);
-                                        } else {
-                                            // Phase 2E: Re-roll on doubles if applicable
-                                            if (args.allowRollAgain) {
-                                                engineRef.current?.freeDice();
+                                    
+                                    const nested = args.pendingCard.pendingCard;
+                                    if (nested) {
+                                        engineRef.current?.chorch(nested.element, nested.is_chance, numOfTime);
+                                        if (isActivePlayer && settings?.notifications === true)
+                                            notifyRef.current?.message(
+                                                `${nested.is_chance ? "Chance" : "Community Chest"}: "${nested.element?.title ?? ""}"`,
+                                                "info", 3, () => {}, false
+                                            );
+                                        setTimeout(() => {
+                                            if (isActivePlayer) {
+                                                if (nested.requiresPurchaseDecision && nested.newPosition !== undefined) {
+                                                    showBuyUI(nested.newPosition);
+                                                } else {
+                                                    if (args.allowRollAgain) {
+                                                        engineRef.current?.freeDice();
+                                                    } else {
+                                                        engineRef.current?.freeDice();
+                                                        socket.emit("finish-turn");
+                                                    }
+                                                }
+                                            }
+                                        }, numOfTime);
+                                    } else {
+                                        if (isActivePlayer) {
+                                            if (args.pendingCard.requiresPurchaseDecision) {
+                                                showBuyUI(args.pendingCard.newPosition);
                                             } else {
-                                                engineRef.current?.freeDice();
-                                                socket.emit("finish-turn");
+                                                // Phase 2E: Re-roll on doubles if applicable
+                                                if (args.allowRollAgain) {
+                                                    engineRef.current?.freeDice();
+                                                } else {
+                                                    engineRef.current?.freeDice();
+                                                    socket.emit("finish-turn");
+                                                }
                                             }
                                         }
                                     }

@@ -795,6 +795,23 @@ main nav.content[data-index="4"] {
     display: flex;
     flex-direction: column;
     padding-right: 4px;
+    height: 100%;
+    justify-content: flex-start !important;
+}
+
+main nav.content[data-index="4"]::-webkit-scrollbar {
+    width: 6px;
+}
+main nav.content[data-index="4"]::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+}
+main nav.content[data-index="4"]::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+}
+main nav.content[data-index="4"]::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 main nav.content[data-index="4"] div.scroll {

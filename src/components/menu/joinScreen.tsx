@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { User, botInitial } from "../../assets/types";
+import { User } from "../../assets/types";
 import { Icons } from "../../assets/icons";
 
 export default function JoinScreen(props: {
     joinViaCode: () => void;
-    joinBots: (x: Array<botInitial>) => void;
     createRoom: (playersCount: number) => void;
     fbUser: User | undefined;
     disabled: boolean;

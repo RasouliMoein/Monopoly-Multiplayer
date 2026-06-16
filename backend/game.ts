@@ -131,6 +131,9 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
     let bankHouses = 32;
     let bankHotels = 12;
 
+    let chanceGetOutOwner: string | null = null;
+    let chestGetOutOwner: string | null = null;
+
     // Phase 2 — Property Auction state
     interface AuctionState {
         propertyPosition: number;
@@ -327,7 +330,14 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     player.jailTurnsRemaining = 3;
                     return { requiresPurchaseDecision: false, newPosition: 10 };
                 }
-                if (card.subaction === "getout") player.getoutCards += 1;
+                if (card.subaction === "getout") {
+                    player.getoutCards += 1;
+                    if (card.title.includes("traded")) {
+                        chanceGetOutOwner = player.id;
+                    } else {
+                        chestGetOutOwner = player.id;
+                    }
+                }
                 return { requiresPurchaseDecision: false };
 
             case "move": {
@@ -344,6 +354,35 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                 if (targetPos === undefined) return { requiresPurchaseDecision: false };
                 if (passedGo) player.balance += 200;
                 player.position = targetPos;
+
+                const prop = propertyByPosition.get(targetPos);
+                if (prop && CARD_TILES.has(prop.id ?? "")) {
+                    const deck = prop.id === "chance" ? monopolyJSON.chance : (monopolyJSON as any).communitychest;
+                    let nextCard = deck[Math.floor(Math.random() * deck.length)];
+                    if (nextCard.action === "jail" && nextCard.subaction === "getout") {
+                        const isChance = prop.id === "chance";
+                        const alreadyHeld = isChance ? (chanceGetOutOwner !== null) : (chestGetOutOwner !== null);
+                        if (alreadyHeld) {
+                            const filtered = deck.filter((c: any) => !(c.action === "jail" && c.subaction === "getout"));
+                            nextCard = filtered[Math.floor(Math.random() * filtered.length)];
+                        }
+                    }
+                    emitServerHistory(`${player.username} landed on ${prop.id === "chance" ? "Chance" : "Community Chest"} space and drew card: "${nextCard.title}"`);
+                    const result = resolveCard(player, nextCard, rolls);
+                    return {
+                        requiresPurchaseDecision: result.requiresPurchaseDecision,
+                        newPosition: result.newPosition ?? targetPos,
+                        landingNote: result.landingNote,
+                        pendingCard: {
+                            element: nextCard,
+                            is_chance: prop.id === "chance",
+                            requiresPurchaseDecision: result.requiresPurchaseDecision,
+                            newPosition: result.newPosition ?? targetPos,
+                            extraRoll: result.extraRoll ?? null,
+                        }
+                    } as any;
+                }
+
                 const landing = processLanding(player, targetPos, rolls);
                 return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: targetPos, landingNote: landing.landingNote };
             }
@@ -546,12 +585,23 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     // ── Unjail ────────────────────────────────────────────────
                     socket.on("unjail", (option: "card" | "pay") => {
                         try {
+                            if (currentId !== socket.id) return;
+                            if (player.hasRolled) return;
+                            if (!player.isInJail) return;
+
                             if (option === "pay") {
                                 player.balance -= 50;
                                 emitServerHistory(`${player.username} paid $50 to leave jail`);
                             } else if (option === "card" && player.getoutCards > 0) {
                                 player.getoutCards -= 1;
+                                if (chanceGetOutOwner === player.id) {
+                                    chanceGetOutOwner = null;
+                                } else if (chestGetOutOwner === player.id) {
+                                    chestGetOutOwner = null;
+                                }
                                 emitServerHistory(`${player.username} used a Get Out of Jail Free card to leave jail`);
+                            } else {
+                                return;
                             }
                             player.isInJail = false;
                             player.jailTurnsRemaining = 0;
@@ -694,7 +744,15 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
                                 if (prop && CARD_TILES.has(prop.id ?? "")) {
                                     const deck = prop.id === "chance" ? monopolyJSON.chance : (monopolyJSON as any).communitychest;
-                                    const card = deck[Math.floor(Math.random() * deck.length)];
+                                    let card = deck[Math.floor(Math.random() * deck.length)];
+                                    if (card.action === "jail" && card.subaction === "getout") {
+                                        const isChance = prop.id === "chance";
+                                        const alreadyHeld = isChance ? (chanceGetOutOwner !== null) : (chestGetOutOwner !== null);
+                                        if (alreadyHeld) {
+                                            const filtered = deck.filter((c: any) => !(c.action === "jail" && c.subaction === "getout"));
+                                            card = filtered[Math.floor(Math.random() * filtered.length)];
+                                        }
+                                    }
                                     const balanceBeforeCard = player.balance;
                                     const result = resolveCard(player, card, sum);
                                     if (result.newPosition !== undefined) {
@@ -707,6 +765,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                         requiresPurchaseDecision: result.requiresPurchaseDecision,
                                         newPosition: result.newPosition,
                                         extraRoll: result.extraRoll ?? null,
+                                        pendingCard: (result as any).pendingCard ?? null,
                                     };
                                     requiresPurchaseDecision = result.requiresPurchaseDecision;
                                     emitServerHistory(`${player.username} drew ${prop.id === "chance" ? "Chance" : "Community Chest"}: "${card.title}"`);
@@ -1086,19 +1145,34 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                         emitServerHistory(`${cp.username} received $${actualCash} cash from ${player.username}`);
                                     }
 
+                                    // Transfer/Release jail cards
+                                    if (player.getoutCards > 0) {
+                                        cp.getoutCards += player.getoutCards;
+                                        if (chanceGetOutOwner === player.id) {
+                                            chanceGetOutOwner = cp.id;
+                                        }
+                                        if (chestGetOutOwner === player.id) {
+                                            chestGetOutOwner = cp.id;
+                                        }
+                                        emitServerHistory(`${cp.username} received ${player.getoutCards} Get Out of Jail Free card(s) from ${player.username}`);
+                                        player.getoutCards = 0;
+                                    }
+
                                     for (const prp of player.properties) {
                                         const propData = propertyById.get(prp.posistion?.toString()) ??
                                             propertyByPosition.get(prp.posistion);
                                         const propName = propData?.name ?? "a property";
 
-                                        // Fix 5: Liquidate buildings → 50% refund to creditor
+                                        // Fix 5: Liquidate buildings → 50% refund to creditor and return to bank pool
                                         if (prp.count === "h") {
                                             const refund = Math.round(((propData as any)?.ohousecost ?? 0) * 0.5);
                                             cp.balance += refund;
+                                            bankHotels += 1;
                                             emitServerHistory(`${cp.username} received $${refund} from hotel sold on ${propName}`);
                                         } else if (typeof prp.count === "number" && prp.count > 0) {
                                             const refund = Math.round(((propData as any)?.housecost ?? 0) * 0.5) * prp.count;
                                             cp.balance += refund;
+                                            bankHouses += prp.count;
                                             emitServerHistory(`${cp.username} received $${refund} from ${prp.count} house(s) sold on ${propName}`);
                                         }
                                         prp.count = 0;
@@ -1147,12 +1221,27 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 }
                             } else {
                                 emitServerHistory(`${player.username} declared bankruptcy to the Bank`);
+                                if (player.getoutCards > 0) {
+                                    if (chanceGetOutOwner === player.id) {
+                                        chanceGetOutOwner = null;
+                                    }
+                                    if (chestGetOutOwner === player.id) {
+                                        chestGetOutOwner = null;
+                                    }
+                                    player.getoutCards = 0;
+                                }
                                 for (const prp of player.properties) {
-                                    prp.count = 0;
-                                    prp.morgage = false;
                                     const propData = propertyById.get(prp.posistion?.toString()) ??
                                         propertyByPosition.get(prp.posistion);
                                     const propName = propData?.name ?? "a property";
+
+                                    if (prp.count === "h") {
+                                        bankHotels += 1;
+                                    } else if (typeof prp.count === "number" && prp.count > 0) {
+                                        bankHouses += prp.count;
+                                    }
+                                    prp.count = 0;
+                                    prp.morgage = false;
                                     emitServerHistory(`${propName} was returned to the Bank`);
                                 }
                                 finalizeBankruptcy(socket.id);
@@ -1201,35 +1290,6 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         } catch (e) { server.logFunction(e); }
                     });
 
-                    // ── Pay (kept for backward-compat with trade system) ──────
-                    socket.on("pay", (args: { balance: number; from: string; to: string }) => {
-                        try {
-                            const top = Clients.get(args.to)?.player;
-                            const fromp = Clients.get(args.from)?.player;
-                            if (!top || !fromp) return;
-                            top.balance += args.balance;
-                            fromp.balance -= args.balance;
-                            EmitAll("member_updating", {
-                                playerId: args.to,
-                                animation: "recieveMoney",
-                                additional_props: [args.from],
-                                pJson: [top.to_json(), fromp.to_json()],
-                            });
-                        } catch (e) { server.logFunction(e); }
-                    });
-
-                    // ── Player Update (property-state sync / mortgage compat) ─
-                    socket.on("player_update", (args: { playerId: string; pJson: PlayerJSON }) => {
-                        const xc = Clients.get(args.playerId);
-                        if (!xc) return;
-                        if (args.playerId === socket.id) {
-                            // Trust own updates (needed for mortgage UI compatibility)
-                            xc.player.from_json(args.pJson);
-                        } else {
-                            xc.player.properties = args.pJson.properties;
-                        }
-                        EmitExcepts(args.playerId, "player_update", args);
-                    });
 
                     // ── Mouse ─────────────────────────────────────────────────
                     socket.on("mouse", (args: { x: number; y: number }) => {
@@ -1242,69 +1302,85 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     // ── History ───────────────────────────────────────────────
                     socket.on("history", (args: historyAction) => { EmitAll("history", args); });
 
+                    // Helper: validate deal rules before committing trade to prevent cheating
+                    function validateAndExecuteTrade(x: GameTrading): boolean {
+                        if (!selectedMode.AllowDeals) return false;
+                        if (!x.turnPlayer.accepted || !x.againstPlayer.accepted) return false;
+
+                        const tpClient = Clients.get(x.turnPlayer.id);
+                        const apClient = Clients.get(x.againstPlayer.id);
+                        if (!tpClient || !apClient) return false;
+
+                        const tp = tpClient.player;
+                        const ap = apClient.player;
+
+                        // 1. Cash Balance Validation
+                        if (x.turnPlayer.balance < 0 || x.againstPlayer.balance < 0) return false;
+                        if (tp.balance < x.turnPlayer.balance || ap.balance < x.againstPlayer.balance) return false;
+
+                        // Helper: check if a color group has any buildings on any properties
+                        const hasGroupBuildings = (player: Player, group: string) => {
+                            if (!group || group === "Railroad" || group === "Utilities" || group === "Special") return false;
+                            return player.properties
+                                .filter((p: any) => p.group === group)
+                                .some((p: any) => p.count !== 0 && p.count !== undefined);
+                        };
+
+                        // 2. Turn Player Traded Properties Validation
+                        for (const offer of x.turnPlayer.prop) {
+                            const owned = tp.properties.find((p: any) => p.posistion === offer.posistion);
+                            if (!owned) return false; // tp doesn't own this property!
+                            if (hasGroupBuildings(tp, offer.group)) return false; // group has buildings!
+                        }
+
+                        // 3. Against Player Traded Properties Validation
+                        for (const offer of x.againstPlayer.prop) {
+                            const owned = ap.properties.find((p: any) => p.posistion === offer.posistion);
+                            if (!owned) return false; // ap doesn't own this property!
+                            if (hasGroupBuildings(ap, offer.group)) return false; // group has buildings!
+                        }
+
+                        // 4. All validations passed — transfer property ownership & cash balances
+                        const tGets = ap.properties.filter((v1: any) =>
+                            x.againstPlayer.prop.some((v2) => v2.posistion === v1.posistion));
+                        ap.properties = ap.properties.filter((v1: any) =>
+                            !x.againstPlayer.prop.some((v2) => v2.posistion === v1.posistion));
+
+                        const aGets = tp.properties.filter((v1: any) =>
+                            x.turnPlayer.prop.some((v2) => v2.posistion === v1.posistion));
+                        tp.properties = tp.properties.filter((v1: any) =>
+                            !x.turnPlayer.prop.some((v2) => v2.posistion === v1.posistion));
+
+                        ap.balance -= x.againstPlayer.balance;
+                        tp.balance -= x.turnPlayer.balance;
+                        tp.balance += x.againstPlayer.balance;
+                        ap.balance += x.turnPlayer.balance;
+
+                        tp.properties.push(...tGets);
+                        ap.properties.push(...aGets);
+
+                        emitServerHistory(`${tp.username} done a trade with ${ap.username}`);
+                        EmitAll("submit-trade", {
+                            pJsons: [tp.to_json(), ap.to_json()],
+                            action: `${tp.username} done a trade with ${ap.username}`,
+                        });
+                        EmitStateUpdate();
+                        return true;
+                    }
+
                     // ── Trade ─────────────────────────────────────────────────
                     socket.on("trade", () => { if (!selectedMode.AllowDeals) return; EmitAll("trade", {}); });
                     socket.on("cancel-trade", () => { if (!selectedMode.AllowDeals) return; EmitAll("cancel-trade", {}); });
                     socket.on("trade-update", (x: GameTrading) => {
                         if (!selectedMode.AllowDeals) return;
                         if (x.turnPlayer.accepted && x.againstPlayer.accepted) {
-                            const tp = Clients.get(x.turnPlayer.id);
-                            const ap = Clients.get(x.againstPlayer.id);
-                            if (!tp || !ap) return;
-
-                            const tGets = ap.player.properties.filter((v1: any) =>
-                                x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
-                            ap.player.properties = ap.player.properties.filter((v1: any) =>
-                                !x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
-                            const aGets = tp.player.properties.filter((v1: any) =>
-                                x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
-                            tp.player.properties = tp.player.properties.filter((v1: any) =>
-                                !x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
-
-                            ap.player.balance -= x.againstPlayer.balance;
-                            tp.player.balance -= x.turnPlayer.balance;
-                            tp.player.balance += x.againstPlayer.balance;
-                            ap.player.balance += x.turnPlayer.balance;
-                            tp.player.properties.push(...tGets);
-                            ap.player.properties.push(...aGets);
-
-                            emitServerHistory(`${tp.player.username} done a trade with ${ap.player.username}`);
-                            EmitAll("submit-trade", {
-                                pJsons: [tp.player.to_json(), ap.player.to_json()],
-                                action: `${tp.player.username} done a trade with ${ap.player.username}`,
-                            });
+                            validateAndExecuteTrade(x);
                         } else {
                             EmitAll("trade-update", x);
                         }
                     });
                     socket.on("submit-trade", (x: GameTrading) => {
-                        if (!selectedMode.AllowDeals) return;
-                        if (!x.turnPlayer.accepted || !x.againstPlayer.accepted) return;
-                        const tp = Clients.get(x.turnPlayer.id);
-                        const ap = Clients.get(x.againstPlayer.id);
-                        if (!tp || !ap) return;
-
-                        const tGets = ap.player.properties.filter((v1: any) =>
-                            x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
-                        ap.player.properties = ap.player.properties.filter((v1: any) =>
-                            !x.againstPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
-                        const aGets = tp.player.properties.filter((v1: any) =>
-                            x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
-                        tp.player.properties = tp.player.properties.filter((v1: any) =>
-                            !x.turnPlayer.prop.map((v2) => JSON.stringify(v2)).includes(JSON.stringify(v1)));
-
-                        ap.player.balance -= x.againstPlayer.balance;
-                        tp.player.balance -= x.turnPlayer.balance;
-                        tp.player.balance += x.againstPlayer.balance;
-                        ap.player.balance += x.turnPlayer.balance;
-                        tp.player.properties.push(...tGets);
-                        ap.player.properties.push(...aGets);
-
-                        emitServerHistory(`${tp.player.username} done a trade with ${ap.player.username}`);
-                        EmitAll("submit-trade", {
-                            pJsons: [tp.player.to_json(), ap.player.to_json()],
-                            action: `${tp.player.username} done a trade with ${ap.player.username}`,
-                        });
+                        validateAndExecuteTrade(x);
                     });
 
                     // ── Leave Room ────────────────────────────────────────────
