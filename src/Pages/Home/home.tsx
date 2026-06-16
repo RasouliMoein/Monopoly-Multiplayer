@@ -1,19 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import Monopoly from "./monopoly.tsx";
-import "../../home.css";
-import { Server, Socket, io } from "../../assets/sockets.ts";
+import "./home.css";
+import { Server, Socket, io } from "../../utils/sockets";
 import NotifyElement, { NotificatorRef } from "../../components/notificator.tsx";
-import { MonopolyCookie, User } from "../../assets/types.ts";
+import { MonopolyCookie } from "../../types";
 import SettingsNav from "../../components/settingsNav.tsx";
-
-// import LoginScreen from "../../components/menu/loginscreen.tsx";
 import JoinScreen from "../../components/menu/joinScreen.tsx";
-// env
-// import { FirebaseApp, initializeApp } from "firebase/app";
-// import { doc, getDoc, getFirestore } from "firebase/firestore";
-
-import { TranslateCode } from "../../assets/code.ts";
-import { CookieManager } from "../../assets/cookieManager.ts";
+import { TranslateCode } from "../../utils/code";
+import { CookieManager } from "../../utils/cookieManager";
 
 export default function Home() {
     var cookie: MonopolyCookie;
@@ -54,19 +48,6 @@ export default function Home() {
     const [name, SetName] = useState<string>("");
     const [addr, SetAddress] = useState<string>("");
 
-    // Account stuff
-    // const [firebase, setFirebase] = useState<FirebaseApp>();
-    const [
-        remember,
-        // @ts-ignore
-        SetRemember,
-    ] = useState<boolean>(cookie.login.remember);
-    const [
-        fbUser,
-        // @ts-ignore
-        SetFbUser,
-    ] = useState<User>();
-
     const [disabled, SetDisabled] = useState<boolean>(false);
     const [isSignedIn, SetSignedIn] = useState<boolean>(false);
     const [tabIndex, SetTab] = useState<number>(0);
@@ -102,20 +83,8 @@ export default function Home() {
 
     useEffect(() => {
         document.title = "Monopoly";
-        // const _firebase = initializeApp(ENV.firebase);
-        // setFirebase(_firebase);
-        var cookie: MonopolyCookie;
         try {
-            const obj = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string));
-            cookie = obj;
-            if (cookie.login.remember && cookie.login.id.length > 0) {
-                // const db = getFirestore(_firebase);
-                // getDoc(doc(db, `Users/${cookie.login.id}`)).then((v) => {
-                //     const userData = v.data() as User;
-                //     SetFbUser(userData);
-                //     SetName(userData.name);
-                // });
-            }
+            JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string));
         } catch {}
     }, []);
 
@@ -132,37 +101,33 @@ export default function Home() {
         localStorage.setItem("current_name", joinName);
 
         try {
-            const cookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
-            if (fbUser === undefined) throw Error("undefined");
-
-            cookie.login = {
-                id: fbUser.id,
-                remember,
+            const cookieObj = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
+            cookieObj.login = {
+                id: "",
+                remember: false,
             };
-
-            CookieManager.set("monopolySettings", encodeURIComponent(JSON.stringify(cookie as MonopolyCookie)));
+            CookieManager.set("monopolySettings", encodeURIComponent(JSON.stringify(cookieObj)));
         } catch {
-            const cookie = {
+            const cookieObj = {
                 login: {
                     id: "",
                     remember: false,
                 },
             } as MonopolyCookie;
-            CookieManager.set("monopolySettings", encodeURIComponent(JSON.stringify(cookie as MonopolyCookie)));
+            CookieManager.set("monopolySettings", encodeURIComponent(JSON.stringify(cookieObj)));
         }
         SetDisabled(true);
 
         const address = TranslateCode(joinAddr) as string;
-        var socket: Socket;
-        // const address = "localhost"
+        var socketObj: Socket;
         try {
-            socket = await io(address);
+            socketObj = await io(address);
 
-            socket.on("state", (args: number) => {
+            socketObj.on("state", (args: number) => {
                 console.log("state");
                 switch (args) {
                     case 0:
-                        SetSocket(socket);
+                        SetSocket(socketObj);
                         SetName(joinName);
                         SetAddress(joinAddr);
                         SetSignedIn(true);
@@ -174,7 +139,7 @@ export default function Home() {
                         notifyRef.current?.message("the game has already begun", "error", 2, () => {
                             SetDisabled(false);
                         });
-                        socket.disconnect();
+                        socketObj.disconnect();
                         break;
                     case 2:
                         // Room full — clear saved room so page reload doesn't auto-rejoin
@@ -182,14 +147,13 @@ export default function Home() {
                         notifyRef.current?.message("too many players on the server", "error", 2, () => {
                             SetDisabled(false);
                         });
-                        socket.disconnect();
+                        socketObj.disconnect();
                         break;
                     default:
                         notifyRef.current?.message("unkown error", "error", 2, () => {
                             SetDisabled(false);
                         });
-                        socket.disconnect();
-
+                        socketObj.disconnect();
                         break;
                 }
             });
@@ -251,17 +215,17 @@ export default function Home() {
                     const virtualServer = new Server();
                     virtualServer.code = data.translatedCode; // RAW code
                     
-                    const socket = await io(TranslateCode(virtualServer.code));
-                    socket.on("state", (args: number) => {
+                    const socketObj = await io(TranslateCode(virtualServer.code));
+                    socketObj.on("state", (args: number) => {
                         switch (args) {
                             case 0:
-                                SetSocket(socket);
+                                SetSocket(socketObj);
                                 SetSignedIn(true);
                                 SetServer(virtualServer);
                                 SetDisabled(false);
                                 break;
                             default:
-                                socket.disconnect();
+                                socketObj.disconnect();
                                 SetDisabled(false);
                                 break;
                         }
@@ -330,7 +294,6 @@ export default function Home() {
                         <>
                             <JoinScreen
                                 disabled={disabled}
-                                fbUser={fbUser}
                                 joinViaCode={() => {
                                     joinButtonClicked();
                                 }}

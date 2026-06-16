@@ -6,7 +6,7 @@ import { activeServers } from "./sockets.js";
 import { main as startGame } from "./game.js";
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3064;
 
 // Serve the built React app
 app.use(express.static(path.join(__dirname, "..", "dist")));

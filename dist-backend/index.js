@@ -10,7 +10,7 @@ const ws_1 = require("ws");
 const sockets_js_1 = require("./sockets.js");
 const game_js_1 = require("./game.js");
 const app = (0, express_1.default)();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3064;
 // Serve the built React app
 app.use(express_1.default.static(path_1.default.join(__dirname, "..", "dist")));
 const server = http_1.default.createServer(app);

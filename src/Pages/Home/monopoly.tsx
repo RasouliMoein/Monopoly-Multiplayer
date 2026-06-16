@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { Server, Socket } from "../../assets/sockets.ts";
-import { Player, PlayerJSON } from "../../assets/player.ts";
-import "../../monopoly.css";
+import { Server, Socket } from "../../utils/sockets";
+import { Player, PlayerJSON } from "../../utils/player";
+import "./monopoly.css";
 import MonopolyNav, { MonopolyNavRef } from "../../components/ingame/nav.tsx";
 import MonopolyGame, { MonopolyGameRef } from "../../components/ingame/game.tsx";
 import NotifyElement, { NotificatorRef } from "../../components/notificator.tsx";
-import monopolyJSON from "../../assets/monopoly.json";
-import { Icons } from "../../assets/icons.tsx";
-import { MonopolySettings, MonopolyModes, historyAction, history, GameTrading, MonopolyMode, MonopolyCookie } from "../../assets/types.ts";
-import { CookieManager } from "../../assets/cookieManager.ts";
+import monopolyJSON from "../../data/monopoly.json";
+import { Icons } from "../../components/icons";
+import { MonopolySettings, MonopolyModes, historyAction, history, GameTrading, MonopolyMode, MonopolyCookie } from "../../types";
+import { CookieManager } from "../../utils/cookieManager";
 function App({ socket, name, server }: { socket: Socket; name: string; server: Server | undefined }) {
     const [clients, SetClients] = useState<Map<string, Player>>(new Map());
     const players = Array.from(clients.values());

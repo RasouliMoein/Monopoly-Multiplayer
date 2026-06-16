@@ -1,6 +1,6 @@
 import { forwardRef, useImperativeHandle } from "react";
-import { MonopolyCookie } from "../assets/types";
-import { CookieManager } from "../assets/cookieManager";
+import { MonopolyCookie } from "../types";
+import { CookieManager } from "../utils/cookieManager";
 
 interface NotificatorProps {}
 export interface NotificatorRef {

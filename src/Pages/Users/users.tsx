@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import "../../users.css";
+import "./users.css";
 export default function Gallery() {
     useEffect(() => {
         document.title = "Monopoly Users";

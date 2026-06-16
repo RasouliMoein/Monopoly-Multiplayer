@@ -1,16 +1,16 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 
-import { Icons } from "../../assets/icons.tsx";
+import { Icons } from "../icons";
 import HouseIcon from "/h.png";
 import HotelIcon from "/ho.png";
-import { Player } from "./../../assets/player.ts";
-import { Socket } from "../../assets/sockets.ts";
+import { Player } from "../../utils/player";
+import { Socket } from "../../utils/sockets";
 import StreetCard, { StreetDisplayInfo, UtilitiesDisplayInfo, RailroadDisplayInfo, translateGroup } from "./streetCard.tsx";
-import monopolyJSON from "../../assets/monopoly.json";
+import monopolyJSON from "../../data/monopoly.json";
 import ChacneCard, { ChanceDisplayInfo } from "./specialCards.tsx";
-import { MonopolyCookie, MonopolySettings, GameTrading, MonopolyMode } from "../../assets/types.ts";
+import { MonopolyCookie, MonopolySettings, GameTrading, MonopolyMode } from "../../types";
 import Slider from "../utils/slider.tsx";
-import { CookieManager } from "../../assets/cookieManager.ts";
+import { CookieManager } from "../../utils/cookieManager";
 interface MonopolyGameProps {
     players: Array<Player>;
     myTurn: boolean;

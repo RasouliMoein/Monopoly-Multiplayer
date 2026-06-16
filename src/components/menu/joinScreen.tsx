@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
-import { User } from "../../assets/types";
-import { Icons } from "../../assets/icons";
+import { Icons } from "../icons";
 
 export default function JoinScreen(props: {
     joinViaCode: () => void;
     createRoom: (playersCount: number) => void;
-    fbUser: User | undefined;
     disabled: boolean;
     name: string;
     addr: string;

@@ -1,15 +1,15 @@
 import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
-import { Icons } from "../../assets/icons.tsx";
-import { Socket } from "../../assets/sockets.ts";
-import { Player } from "../../assets/player.ts";
+import { Icons } from "../icons.tsx";
+import { Socket } from "../../utils/sockets.ts";
+import { Player } from "../../utils/player.ts";
 import DiceIcon from "../../../public/roll.png";
 import { translateGroup } from "./streetCard.tsx";
-import monopolyJSON from "../../assets/monopoly.json";
+import monopolyJSON from "../../data/monopoly.json";
 import HouseIcon from "../../../public/h.png";
 import HotelIcon from "../../../public/ho.png";
-import { MonopolyCookie, MonopolySettings } from "../../assets/types.ts";
+import { MonopolyCookie, MonopolySettings } from "../../types/index.ts";
 // @ts-ignore
-import { CookieManager } from "../../assets/cookieManager.ts";
+import { CookieManager } from "../../utils/cookieManager.ts";
 interface PlayersTabProps {
     socket: Socket;
     players: Array<Player>;

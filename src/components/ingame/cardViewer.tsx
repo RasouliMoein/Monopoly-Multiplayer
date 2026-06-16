@@ -1,5 +1,5 @@
 import StreetCard, { RailroadDisplayInfo, UtilitiesDisplayInfo, StreetDisplayInfo } from "./streetCard";
-import monopolyJSON from "../../assets/monopoly.json";
+import monopolyJSON from "../../data/monopoly.json";
 
 export default function CardViewer(props: { posistion: number; OnClick: React.MouseEventHandler<HTMLDivElement>; style?: React.CSSProperties }) {
     const propretyMap = new Map(

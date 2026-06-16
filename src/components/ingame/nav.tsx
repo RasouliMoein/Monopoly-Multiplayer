@@ -7,13 +7,13 @@ import SettingsIcon from "../../../public/settings.png";
 import MonopolyIcon from "../../../public/icon.png";
 
 import { forwardRef, useState, useImperativeHandle, useEffect, useRef } from "react";
-import { Player } from "../../assets/player.ts";
-import { Server, Socket } from "../../assets/sockets.ts";
-import PropretyTab, { PropretyTabRef } from "./propretyTab.tsx";
+import { Player } from "../../utils/player.ts";
+import { Server, Socket } from "../../utils/sockets.ts";
+import PropertyTab, { PropertyTabRef } from "./propertyTab.tsx";
 import PlayersTab, { PlayersTabRef } from "./playersTab.tsx";
 import SettingsNav from "../settingsNav.tsx";
-import { MonopolyMode, historyAction } from "../../assets/types.ts";
-import monopolyJSON from "../../assets/monopoly.json";
+import { MonopolyMode, historyAction } from "../../types/index.ts";
+import monopolyJSON from "../../data/monopoly.json";
 
 const PROPERTY_COLORS = new Map<string, string>(
     monopolyJSON.properties.map(p => {
@@ -460,12 +460,12 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
         clickedOnBoard: (a) => {
             SetTab(1);
             requestAnimationFrame(() => {
-                propretyRef.current?.clickedOnBoard(a);
+                propertyRef.current?.clickedOnBoard(a);
             });
         },
     }));
 
-    const propretyRef = useRef<PropretyTabRef>(null);
+    const propertyRef = useRef<PropertyTabRef>(null);
     const playersRef = useRef<PlayersTabRef>(null);
 
     useEffect(reRenderPlayerList, [prop.players.map((v) => v.properties), prop.players.map((v) => v.balance)]);
@@ -573,8 +573,8 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
 
             <nav className="content" data-index={tabIndex > 4 ? 0 : tabIndex < 0 ? 0 : tabIndex}>
                 {tabIndex == 1 ? (
-                    <PropretyTab
-                        ref={propretyRef}
+                    <PropertyTab
+                        ref={propertyRef}
                         players={displayPlayers}
                         socket={prop.socket}
                         Morgage={prop.Morgage}
@@ -736,7 +736,7 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         clickedOnPlayer={(position) => {
                             SetTab(1);
                             requestAnimationFrame(() => {
-                                propretyRef.current?.clickedOnBoard(position);
+                                propertyRef.current?.clickedOnBoard(position);
                             });
                         }}
                         players={displayPlayers}
