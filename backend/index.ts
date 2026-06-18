@@ -5,8 +5,30 @@ import { WebSocketServer, WebSocket } from "ws";
 import { activeServers } from "./sockets.js";
 import { main as startGame } from "./game.js";
 
+import fs from "fs";
+
+// Load .env file manually if it exists
+try {
+    const envPath = path.join(process.cwd(), ".env");
+    if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, "utf-8");
+        for (const line of envContent.split("\n")) {
+            const trimmed = line.trim();
+            if (trimmed && !trimmed.startsWith("#")) {
+                const [key, ...values] = trimmed.split("=");
+                if (key) {
+                    process.env[key.trim()] = values.join("=").trim();
+                }
+            }
+        }
+    }
+} catch (e) {
+    console.error("Failed to load .env file", e);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3064;
+
 
 // Serve the built React app
 app.use(express.static(path.join(__dirname, "..", "dist")));

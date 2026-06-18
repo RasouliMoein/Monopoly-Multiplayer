@@ -9,6 +9,26 @@ const path_1 = __importDefault(require("path"));
 const ws_1 = require("ws");
 const sockets_js_1 = require("./sockets.js");
 const game_js_1 = require("./game.js");
+const fs_1 = __importDefault(require("fs"));
+// Load .env file manually if it exists
+try {
+    const envPath = path_1.default.join(process.cwd(), ".env");
+    if (fs_1.default.existsSync(envPath)) {
+        const envContent = fs_1.default.readFileSync(envPath, "utf-8");
+        for (const line of envContent.split("\n")) {
+            const trimmed = line.trim();
+            if (trimmed && !trimmed.startsWith("#")) {
+                const [key, ...values] = trimmed.split("=");
+                if (key) {
+                    process.env[key.trim()] = values.join("=").trim();
+                }
+            }
+        }
+    }
+}
+catch (e) {
+    console.error("Failed to load .env file", e);
+}
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3064;
 // Serve the built React app

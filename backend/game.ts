@@ -109,6 +109,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
         ready: boolean;
         positions: { x: number; y: number };
         connected?: boolean;
+        isDebugAuthenticated?: boolean;
     }
 
     const Clients = new Map<string, Client>();
@@ -1045,40 +1046,141 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         } catch (e) { server.logFunction(e); }
                     });
 
-                    // ── DEBUG: set own balance (for testing bankruptcy flow) ──
-                    socket.on("debug_set_balance", (args: { balance: number }) => {
+                    // ── DEBUG: authenticate client for debugging ──
+                    socket.on("debug_authenticate", (args: { password?: string }) => {
                         try {
-                            player.balance = args.balance ?? -1;
-                            EmitStateUpdate();
+                            const serverPassword = process.env.DEBUG_PASSWORD || "monopolyadmin";
+                            const clientItem = Clients.get(socket.id);
+                            if (clientItem) {
+                                if (args && args.password === serverPassword) {
+                                    clientItem.isDebugAuthenticated = true;
+                                    socket.emit("debug_auth_success");
+                                    server.logFunction(`[SECURITY] Socket ${socket.id} authenticated for debugging.`);
+                                } else {
+                                    clientItem.isDebugAuthenticated = false;
+                                    socket.emit("debug_auth_failed", { message: "Invalid debug password" });
+                                    server.logFunction(`[SECURITY] Failed debug auth attempt from socket ${socket.id}`);
+                                }
+                            }
                         } catch (e) { server.logFunction(e); }
                     });
 
-                    // ── DEBUG: set turn to self (for testing bankruptcy flow) ──
-                    socket.on("debug_set_turn", () => {
+                    // Helper: assert that client is authenticated for debugging
+                    const checkDebugAuth = (): boolean => {
+                        const clientItem = Clients.get(socket.id);
+                        if (!clientItem || !clientItem.isDebugAuthenticated) {
+                            server.logFunction(`[SECURITY] Unauthorized debug action attempted from socket ${socket.id}`);
+                            return false;
+                        }
+                        return true;
+                    };
+
+                    // ── DEBUG: set balance ──
+                    socket.on("debug_set_balance", (args: { targetPlayerId?: string; balance: number }) => {
                         try {
-                            currentId = socket.id;
-                            EmitAll("turn-finished", {
-                                from: socket.id,
-                                turnId: currentId,
-                                pJson: player.to_json(),
-                                WinningMode: selectedMode.WinningMode,
-                            });
-                            EmitStateUpdate();
+                            if (!checkDebugAuth()) return;
+                            const targetId = args.targetPlayerId || socket.id;
+                            const targetClient = Clients.get(targetId);
+                            if (targetClient) {
+                                targetClient.player.balance = args.balance ?? -1;
+                                emitServerHistory(`[DEBUG] Balance of ${targetClient.player.username} set to $${args.balance}`);
+                                EmitAll("debug_notice", { message: `[DEBUG] ${player.username} set balance of ${targetClient.player.username} to $${args.balance}` });
+                                EmitStateUpdate();
+                            }
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    // ── DEBUG: set turn ──
+                    socket.on("debug_set_turn", (args: { targetPlayerId?: string }) => {
+                        try {
+                            if (!checkDebugAuth()) return;
+                            const targetId = args.targetPlayerId || socket.id;
+                            const targetClient = Clients.get(targetId);
+                            if (targetClient && !targetClient.player.isBankrupt) {
+                                currentId = targetId;
+                                emitServerHistory(`[DEBUG] Turn forced to ${targetClient.player.username}`);
+                                EmitAll("debug_notice", { message: `[DEBUG] ${player.username} forced turn to ${targetClient.player.username}` });
+                                EmitAll("turn-finished", {
+                                    from: socket.id,
+                                    turnId: currentId,
+                                    pJson: targetClient.player.to_json(),
+                                    WinningMode: selectedMode.WinningMode,
+                                });
+                                EmitStateUpdate();
+                            }
                         } catch (e) { server.logFunction(e); }
                     });
 
                     // ── DEBUG: override dice ──
-                    socket.on("debug_override_dice", (args: { d1: number; d2: number }) => {
+                    socket.on("debug_override_dice", (args: { targetPlayerId?: string; d1: number; d2: number }) => {
                         try {
-                            debugDiceOverrideMap.set(socket.id, { d1: args.d1, d2: args.d2 });
-                            server.logFunction(`[DEBUG] Set dice override for socket ${socket.id} to [${args.d1}, ${args.d2}]`);
+                            if (!checkDebugAuth()) return;
+                            const targetId = args.targetPlayerId || socket.id;
+                            const targetClient = Clients.get(targetId);
+                            if (targetClient) {
+                                debugDiceOverrideMap.set(targetId, { d1: args.d1, d2: args.d2 });
+                                server.logFunction(`[DEBUG] Set dice override for socket ${targetId} to [${args.d1}, ${args.d2}]`);
+                                emitServerHistory(`[DEBUG] Next dice roll for ${targetClient.player.username} set to [${args.d1}, ${args.d2}]`);
+                                EmitAll("debug_notice", { message: `[DEBUG] ${player.username} set next dice roll for ${targetClient.player.username} to [${args.d1}, ${args.d2}]` });
+                            }
                         } catch (e) { server.logFunction(e); }
                     });
 
+                    // ── DEBUG: send to jail / release ──
+                    socket.on("debug_send_to_jail", (args: { targetPlayerId: string; inJail: boolean }) => {
+                        try {
+                            if (!checkDebugAuth()) return;
+                            const targetClient = Clients.get(args.targetPlayerId);
+                            if (targetClient) {
+                                const p = targetClient.player;
+                                p.isInJail = args.inJail;
+                                if (args.inJail) {
+                                    p.position = 10;
+                                    p.jailTurnsRemaining = 3;
+                                    emitServerHistory(`[DEBUG] ${p.username} sent to Jail`);
+                                    EmitAll("debug_notice", { message: `[DEBUG] ${player.username} sent ${p.username} to Jail` });
+                                } else {
+                                    p.jailTurnsRemaining = 0;
+                                    emitServerHistory(`[DEBUG] ${p.username} released from Jail`);
+                                    EmitAll("debug_notice", { message: `[DEBUG] ${player.username} released ${p.username} from Jail` });
+                                }
+                                EmitStateUpdate();
+                            }
+                        } catch (e) { server.logFunction(e); }
+                    });
 
-                    // ── Declare Bankruptcy ───────────────────────────────
-                    // Fix 4/5/5b: Full bankruptcy handler with cash transfer, house liquidation,
-                    // and interactive mortgage-transfer-choice flow.
+                    // ── DEBUG: teleport player to tile ──
+                    socket.on("debug_move_player", (args: { targetPlayerId: string; position: number }) => {
+                        try {
+                            if (!checkDebugAuth()) return;
+                            const targetClient = Clients.get(args.targetPlayerId);
+                            if (targetClient && args.position >= 0 && args.position < 40) {
+                                const p = targetClient.player;
+                                p.position = args.position;
+                                const propName = propertyByPosition.get(args.position)?.name ?? `Tile ${args.position}`;
+                                emitServerHistory(`[DEBUG] ${p.username} moved to ${propName}`);
+                                EmitAll("debug_notice", { message: `[DEBUG] ${player.username} teleported ${p.username} to ${propName}` });
+                                EmitStateUpdate();
+                            }
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    // ── DEBUG: force bankruptcy ──
+                    socket.on("debug_force_bankruptcy", (args: { targetPlayerId: string }) => {
+                        try {
+                            if (!checkDebugAuth()) return;
+                            const targetClient = Clients.get(args.targetPlayerId);
+                            if (targetClient && !targetClient.player.isBankrupt) {
+                                targetClient.player.balance = -1;
+                                if (!creditorMap.get(args.targetPlayerId)) {
+                                    creditorMap.set(args.targetPlayerId, "bank");
+                                }
+                                emitServerHistory(`[DEBUG] Bankruptcy forced on ${targetClient.player.username}`);
+                                EmitAll("debug_notice", { message: `[DEBUG] ${player.username} forced bankruptcy on ${targetClient.player.username}` });
+                                declareBankruptcyForPlayer(args.targetPlayerId);
+                            }
+                        } catch (e) { server.logFunction(e); }
+                    });
 
                     // Helper: finalize bankruptcy after all mortgage choices are resolved
                     const finalizeBankruptcy = (bankruptSocketId: string) => {
@@ -1113,139 +1215,143 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         EmitStateUpdate();
                     };
 
-                    socket.on("declare-bankruptcy", () => {
-                        try {
-                            server.logFunction(`[BANKRUPTCY] Player ${player.username} is declaring bankruptcy. Balance: ${player.balance}`);
-                            if (player.isBankrupt) {
-                                server.logFunction(`[BANKRUPTCY] Player is already bankrupt.`);
-                                return;
-                            }
-                            if (player.balance >= 0) {
-                                server.logFunction(`[BANKRUPTCY] Player balance is not negative: ${player.balance}. Rejecting.`);
-                                return;
-                            }
+                    // Helper: declare bankruptcy for player
+                    const declareBankruptcyForPlayer = (targetId: string) => {
+                        const clientItem = Clients.get(targetId);
+                        if (!clientItem) return;
+                        const bpPlayer = clientItem.player;
+                        server.logFunction(`[BANKRUPTCY] Player ${bpPlayer.username} is declaring bankruptcy. Balance: ${bpPlayer.balance}`);
+                        if (bpPlayer.isBankrupt) {
+                            server.logFunction(`[BANKRUPTCY] Player is already bankrupt.`);
+                            return;
+                        }
+                        if (bpPlayer.balance >= 0) {
+                            server.logFunction(`[BANKRUPTCY] Player balance is not negative: ${bpPlayer.balance}. Rejecting.`);
+                            return;
+                        }
 
-                            player.isBankrupt = true;
-                            const creditor = creditorMap.get(player.id) ?? "bank";
-                            server.logFunction(`[BANKRUPTCY] Creditor for ${player.username}: ${creditor}`);
+                        bpPlayer.isBankrupt = true;
+                        const creditor = creditorMap.get(bpPlayer.id) ?? "bank";
+                        server.logFunction(`[BANKRUPTCY] Creditor for ${bpPlayer.username}: ${creditor}`);
 
-                            if (creditor !== "bank") {
-                                const creditorClient = Clients.get(creditor as string);
-                                if (creditorClient) {
-                                    const cp = creditorClient.player;
-                                    server.logFunction(`[BANKRUPTCY] Found creditor player: ${cp.username}`);
-                                    emitServerHistory(`${player.username} declared bankruptcy to ${cp.username}`);
+                        if (creditor !== "bank") {
+                            const creditorClient = Clients.get(creditor as string);
+                            if (creditorClient) {
+                                const cp = creditorClient.player;
+                                server.logFunction(`[BANKRUPTCY] Found creditor player: ${cp.username}`);
+                                emitServerHistory(`${bpPlayer.username} declared bankruptcy to ${cp.username}`);
 
-                                    // Fix 4: Transfer remaining cash to creditor (excluding the unpaid rent debt)
-                                    const debt = debtAmountMap.get(player.id);
-                                    const rentAmt = debt ? debt.amount : 0;
-                                    const actualCash = player.balance + rentAmt;
-                                    if (actualCash > 0) {
-                                        cp.balance += actualCash;
-                                        emitServerHistory(`${cp.username} received $${actualCash} cash from ${player.username}`);
-                                    }
-
-                                    // Transfer/Release jail cards
-                                    if (player.getoutCards > 0) {
-                                        cp.getoutCards += player.getoutCards;
-                                        if (chanceGetOutOwner === player.id) {
-                                            chanceGetOutOwner = cp.id;
-                                        }
-                                        if (chestGetOutOwner === player.id) {
-                                            chestGetOutOwner = cp.id;
-                                        }
-                                        emitServerHistory(`${cp.username} received ${player.getoutCards} Get Out of Jail Free card(s) from ${player.username}`);
-                                        player.getoutCards = 0;
-                                    }
-
-                                    for (const prp of player.properties) {
-                                        const propData = propertyById.get(prp.posistion?.toString()) ??
-                                            propertyByPosition.get(prp.posistion);
-                                        const propName = propData?.name ?? "a property";
-
-                                        // Fix 5: Liquidate buildings → 50% refund to creditor and return to bank pool
-                                        if (prp.count === "h") {
-                                            const refund = Math.round(((propData as any)?.ohousecost ?? 0) * 0.5);
-                                            cp.balance += refund;
-                                            bankHotels += 1;
-                                            emitServerHistory(`${cp.username} received $${refund} from hotel sold on ${propName}`);
-                                        } else if (typeof prp.count === "number" && prp.count > 0) {
-                                            const refund = Math.round(((propData as any)?.housecost ?? 0) * 0.5) * prp.count;
-                                            cp.balance += refund;
-                                            bankHouses += prp.count;
-                                            emitServerHistory(`${cp.username} received $${refund} from ${prp.count} house(s) sold on ${propName}`);
-                                        }
-                                        prp.count = 0;
-
-                                        // Transfer property to creditor
-                                        cp.properties.push(prp);
-                                        emitServerHistory(`${cp.username} received ${propName} from ${player.username}`);
-                                    }
-
-                                    // Fix 5b: If there are mortgaged properties, pause and ask creditor
-                                    const mortgagedPending = cp.properties
-                                        .filter((prp: any) => prp.morgage === true || prp.morgage === "true")
-                                        .filter((prp: any) => {
-                                            // Only consider ones just received (from this bankrupt player)
-                                            // We track them by checking against the original bankrupt player's position list
-                                            return player.properties.some((orig: any) => orig.posistion === prp.posistion);
-                                        })
-                                        .map((prp: any) => {
-                                            const propData = propertyByPosition.get(prp.posistion) as any;
-                                            const price = propData?.price ?? 0;
-                                            return {
-                                                position: prp.posistion,
-                                                name: propData?.name ?? "Unknown",
-                                                mortgageValue: Math.round(price * 0.5),
-                                                interestFee: Math.round(price * 0.05),
-                                                unmortgageCost: Math.round(price * 0.55),
-                                            };
-                                        });
-
-                                    if (mortgagedPending.length > 0) {
-                                        // Store who is waiting so the resolve handler can call finalizeBankruptcy
-                                        pendingBankruptMap.set(creditor as string, socket.id);
-                                        creditorClient.socket.emit("mortgage-transfer-pending", {
-                                            properties: mortgagedPending,
-                                            bankruptName: player.username,
-                                        });
-                                        // Broadcast pending state so other players see the new ownership
-                                        EmitStateUpdate();
-                                        return; // turn finalization over to mortgage-transfer-resolve
-                                    }
-
-                                    // No mortgaged properties — finalize immediately
-                                    finalizeBankruptcy(socket.id);
-                                } else {
-                                    server.logFunction(`[BANKRUPTCY] Creditor client not found for id: ${creditor}`);
+                                // Transfer remaining cash to creditor (excluding the unpaid rent debt)
+                                const debt = debtAmountMap.get(bpPlayer.id);
+                                const rentAmt = debt ? debt.amount : 0;
+                                const actualCash = bpPlayer.balance + rentAmt;
+                                if (actualCash > 0) {
+                                    cp.balance += actualCash;
+                                    emitServerHistory(`${cp.username} received $${actualCash} cash from ${bpPlayer.username}`);
                                 }
-                            } else {
-                                emitServerHistory(`${player.username} declared bankruptcy to the Bank`);
-                                if (player.getoutCards > 0) {
-                                    if (chanceGetOutOwner === player.id) {
-                                        chanceGetOutOwner = null;
+
+                                // Transfer/Release jail cards
+                                if (bpPlayer.getoutCards > 0) {
+                                    cp.getoutCards += bpPlayer.getoutCards;
+                                    if (chanceGetOutOwner === bpPlayer.id) {
+                                        chanceGetOutOwner = cp.id;
                                     }
-                                    if (chestGetOutOwner === player.id) {
-                                        chestGetOutOwner = null;
+                                    if (chestGetOutOwner === bpPlayer.id) {
+                                        chestGetOutOwner = cp.id;
                                     }
-                                    player.getoutCards = 0;
+                                    emitServerHistory(`${cp.username} received ${bpPlayer.getoutCards} Get Out of Jail Free card(s) from ${bpPlayer.username}`);
+                                    bpPlayer.getoutCards = 0;
                                 }
-                                for (const prp of player.properties) {
+
+                                for (const prp of bpPlayer.properties) {
                                     const propData = propertyById.get(prp.posistion?.toString()) ??
                                         propertyByPosition.get(prp.posistion);
                                     const propName = propData?.name ?? "a property";
 
+                                    // Liquidate buildings → 50% refund to creditor and return to bank pool
                                     if (prp.count === "h") {
+                                        const refund = Math.round(((propData as any)?.ohousecost ?? 0) * 0.5);
+                                        cp.balance += refund;
                                         bankHotels += 1;
+                                        emitServerHistory(`${cp.username} received $${refund} from hotel sold on ${propName}`);
                                     } else if (typeof prp.count === "number" && prp.count > 0) {
+                                        const refund = Math.round(((propData as any)?.housecost ?? 0) * 0.5) * prp.count;
+                                        cp.balance += refund;
                                         bankHouses += prp.count;
+                                        emitServerHistory(`${cp.username} received $${refund} from ${prp.count} house(s) sold on ${propName}`);
                                     }
                                     prp.count = 0;
-                                    prp.morgage = false;
-                                    emitServerHistory(`${propName} was returned to the Bank`);
+
+                                    // Transfer property to creditor
+                                    cp.properties.push(prp);
+                                    emitServerHistory(`${cp.username} received ${propName} from ${bpPlayer.username}`);
                                 }
-                                finalizeBankruptcy(socket.id);
+
+                                // If there are mortgaged properties, pause and ask creditor
+                                const mortgagedPending = cp.properties
+                                    .filter((prp: any) => prp.morgage === true || prp.morgage === "true")
+                                    .filter((prp: any) => {
+                                        // Only consider ones just received (from this bankrupt player)
+                                        return bpPlayer.properties.some((orig: any) => orig.posistion === prp.posistion);
+                                    })
+                                    .map((prp: any) => {
+                                        const propData = propertyByPosition.get(prp.posistion) as any;
+                                        const price = propData?.price ?? 0;
+                                        return {
+                                            position: prp.posistion,
+                                            name: propData?.name ?? "Unknown",
+                                            mortgageValue: Math.round(price * 0.5),
+                                            interestFee: Math.round(price * 0.05),
+                                            unmortgageCost: Math.round(price * 0.55),
+                                        };
+                                    });
+
+                                if (mortgagedPending.length > 0) {
+                                    pendingBankruptMap.set(creditor as string, targetId);
+                                    creditorClient.socket.emit("mortgage-transfer-pending", {
+                                        properties: mortgagedPending,
+                                        bankruptName: bpPlayer.username,
+                                    });
+                                    EmitStateUpdate();
+                                    return;
+                                }
+
+                                finalizeBankruptcy(targetId);
+                            } else {
+                                server.logFunction(`[BANKRUPTCY] Creditor client not found for id: ${creditor}`);
                             }
+                        } else {
+                            emitServerHistory(`${bpPlayer.username} declared bankruptcy to the Bank`);
+                            if (bpPlayer.getoutCards > 0) {
+                                if (chanceGetOutOwner === bpPlayer.id) {
+                                    chanceGetOutOwner = null;
+                                }
+                                if (chestGetOutOwner === bpPlayer.id) {
+                                    chestGetOutOwner = null;
+                                }
+                                bpPlayer.getoutCards = 0;
+                            }
+                            for (const prp of bpPlayer.properties) {
+                                const propData = propertyById.get(prp.posistion?.toString()) ??
+                                    propertyByPosition.get(prp.posistion);
+                                const propName = propData?.name ?? "a property";
+
+                                if (prp.count === "h") {
+                                    bankHotels += 1;
+                                } else if (typeof prp.count === "number" && prp.count > 0) {
+                                    bankHouses += prp.count;
+                                }
+                                prp.count = 0;
+                                prp.morgage = false;
+                                emitServerHistory(`${propName} was returned to the Bank`);
+                            }
+                            finalizeBankruptcy(targetId);
+                        }
+                    };
+
+                    socket.on("declare-bankruptcy", () => {
+                        try {
+                            declareBankruptcyForPlayer(socket.id);
                         } catch (e) { server.logFunction(e); }
                     });
 
