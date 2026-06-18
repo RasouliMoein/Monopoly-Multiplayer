@@ -5,6 +5,7 @@ export type MonopolySettings = {
     accessibility: [number, number, boolean, boolean, boolean];
     audio: [number, number, number];
     notifications: boolean;
+    debugEnabled?: boolean;
 };
 export type MonopolyCookie = {
     login: {

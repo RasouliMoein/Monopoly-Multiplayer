@@ -15,6 +15,7 @@ dist-ssr
 # configuration files
 *.env
 *.env.*
+!.env.example
 config.ts
 !backend/config.ts
 
