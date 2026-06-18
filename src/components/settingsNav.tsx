@@ -41,8 +41,23 @@ export default function settingsNav() {
                     ? cookie.settings.notifications
                     : true
             ),
+            useState<boolean>(
+                cookie.settings && cookie.settings.debugEnabled !== undefined
+                    ? cookie.settings.debugEnabled
+                    : false
+            ),
         ],
     };
+
+    useEffect(() => {
+        const handleAuthFailed = () => {
+            l.booleans[4][1](false);
+        };
+        window.addEventListener("debug_auth_failed_event", handleAuthFailed);
+        return () => {
+            window.removeEventListener("debug_auth_failed_event", handleAuthFailed);
+        };
+    }, []);
 
     useEffect(() => {
         const cookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
@@ -57,6 +72,7 @@ export default function settingsNav() {
             ],
             audio: [l.numbers[2][0], l.numbers[3][0], l.numbers[4][0]],
             notifications: l.booleans[3][0],
+            debugEnabled: l.booleans[4][0],
         } as MonopolySettings;
 
         CookieManager.set("monopolySettings",encodeURIComponent( JSON.stringify({
@@ -66,7 +82,6 @@ export default function settingsNav() {
     }, [
         l.gameEngine[0],
         ...l.numbers.map((v) => v[0]),
-        ,
         ...l.booleans.map((v) => v[0]),
     ]);
     return (
@@ -248,6 +263,43 @@ export default function settingsNav() {
                                 type="checkbox"
                                 onChange={(e) => {
                                     l.booleans[3][1](e.currentTarget.checked);
+                                }}
+                            />
+                            <span className="slider-round"></span>
+                        </label>
+                    </div>
+
+                    <div className="settings-row toggle-row">
+                        <div className="setting-info">
+                            <span className="setting-label">Enable Game Debugger</span>
+                            <span className="setting-desc">Enables developer mode (Requires Password)</span>
+                        </div>
+                        <label className="toggle-switch">
+                            <input
+                                checked={l.booleans[4][0]}
+                                type="checkbox"
+                                onChange={async (e) => {
+                                    const checked = e.currentTarget.checked;
+                                    if (checked) {
+                                        const pass = prompt("Enter Game Debugger Password:");
+                                        if (pass === null) {
+                                            l.booleans[4][1](false);
+                                            return;
+                                        }
+                                        if (!pass) {
+                                            alert("Password cannot be empty!");
+                                            l.booleans[4][1](false);
+                                            return;
+                                        }
+                                        sessionStorage.setItem("debug_password", pass);
+                                        window.dispatchEvent(new CustomEvent("debug_toggle_auth", { detail: { password: pass } }));
+                                        l.booleans[4][1](true);
+                                    } else {
+                                        sessionStorage.removeItem("debug_password");
+                                        sessionStorage.removeItem("debug_unlocked");
+                                        window.dispatchEvent(new CustomEvent("debug_toggle_auth", { detail: { password: null } }));
+                                        l.booleans[4][1](false);
+                                    }
                                 }}
                             />
                             <span className="slider-round"></span>

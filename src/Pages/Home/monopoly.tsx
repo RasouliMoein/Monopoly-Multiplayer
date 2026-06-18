@@ -104,15 +104,23 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const leavingRoomRef = useRef<boolean>(false);
 
     const [debugCollapsed, setDebugCollapsed] = useState<boolean>(false);
-    const isDebugMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug") === "1";
+    const [isDebugUnlocked, setIsDebugUnlocked] = useState<boolean>(() => sessionStorage.getItem("debug_unlocked") === "true");
+    const isDebugMode = isDebugUnlocked;
+
+    const [targetPlayerId, setTargetPlayerId] = useState<string>(socket.id);
+    const [teleportPos, setTeleportPos] = useState<number>(0);
+    const [adjustAmount, setAdjustAmount] = useState<number>(100);
+    const activeTargetId = clients.has(targetPlayerId) ? targetPlayerId : socket.id;
 
     const handleTriggerInsolvency = () => {
-        socket.emit("debug_set_balance", { balance: -1 });
-        socket.emit("debug_set_turn");
-        setHasRolled(true);
-        setAllowRollAgain(false);
-        setIsDebtState(true);
-        notifyRef.current?.message("Bankruptcy test triggered! Check your turn options.", "info", 3);
+        socket.emit("debug_set_balance", { targetPlayerId: activeTargetId, balance: -1 });
+        socket.emit("debug_set_turn", { targetPlayerId: activeTargetId });
+        if (activeTargetId === socket.id) {
+            setHasRolled(true);
+            setAllowRollAgain(false);
+            setIsDebtState(true);
+        }
+        notifyRef.current?.message(`Bankruptcy test triggered for ${clients.get(activeTargetId)?.username}!`, "info", 3);
     };
 
     const handlePreviewMortgageModal = () => {
@@ -137,30 +145,47 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     };
 
     const handleTakeTurn = () => {
-        socket.emit("debug_set_turn");
-        notifyRef.current?.message("Forced turn to self!", "info", 2);
+        socket.emit("debug_set_turn", { targetPlayerId: activeTargetId });
+        notifyRef.current?.message(`Forced turn to ${clients.get(activeTargetId)?.username}!`, "info", 2);
     };
 
     const handleAdjustBalance = (amount: number) => {
-        const localPlayer = clients.get(socket.id);
-        if (localPlayer) {
-            const newBalance = localPlayer.balance + amount;
-            socket.emit("debug_set_balance", { balance: newBalance });
-            notifyRef.current?.message(`Balance adjusted by ${amount > 0 ? "+" : ""}$${amount}`, "info", 2);
+        const targetPlayer = clients.get(activeTargetId);
+        if (targetPlayer) {
+            const newBalance = targetPlayer.balance + amount;
+            socket.emit("debug_set_balance", { targetPlayerId: activeTargetId, balance: newBalance });
+            notifyRef.current?.message(`Balance of ${targetPlayer.username} adjusted by ${amount > 0 ? "+" : ""}$${amount}`, "info", 2);
         }
     };
 
     const handleClearBalance = () => {
-        socket.emit("debug_set_balance", { balance: 0 });
-        notifyRef.current?.message("Balance set to $0", "info", 2);
+        socket.emit("debug_set_balance", { targetPlayerId: activeTargetId, balance: 0 });
+        notifyRef.current?.message(`Balance of ${clients.get(activeTargetId)?.username} set to $0`, "info", 2);
     };
 
     const [overrideD1, setOverrideD1] = useState<number>(1);
     const [overrideD2, setOverrideD2] = useState<number>(1);
 
     const handleSetDice = () => {
-        socket.emit("debug_override_dice", { d1: overrideD1, d2: overrideD2 });
-        notifyRef.current?.message(`Next roll set to [${overrideD1}, ${overrideD2}]`, "info", 2);
+        socket.emit("debug_override_dice", { targetPlayerId: activeTargetId, d1: overrideD1, d2: overrideD2 });
+        notifyRef.current?.message(`Next roll for ${clients.get(activeTargetId)?.username} set to [${overrideD1}, ${overrideD2}]`, "info", 2);
+    };
+
+    const handleToggleJail = (inJail: boolean) => {
+        socket.emit("debug_send_to_jail", { targetPlayerId: activeTargetId, inJail });
+        notifyRef.current?.message(`${clients.get(activeTargetId)?.username} ${inJail ? "sent to" : "released from"} jail`, "info", 2);
+    };
+
+    const handleTeleport = () => {
+        socket.emit("debug_move_player", { targetPlayerId: activeTargetId, position: teleportPos });
+        notifyRef.current?.message(`${clients.get(activeTargetId)?.username} teleported to tile ${teleportPos}`, "info", 2);
+    };
+
+    const handleForceBankruptcy = () => {
+        const targetName = clients.get(activeTargetId)?.username;
+        if (window.confirm(`Are you sure you want to force bankruptcy on ${targetName}?`)) {
+            socket.emit("debug_force_bankruptcy", { targetPlayerId: activeTargetId });
+        }
     };
 
     useEffect(() => {
@@ -1291,6 +1316,49 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             setMortgageTransferPending(args.properties);
         });
 
+        // Game Debugger authentication handlers
+        socket.on("debug_auth_success", () => {
+            sessionStorage.setItem("debug_unlocked", "true");
+            setIsDebugUnlocked(true);
+            notifyRef.current?.message("Game Debugger unlocked successfully!", "info", 2);
+        });
+
+        socket.on("debug_auth_failed", () => {
+            sessionStorage.setItem("debug_unlocked", "false");
+            setIsDebugUnlocked(false);
+            sessionStorage.removeItem("debug_password");
+            notifyRef.current?.message("Incorrect Game Debugger password!", "error", 2.5);
+            window.dispatchEvent(new CustomEvent("debug_auth_failed_event"));
+        });
+
+        socket.on("debug_notice", (args: { message: string }) => {
+            notifyRef.current?.message(args.message, "warn", 4);
+        });
+        const handleDebugToggleAuth = (e: any) => {
+            const { password } = e.detail;
+            if (password) {
+                socket.emit("debug_authenticate", { password });
+            } else {
+                setIsDebugUnlocked(false);
+            }
+        };
+        window.addEventListener("debug_toggle_auth", handleDebugToggleAuth);
+
+        // Auto-authenticate on mount if password is saved or debug query param is present
+        const savedPass = sessionStorage.getItem("debug_password");
+        if (savedPass) {
+            socket.emit("debug_authenticate", { password: savedPass });
+        } else {
+            const queryParams = new URLSearchParams(window.location.search);
+            if (queryParams.get("debug") === "1") {
+                const pass = prompt("Enter Game Debugger Password:");
+                if (pass) {
+                    sessionStorage.setItem("debug_password", pass);
+                    socket.emit("debug_authenticate", { password: pass });
+                }
+            }
+        }
+
         var to_emit_name = true;
         //#endregion
         if (to_emit_name) socket.emit("name", name);
@@ -1299,6 +1367,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             to_emit_name = false;
             clearInterval(settings_interval);
             document.removeEventListener("mousemove", mouseMove);
+            window.removeEventListener("debug_toggle_auth", handleDebugToggleAuth);
         };
     }, []);
 
@@ -1579,12 +1648,29 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             <Icons.Wrench width={20} height={20} />
                         </div>
                     ) : (
-                        <div className="debug-panel">
+                        <div className="debug-panel" style={{ width: "260px" }}>
                             <h4>
                                 <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}><Icons.Wrench width={14} height={14}/>Game Debugger</span>
                                 <button className="debug-close-btn" onClick={() => setDebugCollapsed(true)}>×</button>
                             </h4>
                             <div className="debug-panel-content">
+                                <div style={{ marginBottom: "6px" }}>
+                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "4px", fontWeight: "600", textTransform: "uppercase" }}>
+                                        Target Player
+                                    </div>
+                                    <select
+                                        value={targetPlayerId}
+                                        onChange={(e) => setTargetPlayerId(e.target.value)}
+                                        style={{ width: "100%", background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "6px", padding: "6px", fontSize: "12px", outline: "none" }}
+                                    >
+                                        {Array.from(clients.values()).map(p => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.username} {p.id === socket.id ? "(You)" : ""}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
                                 <button className="debug-btn debug-btn-primary" onClick={handleTriggerInsolvency}>
                                     <Icons.DebtTrigger width={13} height={13} /> Trigger Debt (-$1)
                                 </button>
@@ -1592,19 +1678,93 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                     <Icons.Scale width={13} height={13} /> Preview Mortgage Modal
                                 </button>
                                 <button className="debug-btn" onClick={handleTakeTurn}>
-                                    <Icons.ForceTurn width={13} height={13} /> Force My Turn
+                                    <Icons.ForceTurn width={13} height={13} /> Force Turn
                                 </button>
-                                <button className="debug-btn" onClick={() => handleAdjustBalance(1000)}>
-                                    <Icons.ArrowUp width={13} height={13} /> Gain $1,000
-                                </button>
-                                <button className="debug-btn" onClick={() => handleAdjustBalance(-500)}>
-                                    <Icons.ArrowDown width={13} height={13} /> Lose $500
-                                </button>
-                                <button className="debug-btn" onClick={handleClearBalance}>
-                                    <Icons.Scale width={13} height={13} /> Set Balance $0
-                                </button>
-                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "8px", paddingTop: "8px" }}>
+                                {/* Balance adjustment section */}
+                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
                                     <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "6px", fontWeight: "600", textTransform: "uppercase" }}>
+                                        Adjust Balance
+                                    </div>
+                                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "6px" }}>
+                                        <input
+                                            type="number"
+                                            value={adjustAmount}
+                                            onChange={(e) => setAdjustAmount(Math.max(0, Number(e.target.value)))}
+                                            style={{ flex: 1, background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px", padding: "6px", fontSize: "12px", outline: "none", minWidth: "60px" }}
+                                            placeholder="Amount"
+                                        />
+                                        <button 
+                                            onClick={() => handleAdjustBalance(adjustAmount)}
+                                            style={{ background: "rgba(34, 197, 94, 0.15)", border: "1px solid rgba(34, 197, 94, 0.3)", borderRadius: "4px", color: "#a7f3d0", padding: "6px 10px", fontSize: "11px", cursor: "pointer", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px", height: "30px" }}
+                                            title="Gain"
+                                        >
+                                            <Icons.ArrowUp width={12} height={12} /> Gain
+                                        </button>
+                                        <button 
+                                            onClick={() => handleAdjustBalance(-adjustAmount)}
+                                            style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "4px", color: "#fca5a5", padding: "6px 10px", fontSize: "11px", cursor: "pointer", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px", height: "30px" }}
+                                            title="Lose"
+                                        >
+                                            <Icons.ArrowDown width={12} height={12} /> Lose
+                                        </button>
+                                    </div>
+                                    <button className="debug-btn" style={{ width: "100%", justifyContent: "center" }} onClick={handleClearBalance}>
+                                        <Icons.Scale width={13} height={13} /> Set Balance $0
+                                    </button>
+                                </div>
+
+                                {/* Jail section */}
+                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
+                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "4px", fontWeight: "600", textTransform: "uppercase" }}>
+                                        Jail Actions
+                                    </div>
+                                    <div style={{ display: "flex", gap: "6px" }}>
+                                        <button 
+                                            className="debug-btn" 
+                                            style={{ flex: 1, justifyContent: "center" }}
+                                            onClick={() => handleToggleJail(true)}
+                                        >
+                                            <Icons.Jail width={13} height={13} /> Send
+                                        </button>
+                                        <button 
+                                            className="debug-btn" 
+                                            style={{ flex: 1, justifyContent: "center" }}
+                                            onClick={() => handleToggleJail(false)}
+                                        >
+                                            <Icons.Police width={13} height={13} /> Release
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Teleport section */}
+                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
+                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "4px", fontWeight: "600", textTransform: "uppercase" }}>
+                                        Teleport to Tile
+                                    </div>
+                                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                        <select 
+                                            value={teleportPos} 
+                                            onChange={(e) => setTeleportPos(Number(e.target.value))}
+                                            style={{ flex: 1, background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px", padding: "4px", fontSize: "12px", width: "140px" }}
+                                        >
+                                            {monopolyJSON.properties.map(p => (
+                                                <option key={p.posistion} value={p.posistion}>
+                                                    {p.posistion}: {p.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button 
+                                            onClick={handleTeleport}
+                                            style={{ background: "rgba(167, 139, 250, 0.2)", border: "1px solid rgba(167, 139, 250, 0.4)", borderRadius: "4px", color: "white", padding: "4px 8px", fontSize: "11px", cursor: "pointer", fontWeight: "600", height: "26px" }}
+                                        >
+                                            <Icons.MapPin width={12} height={12} style={{ verticalAlign: "middle" }} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Set Next Roll section */}
+                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
+                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "4px", fontWeight: "600", textTransform: "uppercase" }}>
                                         Set Next Roll
                                     </div>
                                     <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
@@ -1629,6 +1789,17 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                             Set
                                         </button>
                                     </div>
+                                </div>
+
+                                {/* Force Bankruptcy section */}
+                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
+                                    <button 
+                                        className="debug-btn" 
+                                        style={{ width: "100%", justifyContent: "center", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5" }}
+                                        onClick={handleForceBankruptcy}
+                                    >
+                                        <Icons.Skull width={13} height={13} /> Force Bankruptcy
+                                    </button>
                                 </div>
                             </div>
                         </div>
