@@ -1285,10 +1285,14 @@ async function main(playersCount, f) {
                         return false;
                     const tp = tpClient.player;
                     const ap = apClient.player;
+                    if (tp.isBankrupt || ap.isBankrupt)
+                        return false;
                     // 1. Cash Balance Validation
                     if (x.turnPlayer.balance < 0 || x.againstPlayer.balance < 0)
                         return false;
-                    if (tp.balance < x.turnPlayer.balance || ap.balance < x.againstPlayer.balance)
+                    if (x.turnPlayer.balance > 0 && tp.balance < x.turnPlayer.balance)
+                        return false;
+                    if (x.againstPlayer.balance > 0 && ap.balance < x.againstPlayer.balance)
                         return false;
                     // Helper: check if a color group has any buildings on any properties
                     const hasGroupBuildings = (player, group) => {

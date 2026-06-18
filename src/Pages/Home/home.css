@@ -887,7 +887,11 @@ div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
 }
 
 .details-icon {
-    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
     opacity: 0.8;
 }
 

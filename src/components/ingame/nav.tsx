@@ -5,6 +5,7 @@ import LeaveIcon from "../../../public/leave1.png";
 import PropretiesIcon from "../../../public/proprety.png";
 import SettingsIcon from "../../../public/settings.png";
 import MonopolyIcon from "../../../public/icon.png";
+import { Icons } from "../icons.tsx";
 
 import { forwardRef, useState, useImperativeHandle, useEffect, useRef } from "react";
 import { Player } from "../../utils/player.ts";
@@ -74,7 +75,7 @@ function parseHistoryAction(action: string): ParsedHistory {
                 type: "unjail",
                 emoji: "🔓",
                 player: escMatch[1],
-                details: `rolled doubles [${escMatch[2]}] and escaped Jail! 🏃‍♂️`,
+                details: `rolled doubles [${escMatch[2]}] and escaped Jail!`,
                 bgClass: "hist-unjail",
             };
         }
@@ -85,10 +86,10 @@ function parseHistoryAction(action: string): ParsedHistory {
         const stayMatch = text.match(/(.*?) failed doubles roll and stayed in Jail/);
         if (stayMatch) {
             return {
-                type: "jail",
+                type: "jail-stay",
                 emoji: "⛓️",
                 player: stayMatch[1],
-                details: "failed doubles roll and stayed in Jail 🔒",
+                details: "failed doubles roll and stayed in Jail",
                 bgClass: "hist-jail-stay",
             };
         }
@@ -165,7 +166,7 @@ function parseHistoryAction(action: string): ParsedHistory {
                 type: "jail",
                 emoji: "👮",
                 player: jailMatch[1],
-                details: "was sent to Jail! 🚔",
+                details: "was sent to Jail!",
                 bgClass: "hist-jail",
             };
         }
@@ -179,7 +180,7 @@ function parseHistoryAction(action: string): ParsedHistory {
                 type: "unjail",
                 emoji: "🔓",
                 player: unjailMatch[1],
-                details: "paid $50 and left Jail 🔓",
+                details: "paid $50 and left Jail",
                 bgClass: "hist-unjail",
             };
         }
@@ -193,7 +194,7 @@ function parseHistoryAction(action: string): ParsedHistory {
                 type: "unjail",
                 emoji: "🔓",
                 player: cardUnjailMatch[1],
-                details: "used a Get Out of Jail Free card to escape Jail 🕊️",
+                details: "used a Get Out of Jail Free card to escape Jail",
                 bgClass: "hist-unjail",
             };
         }
@@ -282,7 +283,7 @@ function parseHistoryAction(action: string): ParsedHistory {
                 emoji: "🏁",
                 player: goMatch[1],
                 details: "passed Go and collected ",
-                amount: `$${goMatch[2]} 💵`,
+                amount: `$${goMatch[2]}`,
                 bgClass: "hist-go",
             };
         }
@@ -360,6 +361,52 @@ function parseHistoryAction(action: string): ParsedHistory {
         details: text,
         bgClass: "hist-default",
     };
+}
+
+function renderHistoryIcon(type: string) {
+    const iconProps = {
+        width: 14,
+        height: 14,
+        style: { verticalAlign: "middle", marginRight: "4px" }
+    };
+    switch (type) {
+        case "roll":
+            return <Icons.Dice {...iconProps} style={{ ...iconProps.style, color: "#6366f1" }} />;
+        case "unjail":
+            return <Icons.Unlock {...iconProps} style={{ ...iconProps.style, color: "#06b6d4" }} />;
+        case "jail":
+            return <Icons.Jail {...iconProps} style={{ ...iconProps.style, color: "#8b5cf6" }} />;
+        case "jail-stay":
+            return <Icons.Lock {...iconProps} style={{ ...iconProps.style, color: "#a855f7" }} />;
+        case "buy":
+            return <Icons.Home {...iconProps} style={{ ...iconProps.style, color: "#10b981" }} />;
+        case "upgrade":
+            return <Icons.Building {...iconProps} style={{ ...iconProps.style, color: "#f59e0b" }} />;
+        case "rent":
+            return <Icons.DollarSign {...iconProps} style={{ ...iconProps.style, color: "#ef4444" }} />;
+        case "tax":
+            return <Icons.Scale {...iconProps} style={{ ...iconProps.style, color: "#b91c1c" }} />;
+        case "unmortgage":
+            return <Icons.Unlock {...iconProps} style={{ ...iconProps.style, color: "#14b8a6" }} />;
+        case "mortgage":
+            return <Icons.Lock {...iconProps} style={{ ...iconProps.style, color: "#ec4899" }} />;
+        case "chance":
+            return <Icons.CardDraw {...iconProps} style={{ ...iconProps.style, color: "#f97316" }} />;
+        case "chest":
+            return <Icons.Package {...iconProps} style={{ ...iconProps.style, color: "#0ea5e9" }} />;
+        case "go":
+            return <Icons.Flag {...iconProps} style={{ ...iconProps.style, color: "#10b981" }} />;
+        case "trade":
+            return <Icons.Handshake {...iconProps} style={{ ...iconProps.style, color: "#d97706" }} />;
+        case "bankruptcy":
+            return <Icons.Skull {...iconProps} style={{ ...iconProps.style, color: "#ef4444" }} />;
+        case "bankruptcy-fee":
+            return <Icons.DollarSign {...iconProps} style={{ ...iconProps.style, color: "#f43f5e" }} />;
+        case "transfer":
+            return <Icons.ClipBoard {...iconProps} style={{ ...iconProps.style, color: "#3b82f6" }} />;
+        default:
+            return <Icons.ClipBoard {...iconProps} style={{ ...iconProps.style, color: "#64748b" }} />;
+    }
 }
 
 
@@ -638,7 +685,7 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                                             <div className={`history-action ${parsed.bgClass}`} key={key}>
                                                 <div className="history-action-header">
                                                     <div className="history-action-type">
-                                                        <span>{parsed.emoji}</span>
+                                                        {renderHistoryIcon(parsed.type)}
                                                         <span>{parsed.type}</span>
                                                     </div>
                                                     <div className="history-action-header-right">

@@ -1618,7 +1618,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 <center>
                                     <div className="select-players">
                                         {prop.players
-                                            .filter((v) => v.id !== prop.socket.id)
+                                            .filter((v) => v.id !== prop.socket.id && !v.isBankrupt)
                                             .map((v, i) => (
                                                 <button
                                                     style={{ animation: "tradepopout .3s cubic-bezier(0.21, 1.57, 0.55, 1)" }}
@@ -1662,11 +1662,11 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                 </p>
                                                 <Slider
                                                     max={
-                                                        prop.socket.id === prop.tradeObj.againstPlayer.id
+                                                        Math.max(0, prop.socket.id === prop.tradeObj.againstPlayer.id
                                                             ? prop.players.filter((v) => v.id === (prop.tradeObj as GameTrading).againstPlayer.id)[0]
                                                                   .balance
                                                             : prop.players.filter((v) => v.id === (prop.tradeObj as GameTrading).turnPlayer.id)[0]
-                                                                  .balance
+                                                                  .balance)
                                                     }
                                                     min={0}
                                                     step={25}
@@ -1822,7 +1822,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                         display: "inline-block",
                                                         verticalAlign: "middle"
                                                     }}>
-                                                        âœ“ ACCEPTED
+                                                        ✓ ACCEPTED
                                                     </span>
                                                 )}
                                                 <h2>
@@ -1903,7 +1903,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                         display: "inline-block",
                                                         verticalAlign: "middle"
                                                      }}>
-                                                         âœ“ ACCEPTED
+                                                         ✓ ACCEPTED
                                                      </span>
                                                  )}
                                                 <h2>
@@ -2015,7 +2015,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                  {(prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
                                                      ? (prop.tradeObj as GameTrading).turnPlayer.accepted
                                                      : (prop.tradeObj as GameTrading).againstPlayer.accepted)
-                                                     ? "âœ“ Accepted"
+                                                     ? "✓ Accepted"
                                                      : "Accept Offer"}
                                              </button>
                                          </div>
