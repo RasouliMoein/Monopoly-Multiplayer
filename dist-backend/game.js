@@ -112,9 +112,10 @@ async function main(playersCount, f) {
                 return "#50C878";
             case 3:
                 return "#FFC000";
+            case 4:
+                return "#a855f7";
             case 5:
                 return "#FF7F50";
-            case 4:
             default:
                 return "#64748b";
         }
@@ -466,7 +467,15 @@ async function main(playersCount, f) {
                 let client = Clients.get(socket.id);
                 isReconnecting = client !== undefined;
                 if (!isReconnecting) {
-                    const player = new Player(socket.id, name, Array.from(Clients.keys()).length, selectedMode.startingCash);
+                    const usedIcons = Array.from(Clients.values()).map(c => c.player.icon);
+                    let availableIcon = 0;
+                    for (let i = 0; i < 6; i++) {
+                        if (!usedIcons.includes(i)) {
+                            availableIcon = i;
+                            break;
+                        }
+                    }
+                    const player = new Player(socket.id, name, availableIcon, selectedMode.startingCash);
                     if (currentId === "" || !Array.from(Clients.keys()).includes(currentId))
                         currentId = socket.id;
                     client = { player, socket, ready: false, positions: { x: 0, y: 0 }, connected: true };
@@ -505,6 +514,27 @@ async function main(playersCount, f) {
                     EmitExcepts(socket.id, "new-player", player.to_json());
                 else
                     EmitExcepts(socket.id, "player_update", { playerId: player.id, pJson: player.to_json() });
+                // ── Select Icon/Color ──
+                socket.on("select_icon", (iconIndex) => {
+                    try {
+                        if (gameStarted)
+                            return;
+                        if (iconIndex < 0 || iconIndex > 5)
+                            return;
+                        const isTaken = Array.from(Clients.values()).some((c) => c.player.id !== socket.id && c.player.icon === iconIndex);
+                        if (isTaken)
+                            return;
+                        const c = Clients.get(socket.id);
+                        if (c) {
+                            c.player.icon = iconIndex;
+                            emitServerHistory(`${c.player.username} changed color/avatar.`);
+                            EmitStateUpdate();
+                        }
+                    }
+                    catch (e) {
+                        server.logFunction(e);
+                    }
+                });
                 // ── Kick Player (Host only) ──
                 socket.on("kick-player", (targetId) => {
                     try {

@@ -1877,9 +1877,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             {Array.from(clients.values()).map((v, i) => {
                                 const isHost = v.id === hostId;
                                 const isLocal = v.id === socket.id;
-                                // Harmonious palette matching color options on homepage
-                                const avatarColors = ["#f35f5f", "#ea7a53", "#f1b53e", "#3bb36c", "#4f8eff"];
-                                const avatarColor = avatarColors[i % avatarColors.length];
+                                const avatarColor = v.color || "#64748b";
 
                                 return (
                                     <div 
@@ -1887,8 +1885,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                         className={`lobby-row-item lobby-player-row ${v.ready ? 'ready-row' : 'pending-row'}`}
                                     >
                                         <div className="lobby-row-left">
-                                            <div className="player-avatar-circle" style={{ backgroundColor: avatarColor }}>
-                                                {v.username ? v.username.charAt(0).toUpperCase() : 'P'}
+                                            <div className="player-avatar-circle" style={{ backgroundColor: avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
+                                                <img src={`./p${v.icon + 1}.png`} alt="" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
                                             </div>
                                             <span className="player-name-label">
                                                 {v.username} {isLocal && <span className="local-user-indicator">(You)</span>}
@@ -2005,6 +2003,48 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 >
                                     <span className="pill-dot red-dot"></span> Custom Mode
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Player Color and Avatar Selection */}
+                        <div className="reminder-type-section" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                            <label className="section-label">SELECT YOUR AVATAR & COLOR</label>
+                            <div className="avatar-selection-grid">
+                                {(() => {
+                                    const myPlayer = clients.get(socket.id);
+                                    const myIconIndex = myPlayer ? myPlayer.icon : 0;
+                                    const colors = ["#E0115F", "#4169e1", "#50C878", "#FFC000", "#a855f7", "#FF7F50"];
+                                    
+                                    return colors.map((col, idx) => {
+                                        const takenBy = Array.from(clients.values()).find(
+                                            (p) => p.id !== socket.id && p.icon === idx
+                                        );
+                                        const isSelected = myIconIndex === idx;
+                                        
+                                        return (
+                                            <button
+                                                key={idx}
+                                                type="button"
+                                                className={`avatar-choice-btn ${isSelected ? "active" : ""} ${takenBy ? "taken" : ""}`}
+                                                style={{ 
+                                                    backgroundColor: col, 
+                                                }}
+                                                disabled={!!takenBy}
+                                                onClick={() => {
+                                                    socket.emit("select_icon", idx);
+                                                }}
+                                                title={takenBy ? `Taken by ${takenBy.username}` : `Select Color`}
+                                            >
+                                                <img src={`./p${idx + 1}.png`} alt="" className="avatar-choice-img" />
+                                                {takenBy && (
+                                                     <span className="avatar-taken-badge">
+                                                         {takenBy.username.charAt(0).toUpperCase()}
+                                                     </span>
+                                                )}
+                                            </button>
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
 

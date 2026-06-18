@@ -79,9 +79,10 @@ export class Player {
                 return "#50C878";
             case 3:
                 return "#FFC000";
+            case 4:
+                return "#a855f7";
             case 5:
                 return "#FF7F50";
-            case 4:
             default:
                 return "";
         }

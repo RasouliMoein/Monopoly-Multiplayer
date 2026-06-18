@@ -1515,8 +1515,14 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 id="btn-declare-bankruptcy"
                                 className="action-btn bankruptcy-btn"
                                 onClick={() => {
-                                    prop.socket.emit("declare-bankruptcy");
-                                    prop.onDeclaredBankruptcy?.();
+                                    const firstConfirm = window.confirm("Are you sure you want to declare bankruptcy? This will eliminate you from the game.");
+                                    if (firstConfirm) {
+                                        const secondConfirm = window.confirm("This action is irreversible. Are you absolutely sure you want to declare bankruptcy?");
+                                        if (secondConfirm) {
+                                            prop.socket.emit("declare-bankruptcy");
+                                            prop.onDeclaredBankruptcy?.();
+                                        }
+                                    }
                                 }}
                             >
                                 <Icons.Skull width={15} height={15} style={{ flexShrink: 0 }} />
