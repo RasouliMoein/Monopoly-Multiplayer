@@ -125,6 +125,8 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
     const debugDiceOverrideMap = new Map<string, { d1: number; d2: number }>();
     // Fix 5b: maps creditor socketId → bankrupt socketId while awaiting mortgage choices
     const pendingBankruptMap = new Map<string, string>(); // creditorId → bankruptId
+    // Trade mortgages: maps player ID → array of mortgaged properties they received in trade
+    const pendingTradeMortgages = new Map<string, Array<{ position: number; name: string; mortgageValue: number; interestFee: number; unmortgageCost: number }>>();
     // Rent debt: maps debtor playerId → { creditorId, amount } for deferred rent payment
     const debtAmountMap = new Map<string, { creditorId: string; amount: number }>();
 
@@ -805,7 +807,8 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
                                     // Capture landingNote from card resolution!
                                     if (result.landingNote) {
-                                        const cardLandingNote = result.landingNote;
+                                        landingNote = result.landingNote;
+                                        const cardLandingNote = landingNote;
                                         if (cardLandingNote.startsWith("incometax")) {
                                             emitServerHistory(`${player.username} paid $200 Income Tax`);
                                             creditorMap.set(player.id, "bank"); // Phase 2E
@@ -936,20 +939,24 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 let refund = 0;
                                 if (currentCount === "h") {
                                     if (bankHouses < 4) {
-                                        socket.emit("pool-shortage", { type: "demote-shortage", message: "Cannot sell hotel: not enough houses in the Bank to replace it!" });
-                                        return;
+                                        bankHotels += 1;
+                                        refund = Math.round((targetProp?.ohousecost ?? 0) * 0.5) + Math.round((targetProp?.housecost ?? 0) * 0.5) * 4;
+                                        player.properties[idx].count = 0;
+                                        emitServerHistory(`${player.username} sold hotel and houses on ${targetProp.name} due to Bank shortage`);
+                                    } else {
+                                        bankHotels += 1;
+                                        bankHouses -= 4;
+                                        refund = Math.round((targetProp?.ohousecost ?? 0) * 0.5);
+                                        player.properties[idx].count = 4;
+                                        emitServerHistory(`${player.username} demoted ${targetProp.name} to 4 houses`);
                                     }
-                                    bankHotels += 1;
-                                    bankHouses -= 4;
-                                    refund = Math.round((targetProp?.ohousecost ?? 0) * 0.5);
-                                    player.properties[idx].count = 4;
                                 } else if (typeof currentCount === "number" && currentCount > 0) {
                                     bankHouses += 1;
                                     refund = Math.round((targetProp?.housecost ?? 0) * 0.5);
                                     player.properties[idx].count = currentCount - 1;
+                                    emitServerHistory(`${player.username} demoted ${targetProp.name}`);
                                 }
                                 player.balance += refund;
-                                emitServerHistory(`${player.username} demoted ${targetProp.name}`);
                             }
                             if (args.action === "skip") {
                                 const landedProp = propertyByPosition.get(player.position) as any;
@@ -1387,9 +1394,15 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                         choices: { position: number; action: "unmortgage" | "keep" }[];
                     }) => {
                         try {
+                            const isTradeResolve = pendingTradeMortgages.has(socket.id);
                             const bankruptSocketId = pendingBankruptMap.get(socket.id);
-                            if (!bankruptSocketId) return; // not awaiting any decisions
-                            pendingBankruptMap.delete(socket.id);
+                            if (!isTradeResolve && !bankruptSocketId) return; // not awaiting any decisions
+
+                            if (isTradeResolve) {
+                                pendingTradeMortgages.delete(socket.id);
+                            } else {
+                                pendingBankruptMap.delete(socket.id);
+                            }
 
                             for (const choice of args.choices) {
                                 const idx = player.properties.findIndex((p: any) => p.posistion === choice.position);
@@ -1411,7 +1424,11 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 }
                             }
 
-                            finalizeBankruptcy(bankruptSocketId);
+                            if (!isTradeResolve && bankruptSocketId) {
+                                finalizeBankruptcy(bankruptSocketId);
+                            } else {
+                                EmitStateUpdate();
+                            }
                         } catch (e) { server.logFunction(e); }
                     });
 
@@ -1494,6 +1511,48 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
                         tp.properties.push(...tGets);
                         ap.properties.push(...aGets);
+
+                        // Detect transferred mortgaged properties
+                        const tpMortgaged = tGets.filter((prp: any) => prp.morgage === true || prp.morgage === "true");
+                        const apMortgaged = aGets.filter((prp: any) => prp.morgage === true || prp.morgage === "true");
+
+                        if (tpMortgaged.length > 0) {
+                            const pendingList = tpMortgaged.map((prp: any) => {
+                                const propData = propertyByPosition.get(prp.posistion) as any;
+                                const price = propData?.price ?? 0;
+                                return {
+                                    position: prp.posistion,
+                                    name: propData?.name ?? "Unknown",
+                                    mortgageValue: Math.round(price * 0.5),
+                                    interestFee: Math.round(price * 0.05),
+                                    unmortgageCost: Math.round(price * 0.55),
+                                };
+                            });
+                            pendingTradeMortgages.set(tp.id, pendingList);
+                            tpClient.socket.emit("mortgage-transfer-pending", {
+                                properties: pendingList,
+                                bankruptName: ap.username,
+                            });
+                        }
+
+                        if (apMortgaged.length > 0) {
+                            const pendingList = apMortgaged.map((prp: any) => {
+                                const propData = propertyByPosition.get(prp.posistion) as any;
+                                const price = propData?.price ?? 0;
+                                return {
+                                    position: prp.posistion,
+                                    name: propData?.name ?? "Unknown",
+                                    mortgageValue: Math.round(price * 0.5),
+                                    interestFee: Math.round(price * 0.05),
+                                    unmortgageCost: Math.round(price * 0.55),
+                                };
+                            });
+                            pendingTradeMortgages.set(ap.id, pendingList);
+                            apClient.socket.emit("mortgage-transfer-pending", {
+                                properties: pendingList,
+                                bankruptName: tp.username,
+                            });
+                        }
 
                         emitServerHistory(`${tp.username} done a trade with ${ap.username}`);
                         EmitAll("submit-trade", {

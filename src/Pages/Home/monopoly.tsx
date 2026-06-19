@@ -677,9 +677,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 setHasRolled(true);
                 setAllowRollAgain(args.allowRollAgain ?? false);
             }
- 
-            // ── Go notification (balance already applied server-side) ──
-            if (args.passedGo) {
+
+            // ── Helpers to defer notifications/audios until movement animations finish ──
+            const triggerGoNotification = () => {
                 var goAudio = new Audio("./moneyplus.mp3");
                 goAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                 goAudio.loop = false;
@@ -689,49 +689,50 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         notifyRef.current?.message(`$200 added for passing Go!`, "info", 2, () => {}, false);
                     engineRef.current?.applyAnimation(2);
                 }
-            }
- 
-            // ── Landing notifications (taxes / rent — applied server-side) ──
-            if (args.landingNote && isActivePlayer) {
-                const note = args.landingNote;
-                if (note.startsWith("incometax")) {
-                    if (settings?.notifications === true)
-                        notifyRef.current?.message(`Paid $200 income tax`, "info", 2, () => {}, false);
-                    var taxAudio = new Audio("./moneyminus.mp3");
-                    taxAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                    taxAudio.play();
-                    engineRef.current?.applyAnimation(1);
-                } else if (note.startsWith("luxerytax")) {
-                     if (settings?.notifications === true)
-                        notifyRef.current?.message(`Paid $100 luxury tax`, "info", 2, () => {}, false);
-                    var taxAudio2 = new Audio("./moneyminus.mp3");
-                    taxAudio2.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                    taxAudio2.play();
-                    engineRef.current?.applyAnimation(1);
-                } else if (note.startsWith("rent:")) {
-                    const [, ownerId, rentAmt] = note.split(":");
-                    const ownerName = clientsRef.current.get(ownerId)?.username ?? "someone";
-                    if (settings?.notifications === true)
-                        notifyRef.current?.message(`Paid $${rentAmt} rent to ${ownerName}`, "info", 2, () => {}, false);
-                    var rentAudio = new Audio("./moneyminus.mp3");
-                    rentAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                    rentAudio.play();
-                    engineRef.current?.applyAnimation(1);
+            };
+
+            const triggerLandingNotification = (note: string) => {
+                if (isActivePlayer) {
+                    if (note.startsWith("incometax")) {
+                        if (settings?.notifications === true)
+                            notifyRef.current?.message(`Paid $200 income tax`, "info", 2, () => {}, false);
+                        var taxAudio = new Audio("./moneyminus.mp3");
+                        taxAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                        taxAudio.play();
+                        engineRef.current?.applyAnimation(1);
+                    } else if (note.startsWith("luxerytax")) {
+                         if (settings?.notifications === true)
+                            notifyRef.current?.message(`Paid $100 luxury tax`, "info", 2, () => {}, false);
+                        var taxAudio2 = new Audio("./moneyminus.mp3");
+                        taxAudio2.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                        taxAudio2.play();
+                        engineRef.current?.applyAnimation(1);
+                    } else if (note.startsWith("rent:")) {
+                        const [, ownerId, rentAmt] = note.split(":");
+                        const ownerName = clientsRef.current.get(ownerId)?.username ?? "someone";
+                        if (settings?.notifications === true)
+                            notifyRef.current?.message(`Paid $${rentAmt} rent to ${ownerName}`, "info", 2, () => {}, false);
+                        var rentAudio = new Audio("./moneyminus.mp3");
+                        rentAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                        rentAudio.play();
+                        engineRef.current?.applyAnimation(1);
+                    }
                 }
-            }
-            // Notify owner on rent received
-            if (args.landingNote?.startsWith("rent:")) {
-                const ownerId = args.landingNote.split(":")[1];
-                const rentAmt = args.landingNote.split(":")[2];
-                if (ownerId === socket.id && !isActivePlayer) {
-                    if (settings?.notifications === true)
-                        notifyRef.current?.message(`Received $${rentAmt} rent`, "info", 2, () => {}, false);
-                    var rentRecAudio = new Audio("./moneyplus.mp3");
-                    rentRecAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                    rentRecAudio.play();
-                    engineRef.current?.applyAnimation(2);
+
+                // Notify owner on rent received
+                if (note.startsWith("rent:")) {
+                    const ownerId = note.split(":")[1];
+                    const rentAmt = note.split(":")[2];
+                    if (ownerId === socket.id && !isActivePlayer) {
+                        if (settings?.notifications === true)
+                            notifyRef.current?.message(`Received $${rentAmt} rent`, "info", 2, () => {}, false);
+                        var rentRecAudio = new Audio("./moneyplus.mp3");
+                        rentRecAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                        rentRecAudio.play();
+                        engineRef.current?.applyAnimation(2);
+                    }
                 }
-            }
+            };
 
             // ── Helper: show property buy/upgrade UI and emit player_action ──
             const showBuyUI = (location: number) => {
@@ -808,6 +809,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         });
                         jailGen.func();
                     }, 800);
+                } else {
+                    // Normal roll movement finished: trigger deferred rent/tax/GO
+                    if (args.passedGo) {
+                        triggerGoNotification();
+                    }
+                    if (args.landingNote && !args.pendingCard) {
+                        triggerLandingNotification(args.landingNote);
+                    }
                 }
             };
 
@@ -871,6 +880,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                 typeof args.pendingCard.element.count === "number" &&
                                 args.pendingCard.element.count < 0
                             );
+                            const cardPassedGo = args.pendingCard.newPosition !== undefined && args.pendingCard.newPosition < rolledPosition && !isBackward;
                             const cardMoveGen = playerMoveGENERATOR(
                                 args.pendingCard.newPosition, xplayer,
                                 !isBackward,
@@ -878,6 +888,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                     xplayer.position = args.pendingCard.newPosition;
                                     SetClients(new Map(clientsRef.current.set(args.turnId, xplayer)));
                                     
+                                    if (cardPassedGo) {
+                                        triggerGoNotification();
+                                    }
+                                    if (args.landingNote) {
+                                        triggerLandingNotification(args.landingNote);
+                                    }
+
                                     const nested = args.pendingCard.pendingCard;
                                     if (nested) {
                                         engineRef.current?.chorch(nested.element, nested.is_chance, numOfTime);
@@ -921,6 +938,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             cardMoveGen.func();
                         } else {
                             // No movement from card
+                            if (args.landingNote) {
+                                triggerLandingNotification(args.landingNote);
+                            }
                             if (isActivePlayer) {
                                 if (args.pendingCard.requiresPurchaseDecision && args.pendingCard.newPosition !== undefined) {
                                     showBuyUI(args.pendingCard.newPosition);

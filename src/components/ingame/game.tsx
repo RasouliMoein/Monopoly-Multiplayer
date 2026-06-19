@@ -1656,6 +1656,29 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             </>
                         ) : (
                             <>
+                                {(() => {
+                                    const hasMortgagedTransfers = (
+                                        (prop.tradeObj as GameTrading).turnPlayer.prop.some((p: any) => p.morgage === true || p.morgage === "true") ||
+                                        (prop.tradeObj as GameTrading).againstPlayer.prop.some((p: any) => p.morgage === true || p.morgage === "true")
+                                    );
+                                    if (hasMortgagedTransfers) {
+                                        return (
+                                            <div className="trade-mortgage-warning" style={{
+                                                backgroundColor: "rgba(245, 158, 11, 0.15)",
+                                                border: "1px solid #f59e0b",
+                                                color: "#f59e0b",
+                                                padding: "8px 12px",
+                                                borderRadius: "6px",
+                                                marginBottom: "12px",
+                                                fontSize: "0.85rem",
+                                                textAlign: "center"
+                                            }}>
+                                                ⚠️ Warning: One or more traded properties are mortgaged. The receiver will immediately be prompted to pay 10% interest to keep them mortgaged or unmortgage them now.
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                                 <div className="trade-mission">
                                     <div className="flexchild">
                                         {prop.socket.id === prop.tradeObj.againstPlayer.id || prop.socket.id === prop.tradeObj.turnPlayer.id ? (
@@ -1873,6 +1896,17 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                         }
                                                                     >
                                                                         {propretyMap.get(v.posistion)?.name ?? ""}
+                                                                        {v.morgage !== undefined && v.morgage === true && (
+                                                                            <span style={{
+                                                                                color: "#f59e0b",
+                                                                                fontSize: "0.65rem",
+                                                                                marginLeft: "6px",
+                                                                                display: "inline-block",
+                                                                                verticalAlign: "middle"
+                                                                            }}>
+                                                                                (Mortgaged)
+                                                                            </span>
+                                                                        )}
                                                                     </h3>
                                                                     <div>
                                                                         {v.count == "h" ? (
@@ -1956,6 +1990,17 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                         }
                                                                     >
                                                                         {propretyMap.get(v.posistion)?.name ?? ""}
+                                                                        {v.morgage !== undefined && v.morgage === true && (
+                                                                            <span style={{
+                                                                                color: "#f59e0b",
+                                                                                fontSize: "0.65rem",
+                                                                                marginLeft: "6px",
+                                                                                display: "inline-block",
+                                                                                verticalAlign: "middle"
+                                                                            }}>
+                                                                                (Mortgaged)
+                                                                            </span>
+                                                                        )}
                                                                     </h3>
                                                                     <div>
                                                                         {v.count == "h" ? (

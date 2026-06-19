@@ -211,6 +211,7 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         Morgage={prop.Morgage}
                         allowMortgage={prop.selectedMode.mortageAllowed}
                         myTurn={prop.currentTurn === prop.socket.id}
+                        bankHouses={prop.bankHouses}
                     />
                 ) : tabIndex == 2 ? (
                     <>

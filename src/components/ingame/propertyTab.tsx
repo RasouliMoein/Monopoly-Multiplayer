@@ -19,6 +19,7 @@ interface PropertyTabProps {
     };
     allowMortgage: boolean;
     myTurn: boolean;
+    bankHouses?: number;
 }
 export interface PropertyTabRef {
     clickedOnBoard: (a: number) => void;
@@ -128,6 +129,7 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
     let canSellEvenly = false;
     let buildCost = 0;
     let sellRefund = 0;
+    let isShortage = false;
 
     if (isColorGroup && propData) {
         const groupProps = Array.from(propretyMap.values()).filter(p => p.group === group);
@@ -150,7 +152,10 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
         canSellEvenly = targetCount === maxCountInGroup;
 
         buildCost = targetCount === 4 ? (propData.ohousecost ?? 0) : (propData.housecost ?? 0);
-        sellRefund = targetCount === 5 ? Math.round((propData.ohousecost ?? 0) * 0.5) : Math.round((propData.housecost ?? 0) * 0.5);
+        isShortage = targetCount === 5 && props.bankHouses !== undefined && props.bankHouses < 4;
+        sellRefund = isShortage
+            ? Math.round((propData.ohousecost ?? 0) * 0.5) + Math.round((propData.housecost ?? 0) * 0.5) * 4
+            : (targetCount === 5 ? Math.round((propData.ohousecost ?? 0) * 0.5) : Math.round((propData.housecost ?? 0) * 0.5));
     }
 
     const handleBuild = () => {
@@ -182,6 +187,13 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
 
     const handleSell = () => {
         if (!prp || !propData) return;
+
+        if (isShortage) {
+            const confirmed = window.confirm(
+                `There is a house shortage in the Bank. Selling this hotel will also sell all 4 houses on this property, reverting it to an unimproved state.\n\nYou will receive a total refund of $${sellRefund}M.\n\nAre you sure you want to proceed?`
+            );
+            if (!confirmed) return;
+        }
 
         let audio = new Audio("./moneyplus.mp3");
         const cookieStr = CookieManager.get("monopolySettings");
@@ -364,10 +376,11 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
                                                         !props.myTurn ? "Not your turn" :
                                                         targetCount === 0 ? "No houses to sell" :
                                                         !canSellEvenly ? "Cannot sell: must sell evenly across all properties in the set" :
+                                                        isShortage ? "Bank house shortage: hotel and all replacement houses will be sold back to the Bank." :
                                                         ""
                                                     }
                                                 >
-                                                    🪙 {targetCount === 5 ? "Sell Hotel" : "Sell House"} — Get {sellRefund}M
+                                                    🪙 {isShortage ? "Sell Hotel & Houses" : (targetCount === 5 ? "Sell Hotel" : "Sell House")} — Get {sellRefund}M
                                                 </button>
                                             </>
                                         )}
