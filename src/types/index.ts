@@ -31,6 +31,7 @@ export const MonopolyModes = [
         startingCash: 1500,
         mortageAllowed: true,
         turnTimer: undefined,
+        allowAuctions: true,
     },
     {
         AllowDeals: false,
@@ -40,6 +41,7 @@ export const MonopolyModes = [
         startingCash: 1500,
         mortageAllowed: false,
         turnTimer: undefined,
+        allowAuctions: true,
     },
     {
         AllowDeals: false,
@@ -49,6 +51,7 @@ export const MonopolyModes = [
         startingCash: 1500,
         mortageAllowed: false,
         turnTimer: 30,
+        allowAuctions: true,
     },
 ] as MonopolyMode[];
 
@@ -60,6 +63,7 @@ export interface MonopolyMode {
     startingCash: number;
     mortageAllowed: boolean;
     turnTimer: undefined | number;
+    allowAuctions: boolean;
 }
 
 export interface PlayerProprety {

@@ -788,7 +788,20 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                         if (x >= prop.selectedMode.turnTimer) {
                             if (prop.myTurn && !sended) {
                                 const rollElement = document.querySelector(`button[data-button-type="roll"]`) as HTMLButtonElement;
-                                rollElement.click();
+                                const endTurnElement = document.getElementById("btn-end-turn") as HTMLButtonElement;
+                                const cardNoElement = document.querySelector("button#card-response-no") as HTMLButtonElement;
+                                const continueElement = Array.from(document.querySelectorAll("div#advanced-responses button"))
+                                    .find(btn => btn.textContent?.includes("CONTINUE")) as HTMLButtonElement;
+
+                                if (rollElement) {
+                                    rollElement.click();
+                                } else if (endTurnElement) {
+                                    endTurnElement.click();
+                                } else if (cardNoElement) {
+                                    cardNoElement.click();
+                                } else if (continueElement) {
+                                    continueElement.click();
+                                }
                                 SetTimer(0);
                                 clearInterval(l);
                             }

@@ -10,6 +10,7 @@ exports.MonopolyModes = [
         startingCash: 1500,
         mortageAllowed: true,
         turnTimer: undefined,
+        allowAuctions: true,
     },
     {
         AllowDeals: false,
@@ -19,6 +20,7 @@ exports.MonopolyModes = [
         startingCash: 1500,
         mortageAllowed: false,
         turnTimer: undefined,
+        allowAuctions: true,
     },
     {
         AllowDeals: false,
@@ -28,6 +30,7 @@ exports.MonopolyModes = [
         startingCash: 1500,
         mortageAllowed: false,
         turnTimer: 30,
+        allowAuctions: true,
     },
 ];
 function history(action, balances) {

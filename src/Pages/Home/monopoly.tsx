@@ -39,6 +39,16 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const [gameStartedDisplay, SetGameStartedDisplay] = useState<boolean>(false);
     const [imReady, SetReady] = useState<boolean>(false);
     const [selectedMode, SetMode] = useState<MonopolyMode>(MonopolyModes[0]);
+    const [customConfig, setCustomConfig] = useState<MonopolyMode>({
+        AllowDeals: true,
+        WinningMode: "last-standing",
+        Name: "Custom Mode",
+        mortageAllowed: true,
+        startingCash: 1500,
+        turnTimer: undefined,
+        allowAuctions: true
+    });
+    const [showCustomModal, setShowCustomModal] = useState<boolean>(false);
     const selectedModeRef = useRef(selectedMode);
     selectedModeRef.current = selectedMode;
     const [hostId, SetHostId] = useState<string>("");
@@ -286,6 +296,72 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             xplayer ? (xplayer.positions = _pos) : "";
         }
 
+        const showWinDialog = (winner: Player, reason: string) => {
+            mainTheme.pause();
+            const isLocal = winner.id === socket.id;
+            const title = isLocal ? "YOU WON!" : `${winner.username} WON!`;
+            const description = isLocal ? reason : reason.replace(/\byou\b/gi, winner.username);
+            notifyRef.current?.dialog(
+                (close_func, createButton) => ({
+                    innerHTML: `<h3>${title}</h3><p>${description}</p>`,
+                    buttons: [
+                        createButton("LEAVE GAME", () => {
+                            close_func();
+                            leaveGameSession();
+                        }),
+                    ],
+                }),
+                "winning"
+            );
+        };
+
+        const checkVictory = (updatedClients: Map<string, Player>): boolean => {
+            const winMode = selectedModeRef.current?.WinningMode ?? "last-standing";
+            const activePlayers = Array.from(updatedClients.values()).filter((p) => !p.isBankrupt);
+
+            // 1. check last-standing regardless of mode, if only one remains
+            if (activePlayers.length === 1) {
+                const winner = activePlayers[0];
+                showWinDialog(winner, "All other players went bankrupt.");
+                return true;
+            }
+
+            // 2. check other conditions if not last-standing
+            for (const p of activePlayers) {
+                // Count completed sets
+                const prpGrups: string[] = [];
+                for (const prp of p.properties) {
+                    if (!["Special", "Railroad", "Utilities"].includes(prp.group)) {
+                        prpGrups.push(prp.group);
+                    }
+                }
+
+                const uniqueGroups = Array.from(new Set(prpGrups));
+                let completedSets = 0;
+                for (const g of uniqueGroups) {
+                    const ownedCount = prpGrups.filter((v) => v === g).length;
+                    const totalInGroup = monopolyJSON.properties.filter((v) => v.group === g).length;
+                    if (ownedCount === totalInGroup) {
+                        completedSets += 1;
+                    }
+                }
+
+                if (completedSets >= 3) {
+                    showWinDialog(p, "you have completed 3 or more color groups!");
+                    return true;
+                }
+
+                if (winMode === "monopols & trains") {
+                    const railroadsOwned = p.properties.filter((v) => v.group === "Railroad").length;
+                    if (railroadsOwned >= 4) {
+                        showWinDialog(p, "you have completed 4 railroads!");
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
         function destroyPlayer(playerId: string) {
             // remove player from clients
             function removePlayer() {
@@ -428,6 +504,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             }
             SetClients(newClients);
             SetMode(args.selectedMode);
+            if (args.selectedMode.Name === "Custom Mode") {
+                setCustomConfig(args.selectedMode);
+            }
             if (args.gameStarted) {
                 SetGameStarted(true);
                 SetGameStartedDisplay(true);
@@ -450,6 +529,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             x.ready = args.state;
             SetClients(nextClients);
             SetMode(args.selectedMode);
+            if (args.selectedMode.Name === "Custom Mode") {
+                setCustomConfig(args.selectedMode);
+            }
         };
         const socket_StartGame = () => {
             SetGameStarted(true);
@@ -523,114 +605,15 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 audio.play();
             }
 
-            if (args.from !== socket.id && x) {
+            const updatedClients = new Map(clientsRef.current);
+            if (x) {
                 x.recieveJson(args.pJson);
-                SetClients(new Map(clientsRef.current.set(args.from, x)));
+                updatedClients.set(args.from, x);
             }
+            SetClients(updatedClients);
 
 
-            if (args.WinningMode === "monopols" || args.WinningMode === "monopols & trains") {
-                function removeDuplicates(originalList: Array<any>) {
-                    // Create an empty array to store unique values
-                    const uniqueList: Array<any> = [];
-
-                    // Use the filter method to iterate through the original list
-                    originalList.filter(function (item) {
-                        // If the item is not already in the uniqueList, add it
-                        if (!uniqueList.includes(item)) {
-                            uniqueList.push(item);
-                        }
-                        // Always return false in the filter function to skip duplicates
-                        return false;
-                    });
-
-                    // Return the uniqueList
-                    return uniqueList;
-                }
-                for (const p of Array.from(clientsRef.current.values())) {
-                    const prpGrups = [];
-                    for (const prp of p.properties) {
-                        if (!["Special", "Railroad", "Utilities"].includes(prp.group)) prpGrups.push(prp.group);
-                    }
-                    let x: number = 0;
-
-                    for (const g of removeDuplicates(prpGrups)) {
-                        const c = prpGrups.filter((v) => v === g).length;
-                        const cc = monopolyJSON.properties.filter((v) => v.group === g).length;
-                        if (c === cc) {
-                            x += 1;
-                        }
-                    }
-                    if (x === 3) {
-                        mainTheme.pause();
-                        if (p.id === socket.id) {
-                            notifyRef.current?.dialog(
-                                (close_func, createButton) => ({
-                                    innerHTML: `<h3> YOU WON! </h3> <p> you have 3 sets! </p>`,
-                                    buttons: [
-                                        createButton("LEAVE GAME", () => {
-                                            close_func();
-                                            leaveGameSession();
-                                        }),
-                                    ],
-                                }),
-                                "winning"
-                            );
-                        } else {
-                            notifyRef.current?.dialog(
-                                (close_func, createButton) => ({
-                                    innerHTML: `<h3> ${p.username} WON! </h3> <p> got 3 sets! </p>`,
-                                    buttons: [
-                                        createButton("LEAVE GAME", () => {
-                                            close_func();
-                                            leaveGameSession();
-                                        }),
-                                    ],
-                                }),
-                                "winning"
-                            );
-                        }
-                        return;
-                    }
-                }
-                if (args.WinningMode === "monopols & trains") {
-                    // continue with trains winning state!
-                    for (const p of Array.from(clientsRef.current.values())) {
-                        const c = p.properties.filter((v) => v.group === "Railroad").length;
-                        if (c === 4) {
-                            mainTheme.pause();
-                            if (p.id === socket.id) {
-                                notifyRef.current?.dialog(
-                                    (close_func, createButton) => ({
-                                        innerHTML: `<h3> YOU WON! </h3> <p> you have 4 railroads! </p>`,
-                                        buttons: [
-                                            createButton("LEAVE GAME", () => {
-                                                close_func();
-                                                leaveGameSession();
-                                            }),
-                                        ],
-                                    }),
-                                    "winning"
-                                );
-                            } else {
-                                notifyRef.current?.dialog(
-                                    (close_func, createButton) => ({
-                                        innerHTML: `<h3> ${p.username} WON! </h3> <p> got 4 railroads! </p>`,
-                                        buttons: [
-                                            createButton("LEAVE GAME", () => {
-                                                close_func();
-                                                leaveGameSession();
-                                            }),
-                                        ],
-                                    }),
-                                    "winning"
-                                );
-                            }
-                            return;
-                        }
-                    }
-                }
-            }
+            if (checkVictory(updatedClients)) return;
 
             SetCurrent(args.turnId);
             if (args.turnId === socket.id) {
@@ -781,6 +764,13 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             engineRef.current?.freeDice();
                             if (b === "nothing") {
                                 socket.emit("player_action", { action: "skip" });
+                                if (!selectedModeRef.current.allowAuctions) {
+                                    if (allowRollAgainRef.current) {
+                                        // Doubles! Do NOT finish turn, just free dice for another roll!
+                                    } else {
+                                        socket.emit("finish-turn");
+                                    }
+                                }
                             } else {
                                 if (allowRollAgainRef.current) {
                                     // Doubles! Do NOT finish turn, just free dice for another roll!
@@ -1254,6 +1244,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 }
             }
             SetClients(nextClients);
+            checkVictory(nextClients);
         });
 
         // Phase 2B: Handle player-bankrupt event
@@ -1296,28 +1287,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             }
 
             // Check if only 1 active player remains → winner
-            const activePlayers = Array.from(nextClients.values()).filter((v) => !v.isBankrupt);
-            if (activePlayers.length === 1) {
-                const winner = activePlayers[0];
-                mainTheme.pause();
-                if (winner.id === socket.id) {
-                    notifyRef.current?.dialog(
-                        (close_func, createButton) => ({
-                            innerHTML: `<h3>YOU WON!</h3><p>All other players went bankrupt.</p>`,
-                            buttons: [createButton("LEAVE GAME", () => { close_func(); leaveGameSession(); })],
-                        }),
-                        "winning"
-                    );
-                } else {
-                    notifyRef.current?.dialog(
-                        (close_func, createButton) => ({
-                            innerHTML: `<h3>${winner.username} WON!</h3><p>All other players went bankrupt.</p>`,
-                            buttons: [createButton("LEAVE GAME", () => { close_func(); leaveGameSession(); })],
-                        }),
-                        "winning"
-                    );
-                }
-            }
+            checkVictory(nextClients);
             navRef.current?.reRenderPlayerList();
         });
 
@@ -2000,29 +1970,38 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                                     type="button"
                                     className={`color-pill red-pill ${selectedMode.Name === "Custom Mode" ? "active" : ""}`}
                                     onClick={() => {
-                                        const winstateChoice = window.prompt("Winning State\n1=last-standing\n2=monopols\n3=monopols & trains", "3");
-                                        const allowTrade = window.confirm("Allow Trades");
-                                        const allowMortgage = window.confirm("Allow Mortgage");
-                                        const startingCash = window.prompt("Starting Cash", "1500");
-                                        const turnTimer = window.prompt("Turn Timer", "0");
-                                        const v = {
-                                            AllowDeals: allowTrade,
-                                            WinningMode:
-                                                winstateChoice === "2" ? "monopols" : winstateChoice === "3" ? "monopols & trains" : "last-standing",
-                                            Name: "Custom Mode",
-                                            mortageAllowed: allowMortgage,
-                                            startingCash: startingCash === null ? 1500 : parseInt(startingCash) ?? 1500,
-                                            turnTimer: turnTimer === null ? undefined : parseInt(turnTimer) ?? undefined,
-                                        } as MonopolyMode;
                                         if (server !== undefined)
                                             socket.emit("ready", {
-                                                mode: v,
+                                                mode: customConfig,
                                             });
                                     }}
                                     disabled={server === undefined}
                                 >
                                     <span className="pill-dot red-dot"></span> Custom Mode
                                 </button>
+                                {selectedMode.Name === "Custom Mode" && server !== undefined && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCustomModal(true)}
+                                        style={{
+                                            padding: "8px 12px",
+                                            borderRadius: "16px",
+                                            backgroundColor: "rgba(255, 255, 255, 0.07)",
+                                            border: "1px solid var(--border-color)",
+                                            color: "#fff",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "6px",
+                                            cursor: "pointer",
+                                            fontSize: "12px",
+                                            fontWeight: "500",
+                                            transition: "all 0.2s"
+                                        }}
+                                        title="Configure Custom Mode"
+                                    >
+                                        <Icons.Wrench width={12} height={12} /> Configure
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -2085,6 +2064,11 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                             <div className="details-info-row">
                                 <span className="details-icon"><Icons.Building width={13} height={13} /></span>
                                 <span className="details-text">Mortgages: <strong className="highlight-text">{selectedMode.mortageAllowed ? "ALLOWED" : "DISABLED"}</strong></span>
+                            </div>
+
+                            <div className="details-info-row">
+                                <span className="details-icon"><Icons.Scale width={13} height={13} /></span>
+                                <span className="details-text">Auctions: <strong className="highlight-text">{selectedMode.allowAuctions !== false ? "ALLOWED" : "DISABLED"}</strong></span>
                             </div>
 
                             <div className="details-info-row">
@@ -2179,6 +2163,225 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 `}</style>
                 <h3 style={{ margin: 0, fontSize: '24px', fontWeight: '600' }}>Lost Connection</h3>
                 <p style={{ margin: 0, opacity: 0.8 }}>Attempting to reconnect... [Attempt {reconnectAttempt}/5]</p>
+            </div>
+        </div>
+    )}
+
+    {showCustomModal && (
+        <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            fontFamily: "var(--font-family, inherit)"
+        }}>
+            <div style={{
+                width: "100%",
+                maxWidth: "480px",
+                backgroundColor: "#1c1c1e",
+                border: "1px solid var(--border-color)",
+                borderRadius: "16px",
+                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden"
+            }}>
+                {/* Header */}
+                <div style={{
+                    padding: "16px 20px",
+                    borderBottom: "1px solid var(--border-color)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    backgroundColor: "rgba(255,255,255,0.02)"
+                }}>
+                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "bold", color: "#fff" }}>Custom Match Settings</h3>
+                    <button 
+                        onClick={() => setShowCustomModal(false)}
+                        style={{
+                            border: "none",
+                            background: "none",
+                            color: "#aaa",
+                            fontSize: "20px",
+                            cursor: "pointer",
+                            lineHeight: 1
+                        }}
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div style={{
+                    padding: "20px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                    overflowY: "auto",
+                    maxHeight: "70vh"
+                }}>
+                    {/* Winning Mode */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <label style={{ fontSize: "11px", letterSpacing: "1px", color: "#aaa", fontWeight: "bold" }}>WINNING CONDITION</label>
+                        <select 
+                            value={customConfig.WinningMode}
+                            onChange={(e) => {
+                                const val = e.target.value as MonopolyMode["WinningMode"];
+                                const updated = { ...customConfig, WinningMode: val };
+                                setCustomConfig(updated);
+                                socket.emit("ready", { mode: updated });
+                            }}
+                            style={{
+                                padding: "10px 12px",
+                                borderRadius: "8px",
+                                backgroundColor: "rgba(0,0,0,0.3)",
+                                color: "#fff",
+                                border: "1px solid var(--border-color)",
+                                outline: "none",
+                                cursor: "pointer",
+                                fontSize: "13px"
+                            }}
+                        >
+                            <option value="last-standing">Last Standing (Classic)</option>
+                            <option value="monopols">Monopols (3 sets)</option>
+                            <option value="monopols & trains">Monopols & Trains (3 sets or 4 railroads)</option>
+                        </select>
+                    </div>
+
+                    {/* Starting Cash */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <label style={{ fontSize: "11px", letterSpacing: "1px", color: "#aaa", fontWeight: "bold" }}>STARTING CASH</label>
+                            <span style={{ fontSize: "13px", fontWeight: "bold", color: "#E0115F" }}>{customConfig.startingCash}M</span>
+                        </div>
+                        <input 
+                            type="range"
+                            min="500"
+                            max="5000"
+                            step="100"
+                            value={customConfig.startingCash}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value) || 1500;
+                                const updated = { ...customConfig, startingCash: val };
+                                setCustomConfig(updated);
+                                socket.emit("ready", { mode: updated });
+                            }}
+                            style={{
+                                cursor: "pointer",
+                                accentColor: "#E0115F",
+                                width: "100%"
+                            }}
+                        />
+                    </div>
+
+                    {/* Turn Timer */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <label style={{ fontSize: "11px", letterSpacing: "1px", color: "#aaa", fontWeight: "bold" }}>TURN TIMER</label>
+                            <span style={{ fontSize: "13px", fontWeight: "bold", color: "#E0115F" }}>
+                                {customConfig.turnTimer === undefined || customConfig.turnTimer === 0 ? "No Timer" : `${customConfig.turnTimer}s`}
+                            </span>
+                        </div>
+                        <input 
+                            type="range"
+                            min="0"
+                            max="120"
+                            step="5"
+                            value={customConfig.turnTimer ?? 0}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                const turnTimer = val === 0 ? undefined : val;
+                                const updated = { ...customConfig, turnTimer };
+                                setCustomConfig(updated);
+                                socket.emit("ready", { mode: updated });
+                            }}
+                            style={{
+                                cursor: "pointer",
+                                accentColor: "#E0115F",
+                                width: "100%"
+                            }}
+                        />
+                    </div>
+
+                    {/* Toggles */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
+                        <label style={{ fontSize: "11px", letterSpacing: "1px", color: "#aaa", fontWeight: "bold" }}>RULE TOGGLES</label>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px", color: "#fff" }}>
+                                <input 
+                                    type="checkbox"
+                                    checked={customConfig.AllowDeals}
+                                    onChange={(e) => {
+                                        const updated = { ...customConfig, AllowDeals: e.target.checked };
+                                        setCustomConfig(updated);
+                                        socket.emit("ready", { mode: updated });
+                                    }}
+                                    style={{ cursor: "pointer", accentColor: "#E0115F", width: "16px", height: "16px" }}
+                                />
+                                Allow Trades
+                            </label>
+                            <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px", color: "#fff" }}>
+                                <input 
+                                    type="checkbox"
+                                    checked={customConfig.mortageAllowed}
+                                    onChange={(e) => {
+                                        const updated = { ...customConfig, mortageAllowed: e.target.checked };
+                                        setCustomConfig(updated);
+                                        socket.emit("ready", { mode: updated });
+                                    }}
+                                    style={{ cursor: "pointer", accentColor: "#E0115F", width: "16px", height: "16px" }}
+                                />
+                                Allow Mortgages
+                            </label>
+                            <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px", color: "#fff" }}>
+                                <input 
+                                    type="checkbox"
+                                    checked={customConfig.allowAuctions}
+                                    onChange={(e) => {
+                                        const updated = { ...customConfig, allowAuctions: e.target.checked };
+                                        setCustomConfig(updated);
+                                        socket.emit("ready", { mode: updated });
+                                    }}
+                                    style={{ cursor: "pointer", accentColor: "#E0115F", width: "16px", height: "16px" }}
+                                />
+                                Allow Auctions
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div style={{
+                    padding: "14px 20px",
+                    borderTop: "1px solid var(--border-color)",
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    backgroundColor: "rgba(255,255,255,0.02)"
+                }}>
+                    <button 
+                        onClick={() => setShowCustomModal(false)}
+                        style={{
+                            padding: "8px 18px",
+                            borderRadius: "8px",
+                            backgroundColor: "#E0115F",
+                            color: "#fff",
+                            border: "none",
+                            fontSize: "13px",
+                            fontWeight: "bold",
+                            cursor: "pointer"
+                        }}
+                    >
+                        Done
+                    </button>
+                </div>
             </div>
         </div>
     )}

@@ -153,6 +153,47 @@ async function main(playersCount, f) {
         });
     }
     /**
+     * Authoritatively check if a player has met the current game mode's winning criteria.
+     * Returns the winning Player object if a win is detected, otherwise null.
+     */
+    function checkWinCondition() {
+        if (selectedMode.WinningMode === "last-standing") {
+            const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
+            if (active.length === 1)
+                return active[0].player;
+            return null;
+        }
+        for (const { player } of Array.from(Clients.values())) {
+            if (player.isBankrupt)
+                continue;
+            const prpGrups = [];
+            for (const prp of player.properties) {
+                if (!["Special", "Railroad", "Utilities"].includes(prp.group)) {
+                    prpGrups.push(prp.group);
+                }
+            }
+            const uniqueGroups = Array.from(new Set(prpGrups));
+            let completedSets = 0;
+            for (const g of uniqueGroups) {
+                const ownedCount = prpGrups.filter((v) => v === g).length;
+                const totalInGroup = monopoly_json_1.default.properties.filter((v) => v.group === g).length;
+                if (ownedCount === totalInGroup) {
+                    completedSets += 1;
+                }
+            }
+            if (completedSets >= 3) {
+                return player;
+            }
+            if (selectedMode.WinningMode === "monopols & trains") {
+                const railroadsOwned = player.properties.filter((v) => v.group === "Railroad").length;
+                if (railroadsOwned >= 4) {
+                    return player;
+                }
+            }
+        }
+        return null;
+    }
+    /**
      * Compute rent owed at a position (server-authoritative).
      * Returns { owner, amount }; amount=0 when mortgaged or unowned.
      */
@@ -924,6 +965,8 @@ async function main(playersCount, f) {
                             player.balance += refund;
                         }
                         if (args.action === "skip") {
+                            if (!selectedMode.allowAuctions)
+                                return;
                             const landedProp = propertyByPosition.get(player.position);
                             if (landedProp && landedProp.price !== undefined && landedProp.group !== "Special") {
                                 const isUnowned = Array.from(Clients.values()).every((c) => !c.player.properties.some((p) => p.posistion === player.position));
@@ -941,6 +984,10 @@ async function main(playersCount, f) {
                 // ── Mortgage Action ───────────────────────────────────────
                 socket.on("mortgage_action", (args) => {
                     try {
+                        if (!selectedMode.mortageAllowed) {
+                            server.logFunction(`[SECURITY] Rejecting mortgage action from ${socket.id} because mortgages are disabled in the current mode.`);
+                            return;
+                        }
                         // Fix 3: Compute amounts server-side; ignore client-supplied amount
                         const idx = player.properties.findIndex((p) => p.posistion === args.propertyPosition);
                         if (idx === -1)
@@ -1039,11 +1086,12 @@ async function main(playersCount, f) {
                         let i = arr.indexOf(socket.id);
                         i = arr.length > 0 ? (i + 1) % arr.length : -1;
                         currentId = i === -1 ? "" : arr[i];
-                        if (active.length <= 1) {
+                        const winner = checkWinCondition();
+                        if (winner) {
                             for (const c of Array.from(Clients.values()))
                                 c.ready = false;
                             gameStarted = false;
-                            currentId = active[0]?.player.id ?? "";
+                            currentId = winner.id;
                         }
                         EmitAll("turn-finished", {
                             from: socket.id,
@@ -1238,7 +1286,8 @@ async function main(playersCount, f) {
                         turnId: currentId,
                         pJsons: Array.from(Clients.values()).map((c) => c.player.to_json()),
                     });
-                    if (active.length <= 1) {
+                    const winner = checkWinCondition();
+                    if (winner) {
                         gameStarted = false;
                         for (const c of Array.from(Clients.values()))
                             c.ready = false;
@@ -1610,9 +1659,37 @@ async function main(playersCount, f) {
                 EmitAll("ready", { id: socket.id, state: client.ready, selectedMode });
                 const readys = Array.from(Clients.values()).map((v) => v.ready);
                 if (!readys.includes(false) && Clients.size >= 2) {
+                    // Reset player states for a fresh game
+                    for (const c of Array.from(Clients.values())) {
+                        c.player.balance = selectedMode.startingCash;
+                        c.player.position = 0;
+                        c.player.properties = [];
+                        c.player.isInJail = false;
+                        c.player.jailTurnsRemaining = 0;
+                        c.player.getoutCards = 0;
+                        c.player.isBankrupt = false;
+                        c.player.hasRolled = false;
+                        c.player.allowRollAgain = false;
+                    }
+                    // Reset room-specific maps and pools
+                    consecutiveDoublesMap.clear();
+                    creditorMap.clear();
+                    pendingBankruptMap.clear();
+                    pendingTradeMortgages.clear();
+                    debtAmountMap.clear();
+                    bankHouses = 32;
+                    bankHotels = 12;
+                    chanceGetOutOwner = null;
+                    chestGetOutOwner = null;
+                    currentAuction = null;
+                    if (auctionIntervalId) {
+                        clearInterval(auctionIntervalId);
+                        auctionIntervalId = null;
+                    }
                     server.logFunction("Game has Started, No more Players can join the Server");
                     gameStarted = true;
                     EmitAll("start-game", {});
+                    EmitStateUpdate();
                 }
             }
             catch (e) {
