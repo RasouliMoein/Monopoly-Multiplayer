@@ -3,11 +3,12 @@ import { Server, Socket } from "../../utils/sockets";
 import { Player, PlayerJSON } from "../../utils/player";
 import "./monopoly.css";
 import MonopolyNav, { MonopolyNavRef } from "../../components/ingame/nav.tsx";
+import InsightsTab from "../../components/ingame/insightsTab.tsx";
 import MonopolyGame, { MonopolyGameRef } from "../../components/ingame/game.tsx";
 import NotifyElement, { NotificatorRef } from "../../components/notificator.tsx";
 import monopolyJSON from "../../data/monopoly.json";
 import { Icons } from "../../components/icons";
-import { MonopolySettings, MonopolyModes, historyAction, history, GameTrading, MonopolyMode, MonopolyCookie } from "../../types";
+import { MonopolySettings, MonopolyModes, historyAction, history, GameTrading, MonopolyMode, MonopolyCookie, GameStats } from "../../types";
 import { CookieManager } from "../../utils/cookieManager";
 function App({ socket, name, server }: { socket: Socket; name: string; server: Server | undefined }) {
     const [clients, SetClients] = useState<Map<string, Player>>(new Map());
@@ -109,6 +110,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
     const [mainTheme, SetTheme] = useState(new Audio("./main-theme.mp3"));
     const [startTIme, SetStartTime] = useState<Date>(new Date());
     const [histories, SetHistories] = useState<Array<historyAction>>([]);
+    const [gameStats, setGameStats] = useState<GameStats | null>(null);
+    const [showInsights, setShowInsights] = useState<boolean>(false);
 
     const [currentTrade, setTrade] = useState<GameTrading | boolean | undefined>(undefined);
     const leavingRoomRef = useRef<boolean>(false);
@@ -496,7 +499,15 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         }
 
         //#region socket handeling
-        const socket_Initials = (args: { turn_id: string; other_players: Array<PlayerJSON>; selectedMode: MonopolyMode; gameStarted?: boolean; hostId?: string }) => {
+        const socket_Initials = (args: {
+            turn_id: string;
+            other_players: Array<PlayerJSON>;
+            selectedMode: MonopolyMode;
+            gameStarted?: boolean;
+            hostId?: string;
+            history?: Array<historyAction>;
+            stats?: GameStats;
+        }) => {
             SetCurrent(args.turn_id.toString());
             const newClients = new Map(clientsRef.current);
             for (const x of args.other_players) {
@@ -513,6 +524,12 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             }
             if (args.hostId) {
                 SetHostId(args.hostId);
+            }
+            if (args.history) {
+                SetHistories(args.history);
+            }
+            if (args.stats) {
+                setGameStats(args.stats);
             }
         };
 
@@ -1176,12 +1193,15 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         // state_update: server-authoritative balance/status sync.
         // Only preserve position for the player currently being animated.
         // Everyone else accepts the server's authoritative position.
-        socket.on("state_update", (args: { players: PlayerJSON[]; hostId?: string; bankHouses?: number; bankHotels?: number }) => {
+        socket.on("state_update", (args: { players: PlayerJSON[]; hostId?: string; bankHouses?: number; bankHotels?: number; stats?: GameStats }) => {
             if (args.hostId) {
                 SetHostId(args.hostId);
             }
             if (args.bankHouses !== undefined) setBankHouses(args.bankHouses);
             if (args.bankHotels !== undefined) setBankHotels(args.bankHotels);
+            if (args.stats) {
+                setGameStats(args.stats);
+            }
             const nextClients = new Map(clientsRef.current);
             for (const pJson of args.players) {
                 const p = nextClients.get(pJson.id);
@@ -1454,6 +1474,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         root.style.transform = "translateX(100%)";
                     }}
                     history={histories}
+                    stats={gameStats}
+                    showInsights={showInsights}
+                    onToggleInsights={() => setShowInsights(prev => !prev)}
                     time={startTIme}
                     selectedMode={selectedMode}
                     hostId={hostId}
@@ -1510,6 +1533,15 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 />
             </main>
             <NotifyElement ref={notifyRef} />
+            {showInsights && (
+                <div className="insights-bottom-drawer">
+                    <div className="insights-drawer-backdrop" onClick={() => setShowInsights(false)} />
+                    <div className="insights-drawer-panel">
+                        <button className="insights-drawer-close" onClick={() => setShowInsights(false)}>✕</button>
+                        <InsightsTab stats={gameStats} players={players} />
+                    </div>
+                </div>
+            )}
             <div id="server">
                 <main>
                     <div

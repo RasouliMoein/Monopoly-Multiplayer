@@ -11,7 +11,8 @@ import { Server, Socket } from "../../utils/sockets.ts";
 import PropertyTab, { PropertyTabRef } from "./propertyTab.tsx";
 import PlayersTab, { PlayersTabRef } from "./playersTab.tsx";
 import SettingsNav from "../settingsNav.tsx";
-import { MonopolyMode, historyAction } from "../../types/index.ts";
+import { MonopolyMode, historyAction, GameStats } from "../../types/index.ts";
+import { Icons } from "../icons.tsx";
 
 interface MonopolyNavProps {
     name: string;
@@ -26,6 +27,9 @@ interface MonopolyNavProps {
         onCanc: (a: number, prpName: string) => void;
     };
     history: Array<historyAction>;
+    stats: GameStats | null;
+    showInsights: boolean;
+    onToggleInsights: () => void;
     time: Date;
     selectedMode: MonopolyMode;
     hostId: string;
@@ -163,6 +167,17 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         {unreadCount > 0 && (
                             <span className="chat-badge">{unreadCount}</span>
                         )}
+                    </div>
+
+                    <div
+                        key={"ingame-nav-header-3"}
+                        data-selected={prop.showInsights}
+                        onClick={() => prop.onToggleInsights()}
+                        data-tooltip-hover="insights"
+                        className="button"
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                        <Icons.Insights width={20} height={20} style={{ color: prop.showInsights ? "#fff" : "rgba(255,255,255,0.6)" }} />
                     </div>
                 </div>
                 <div className="lower">

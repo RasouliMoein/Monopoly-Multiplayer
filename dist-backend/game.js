@@ -18,7 +18,18 @@ class Player {
     username;
     icon;
     position;
-    balance;
+    _balance = 0;
+    get balance() {
+        return this._balance;
+    }
+    set balance(val) {
+        const prev = this._balance;
+        this._balance = val;
+        if (this.onBalanceChange && prev !== undefined) {
+            this.onBalanceChange(prev, val);
+        }
+    }
+    onBalanceChange;
     properties;
     isInJail;
     jailTurnsRemaining;
@@ -32,7 +43,7 @@ class Player {
         this.username = _name;
         this.icon = _icon;
         this.position = 0;
-        this.balance = cash ?? 1500;
+        this._balance = cash ?? 1500;
         this.properties = [];
         this.isInJail = false;
         this.jailTurnsRemaining = 0;
@@ -83,6 +94,56 @@ async function main(playersCount, f) {
     let gameStarted = false;
     let selectedMode = types_1.MonopolyModes[0];
     let hostId = "";
+    // ── Persistent game history & statistics storage ──
+    const server_histories = [];
+    const gameStats = {
+        diceRolls: {},
+        tileVisits: {},
+        playerStats: {}
+    };
+    function calculateNetWorth(player) {
+        let nw = player.balance;
+        for (const prop of player.properties) {
+            const propData = propertyByPosition.get(prop.posistion);
+            if (!propData)
+                continue;
+            if (prop.morgage === true || prop.morgage === "true") {
+                nw += Math.round((propData.price ?? 0) * 0.5);
+            }
+            else {
+                nw += (propData.price ?? 0);
+                const housesCount = typeof prop.count === "number" ? prop.count : (prop.count === "h" ? 5 : 0);
+                const houseCost = propData.housecost ?? 0;
+                nw += housesCount * houseCost;
+            }
+        }
+        return nw;
+    }
+    function initPlayerStats(player) {
+        if (!gameStats.playerStats[player.id]) {
+            gameStats.playerStats[player.id] = {
+                totalGained: 0,
+                totalLost: 0,
+                rentPaid: 0,
+                rentReceived: 0,
+                taxesPaid: 0,
+                netWorthHistory: [{ turn: 0, netWorth: calculateNetWorth(player) }],
+                doublesRolled: 0,
+                goodCardsDrawn: 0,
+                badCardsDrawn: 0,
+                jailCount: 0
+            };
+        }
+        player.onBalanceChange = (prev, val) => {
+            const diff = val - prev;
+            if (diff > 0) {
+                gameStats.playerStats[player.id].totalGained += diff;
+            }
+            else if (diff < 0) {
+                gameStats.playerStats[player.id].totalLost += Math.abs(diff);
+            }
+        };
+    }
     // Phase 2A — tracking maps
     const consecutiveDoublesMap = new Map(); // playerId → doubles streak
     const creditorMap = new Map(); // playerId → who they owe
@@ -132,6 +193,7 @@ async function main(playersCount, f) {
                 color: getPlayerColor(c.player.icon),
             })),
         };
+        server_histories.push(historyObj);
         EmitAll("history", historyObj);
     }
     function EmitAll(event, args) {
@@ -149,7 +211,8 @@ async function main(playersCount, f) {
             players: Array.from(Clients.values()).map((c) => c.player.to_json()),
             hostId: hostId,
             bankHouses,
-            bankHotels
+            bankHotels,
+            stats: gameStats
         });
     }
     /**
@@ -260,10 +323,16 @@ async function main(playersCount, f) {
             return { requiresPurchaseDecision: false, landingNote: "" }; // handled in roll_dice
         if (prop.id === "incometax") {
             player.balance -= 200;
+            const pStatsTax = gameStats.playerStats[player.id];
+            if (pStatsTax)
+                pStatsTax.taxesPaid += 200;
             return { requiresPurchaseDecision: false, landingNote: "incometax:200" };
         }
         if (prop.id === "luxerytax") {
             player.balance -= 100;
+            const pStatsLux = gameStats.playerStats[player.id];
+            if (pStatsLux)
+                pStatsLux.taxesPaid += 100;
             return { requiresPurchaseDecision: false, landingNote: "luxerytax:100" };
         }
         const { owner, amount } = computeRent(position, rolls, multiplier);
@@ -275,11 +344,20 @@ async function main(playersCount, f) {
                 if (player.balance >= 0) {
                     // Player can fully afford rent — normal transfer
                     owner.balance += amount;
+                    const pStatsRent = gameStats.playerStats[player.id];
+                    const oStatsRent = gameStats.playerStats[owner.id];
+                    if (pStatsRent)
+                        pStatsRent.rentPaid += amount;
+                    if (oStatsRent)
+                        oStatsRent.rentReceived += amount;
                     return { requiresPurchaseDecision: false, landingNote: `rent:${owner.id}:${amount}` };
                 }
                 else {
                     // Player cannot afford rent — store the owed amount to settle on finish-turn or handle in bankruptcy.
                     debtAmountMap.set(player.id, { creditorId: owner.id, amount });
+                    const pStatsRent = gameStats.playerStats[player.id];
+                    if (pStatsRent)
+                        pStatsRent.rentPaid += amount;
                     return { requiresPurchaseDecision: false, landingNote: `rent:${owner.id}:${amount}` };
                 }
             }
@@ -300,6 +378,9 @@ async function main(playersCount, f) {
                 return { requiresPurchaseDecision: false };
             case "removefunds":
                 player.balance -= card.amount ?? 0;
+                const pStatsRemove = gameStats.playerStats[player.id];
+                if (pStatsRemove)
+                    pStatsRemove.taxesPaid += (card.amount ?? 0);
                 return { requiresPurchaseDecision: false };
             case "addfundsfromplayers": {
                 // Fix 6: Exclude bankrupt players from card payments
@@ -322,6 +403,10 @@ async function main(playersCount, f) {
                     player.position = 10;
                     player.isInJail = true;
                     player.jailTurnsRemaining = 3;
+                    gameStats.tileVisits[10] = (gameStats.tileVisits[10] || 0) + 1;
+                    const pStats = gameStats.playerStats[player.id];
+                    if (pStats)
+                        pStats.jailCount += 1;
                     return { requiresPurchaseDecision: false, newPosition: 10 };
                 }
                 if (card.subaction === "getout") {
@@ -353,6 +438,7 @@ async function main(playersCount, f) {
                 if (passedGo)
                     player.balance += 200;
                 player.position = targetPos;
+                gameStats.tileVisits[targetPos] = (gameStats.tileVisits[targetPos] || 0) + 1;
                 const prop = propertyByPosition.get(targetPos);
                 if (prop && CARD_TILES.has(prop.id ?? "")) {
                     const deck = prop.id === "chance" ? monopoly_json_1.default.chance : monopoly_json_1.default.communitychest;
@@ -399,6 +485,7 @@ async function main(playersCount, f) {
                 if (nearest <= player.position)
                     player.balance += 200; // wrapped past Go
                 player.position = nearest;
+                gameStats.tileVisits[nearest] = (gameStats.tileVisits[nearest] || 0) + 1;
                 if (group === "Utilities") {
                     const d1 = Math.floor(Math.random() * 6) + 1;
                     const d2 = Math.floor(Math.random() * 6) + 1;
@@ -413,7 +500,11 @@ async function main(playersCount, f) {
                     .filter((p) => typeof p.count === "number" && p.count > 0)
                     .reduce((s, p) => s + p.count, 0);
                 const hotels = player.properties.filter((p) => p.count === "h").length;
-                player.balance -= (card.buildings ?? 0) * houses + (card.hotels ?? 0) * hotels;
+                const amt = (card.buildings ?? 0) * houses + (card.hotels ?? 0) * hotels;
+                player.balance -= amt;
+                const pStatsCharges = gameStats.playerStats[player.id];
+                if (pStatsCharges)
+                    pStatsCharges.taxesPaid += amt;
                 return { requiresPurchaseDecision: false };
             }
             default:
@@ -519,6 +610,7 @@ async function main(playersCount, f) {
                         }
                     }
                     const player = new Player(socket.id, name, availableIcon, selectedMode.startingCash);
+                    initPlayerStats(player);
                     if (currentId === "" || !Array.from(Clients.keys()).includes(currentId))
                         currentId = socket.id;
                     client = { player, socket, ready: false, positions: { x: 0, y: 0 }, connected: true };
@@ -552,6 +644,8 @@ async function main(playersCount, f) {
                     logs: logs_strings,
                     gameStarted: gameStarted,
                     hostId: hostId,
+                    history: server_histories,
+                    stats: gameStats
                 });
                 if (!isReconnecting)
                     EmitExcepts(socket.id, "new-player", player.to_json());
@@ -667,6 +761,12 @@ async function main(playersCount, f) {
                         const logStr = `{${getCurrentTime()}} [${socket.id}] Player "${player.username}" rolled a [${d1},${d2}].`;
                         logs_strings.push(logStr);
                         server.logFunction(logStr);
+                        // Track dice rolls statistics
+                        gameStats.diceRolls[sum] = (gameStats.diceRolls[sum] || 0) + 1;
+                        const pStats = gameStats.playerStats[player.id];
+                        if (pStats && d1 === d2) {
+                            pStats.doublesRolled += 1;
+                        }
                         // ── In Jail branch ──
                         let forcedJailPayment = 0; // Fix #6: tracks forced $50 on 3rd jail attempt
                         // Fix 1: capture jail state BEFORE it may be cleared, to block re-roll on escape
@@ -722,6 +822,11 @@ async function main(playersCount, f) {
                                     player.position = 10;
                                     player.isInJail = true;
                                     player.jailTurnsRemaining = 3;
+                                    // Stats!
+                                    gameStats.tileVisits[10] = (gameStats.tileVisits[10] || 0) + 1;
+                                    const pStatsConsecJail = gameStats.playerStats[player.id];
+                                    if (pStatsConsecJail)
+                                        pStatsConsecJail.jailCount += 1;
                                     emitServerHistory(`${player.username} rolled doubles 3 times in a row and goes to Jail!`);
                                     player.hasRolled = true;
                                     player.allowRollAgain = false;
@@ -763,9 +868,16 @@ async function main(playersCount, f) {
                             player.jailTurnsRemaining = 3;
                             goingToJail = true;
                             emitServerHistory(`${player.username} goes to jail`);
+                            // Stats!
+                            gameStats.tileVisits[30] = (gameStats.tileVisits[30] || 0) + 1;
+                            gameStats.tileVisits[10] = (gameStats.tileVisits[10] || 0) + 1;
+                            const pStatsJailRoll = gameStats.playerStats[player.id];
+                            if (pStatsJailRoll)
+                                pStatsJailRoll.jailCount += 1;
                         }
                         else {
                             player.position = rolledPosition;
+                            gameStats.tileVisits[rolledPosition] = (gameStats.tileVisits[rolledPosition] || 0) + 1;
                             const prop = propertyByPosition.get(rolledPosition);
                             if (prop && CARD_TILES.has(prop.id ?? "")) {
                                 const deck = prop.id === "chance" ? monopoly_json_1.default.chance : monopoly_json_1.default.communitychest;
@@ -780,6 +892,18 @@ async function main(playersCount, f) {
                                 }
                                 const balanceBeforeCard = player.balance;
                                 const result = resolveCard(player, card, sum);
+                                // Luck index card classification
+                                const balanceAfterCard = player.balance;
+                                const cardDiff = balanceAfterCard - balanceBeforeCard;
+                                const pStatsCard = gameStats.playerStats[player.id];
+                                if (pStatsCard) {
+                                    if (cardDiff > 0 || (card.action === "jail" && card.subaction === "getout")) {
+                                        pStatsCard.goodCardsDrawn += 1;
+                                    }
+                                    else if (cardDiff < 0 || (card.action === "jail" && card.subaction === "goto")) {
+                                        pStatsCard.badCardsDrawn += 1;
+                                    }
+                                }
                                 if (result.newPosition !== undefined) {
                                     finalPosition = result.newPosition;
                                     player.position = finalPosition;
@@ -1072,6 +1196,9 @@ async function main(playersCount, f) {
                                 // Rent was already deducted from debtor's balance in processLanding.
                                 // We only need to add it to the creditor's balance here.
                                 creditorClient.player.balance += debt.amount;
+                                const oStats = gameStats.playerStats[creditorClient.player.id];
+                                if (oStats)
+                                    oStats.rentReceived += debt.amount;
                                 emitServerHistory(`${player.username} settled $${debt.amount} rent debt to ${creditorClient.player.username}`);
                             }
                             debtAmountMap.delete(socket.id);
@@ -1092,6 +1219,18 @@ async function main(playersCount, f) {
                                 c.ready = false;
                             gameStarted = false;
                             currentId = winner.id;
+                        }
+                        // Record turn-end net worth snapshots for all players
+                        for (const c of Array.from(Clients.values())) {
+                            const p = c.player;
+                            const pStatsNet = gameStats.playerStats[p.id];
+                            if (pStatsNet) {
+                                const nextTurnNum = pStatsNet.netWorthHistory.length;
+                                pStatsNet.netWorthHistory.push({
+                                    turn: nextTurnNum,
+                                    netWorth: calculateNetWorth(p)
+                                });
+                            }
                         }
                         EmitAll("turn-finished", {
                             from: socket.id,
@@ -1492,7 +1631,10 @@ async function main(playersCount, f) {
                     EmitExcepts(socket.id, "mouse", { id: socket.id, x: args.x, y: args.y });
                 });
                 // ── History ───────────────────────────────────────────────
-                socket.on("history", (args) => { EmitAll("history", args); });
+                socket.on("history", (args) => {
+                    server_histories.push(args);
+                    EmitAll("history", args);
+                });
                 // Helper: validate deal rules before committing trade to prevent cheating
                 function validateAndExecuteTrade(x) {
                     if (!selectedMode.AllowDeals)
@@ -1670,6 +1812,14 @@ async function main(playersCount, f) {
                         c.player.isBankrupt = false;
                         c.player.hasRolled = false;
                         c.player.allowRollAgain = false;
+                    }
+                    // Reset stats & histories
+                    server_histories.length = 0;
+                    gameStats.diceRolls = {};
+                    gameStats.tileVisits = {};
+                    gameStats.playerStats = {};
+                    for (const c of Array.from(Clients.values())) {
+                        initPlayerStats(c.player);
                     }
                     // Reset room-specific maps and pools
                     consecutiveDoublesMap.clear();

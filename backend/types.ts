@@ -104,3 +104,23 @@ export type GameTrading = {
     };
 };
 
+export interface PlayerStats {
+    totalGained: number;
+    totalLost: number;
+    rentPaid: number;
+    rentReceived: number;
+    taxesPaid: number;
+    netWorthHistory: Array<{ turn: number; netWorth: number }>;
+    doublesRolled: number;
+    goodCardsDrawn: number;
+    badCardsDrawn: number;
+    jailCount: number;
+}
+
+export interface GameStats {
+    diceRolls: Record<number, number>;
+    tileVisits: Record<number, number>;
+    playerStats: Record<string, PlayerStats>;
+}
+
+
