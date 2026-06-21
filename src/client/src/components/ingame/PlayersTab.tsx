@@ -3,7 +3,7 @@ import { Icons } from "../icons.tsx";
 import { Socket } from "../../utils/sockets.ts";
 import { Player } from "../../utils/player.ts";
 import DiceIcon from "../../../public/roll.png";
-import { translateGroup } from "./streetCard.tsx";
+import { translateGroup } from "./StreetCard.tsx";
 import monopolyJSON from "../../../../shared/data/monopoly.json";
 import HouseIcon from "../../../public/h.png";
 import HotelIcon from "../../../public/ho.png";

@@ -1,4 +1,4 @@
-import StreetCard, { RailroadDisplayInfo, UtilitiesDisplayInfo, StreetDisplayInfo } from "./streetCard";
+import StreetCard, { RailroadDisplayInfo, UtilitiesDisplayInfo, StreetDisplayInfo } from "./StreetCard";
 import monopolyJSON from "../../../../shared/data/monopoly.json";
 
 export default function CardViewer(props: {

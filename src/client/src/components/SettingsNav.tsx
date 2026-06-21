@@ -1,8 +1,8 @@
-import Slider from "./utils/slider";
+import Slider from "./utils/Slider";
 import { useEffect, useState } from "react";
 import { CookieManager } from "../utils/cookieManager";
 import { MonopolyCookie, MonopolySettings, EngineSettings } from "../../../shared/types/game";
-export default function settingsNav() {
+export default function SettingsNav() {
     const cookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
     const l: {
         gameEngine: [EngineSettings, React.Dispatch<React.SetStateAction<EngineSettings>>];

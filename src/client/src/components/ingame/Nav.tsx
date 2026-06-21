@@ -8,9 +8,9 @@ import MonopolyIcon from "../../../public/icon.png";
 import { forwardRef, useState, useImperativeHandle, useEffect, useRef } from "react";
 import { Player } from "../../utils/player.ts";
 import { Server, Socket } from "../../utils/sockets.ts";
-import PropertyTab, { PropertyTabRef } from "./propertyTab.tsx";
-import PlayersTab, { PlayersTabRef } from "./playersTab.tsx";
-import SettingsNav from "../settingsNav.tsx";
+import PropertyTab, { PropertyTabRef } from "./PropertyTab.tsx";
+import PlayersTab, { PlayersTabRef } from "./PlayersTab.tsx";
+import SettingsNav from "../SettingsNav.tsx";
 import { MonopolyMode, historyAction, GameStats } from "../../../../shared/types/game";
 import { Icons } from "../icons.tsx";
 

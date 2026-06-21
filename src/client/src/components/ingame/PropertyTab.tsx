@@ -2,8 +2,8 @@ import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Icons } from "../icons.tsx";
 import HouseIcon from "/h.png";
 import HotelIcon from "/ho.png";
-import { translateGroup } from "./streetCard.tsx";
-import CardViewer from "./cardViewer.tsx";
+import { translateGroup } from "./StreetCard.tsx";
+import CardViewer from "./CardViewer.tsx";
 import monopolyJSON from "../../../../shared/data/monopoly.json";
 import { Socket } from "../../utils/sockets.ts";
 import { Player } from "../../utils/player.ts";
@@ -25,12 +25,26 @@ export interface PropertyTabRef {
     clickedOnBoard: (a: number) => void;
 }
 
-const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) => {
+const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) => {
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
             return [obj.posistion ?? 0, obj];
         }),
     );
+
+    const [currentCardPosition, SetCardPos] = useState<number>(-1);
+    const [searchString, SetSearch] = useState<string>("");
+    const [searchList, SetSearchList] = useState<Array<number>>([]);
+    const [currentLookCard, SetLookCard] = useState<number>(-1);
+
+    useImperativeHandle(ref, () => ({
+        clickedOnBoard(a) {
+            SetLookCard(-1);
+            SetSearch("");
+            SetSearchList([]);
+            SetCardPos(a);
+        },
+    }));
 
     const mortgageApi = {
         canMortgage: (location: number) => {
@@ -96,21 +110,6 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
     };
 
     const localPlayer = props.players.filter((v) => v.id === props.socket.id)[0];
-    if (localPlayer === undefined) return <>Could not read local player!</>;
-    useImperativeHandle(ref, () => ({
-        clickedOnBoard(a) {
-            SetLookCard(-1);
-            SetSearch("");
-            SetSearchList([]);
-            SetCardPos(a);
-        },
-    }));
-
-    const [currentCardPosition, SetCardPos] = useState<number>(-1);
-    const [searchString, SetSearch] = useState<string>("");
-
-    const [searchList, SetSearchList] = useState<Array<number>>([]);
-    const [currentLookCard, SetLookCard] = useState<number>(-1);
 
     const prp = localPlayer?.properties.find((v) => v.posistion === currentCardPosition);
     const propData = propretyMap.get(currentCardPosition);
@@ -237,6 +236,9 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
         SetSearchList(s);
     }
     useEffect(searchResults, [searchString]);
+
+    if (localPlayer === undefined) return <>Could not read local player!</>;
+
     return (
         <>
             <h3 style={{ textAlign: "center" }}>Propreties</h3>
@@ -462,4 +464,4 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
         </>
     );
 });
-export default propertyTab;
+export default PropertyTab;

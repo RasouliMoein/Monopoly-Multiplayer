@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import Monopoly from "./monopoly.tsx";
+import Monopoly from "./Monopoly.tsx";
 import "./home.css";
 import { Server, Socket, io } from "../../utils/sockets";
-import NotifyElement, { NotificatorRef } from "../../components/notificator.tsx";
+import NotifyElement, { NotificatorRef } from "../../components/Notificator.tsx";
 import { MonopolyCookie } from "../../../../shared/types/game";
-import SettingsNav from "../../components/settingsNav.tsx";
-import JoinScreen from "../../components/menu/joinScreen.tsx";
+import SettingsNav from "../../components/SettingsNav.tsx";
+import JoinScreen from "../../components/menu/JoinScreen.tsx";
 import { TranslateCode } from "../../../../shared/utils/code";
 import { CookieManager } from "../../utils/cookieManager";
 import { logger } from "../../utils/logger";

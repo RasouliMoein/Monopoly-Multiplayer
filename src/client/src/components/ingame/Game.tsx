@@ -10,11 +10,11 @@ import StreetCard, {
     UtilitiesDisplayInfo,
     RailroadDisplayInfo,
     translateGroup,
-} from "./streetCard.tsx";
+} from "./StreetCard.tsx";
 import monopolyJSON from "../../../../shared/data/monopoly.json";
-import ChacneCard, { ChanceDisplayInfo } from "./specialCards.tsx";
+import ChacneCard, { ChanceDisplayInfo } from "./SpecialCards.tsx";
 import { MonopolyCookie, MonopolySettings, GameTrading, MonopolyMode } from "../../../../shared/types/game";
-import Slider from "../utils/slider.tsx";
+import Slider from "../utils/Slider.tsx";
 import { CookieManager } from "../../utils/cookieManager";
 import { logger } from "../../utils/logger";
 interface MonopolyGameProps {

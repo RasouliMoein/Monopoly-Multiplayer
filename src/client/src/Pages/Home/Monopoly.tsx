@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { Server, Socket } from "../../utils/sockets";
 import { Player, PlayerJSON } from "../../utils/player";
 import "./monopoly.css";
-import MonopolyNav, { MonopolyNavRef } from "../../components/ingame/nav.tsx";
-import InsightsTab from "../../components/ingame/insightsTab.tsx";
-import MonopolyGame, { MonopolyGameRef } from "../../components/ingame/game.tsx";
-import NotifyElement, { NotificatorRef } from "../../components/notificator.tsx";
+import MonopolyNav, { MonopolyNavRef } from "../../components/ingame/Nav.tsx";
+import InsightsTab from "../../components/ingame/InsightsTab.tsx";
+import MonopolyGame, { MonopolyGameRef } from "../../components/ingame/Game.tsx";
+import NotifyElement, { NotificatorRef } from "../../components/Notificator.tsx";
 import monopolyJSON from "../../../../shared/data/monopoly.json";
 import { Icons } from "../../components/icons";
 import {
