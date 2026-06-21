@@ -12,23 +12,23 @@ import { MonopolyCookie, MonopolySettings, MonopolyMode, historyAction } from ".
 import { CookieManager } from "../../utils/cookieManager.ts";
 
 const PROPERTY_COLORS = new Map<string, string>(
-    monopolyJSON.properties.map(p => {
+    monopolyJSON.properties.map((p) => {
         const group = p.group || "Special";
         const colors: Record<string, string> = {
-            "purple": "#8e44ad",
-            "lightgreen": "#2ecc71",
-            "violet": "#e040fb",
-            "orange": "#e67e22",
-            "red": "#e74c3c",
-            "yellow": "#f1c40f",
-            "darkgreen": "#27ae60",
-            "darkblue": "#2980b9",
-            "utilities": "#7f8c8d",
-            "railroad": "#34495e",
+            purple: "#8e44ad",
+            lightgreen: "#2ecc71",
+            violet: "#e040fb",
+            orange: "#e67e22",
+            red: "#e74c3c",
+            yellow: "#f1c40f",
+            darkgreen: "#27ae60",
+            darkblue: "#2980b9",
+            utilities: "#7f8c8d",
+            railroad: "#34495e",
         };
         const c = colors[group.toLowerCase()] || "#7f8c8d";
         return [p.name, c];
-    })
+    }),
 );
 
 interface ParsedHistory {
@@ -46,7 +46,7 @@ interface ParsedHistory {
 
 function parseHistoryAction(action: string): ParsedHistory {
     const text = action.trim();
-    
+
     // 1. Roll: "chrome rolled [6, 5] moving to "St. Charles Place""
     if (text.includes("rolled [") && text.includes("] moving to")) {
         const rollMatch = text.match(/(.*?) rolled \[(.*?)] moving to "(.*?)"/);
@@ -61,7 +61,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // Escaped jail with doubles: "chrome rolled doubles [d1, d2] and escaped Jail!"
     if (text.includes("rolled doubles [") && text.includes("escaped Jail")) {
         const escMatch = text.match(/(.*?) rolled doubles \[(.*?)] and escaped Jail!/);
@@ -75,7 +75,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // Failed doubles in jail: "chrome failed doubles roll and stayed in Jail"
     if (text.includes("failed doubles roll and stayed in Jail")) {
         const stayMatch = text.match(/(.*?) failed doubles roll and stayed in Jail/);
@@ -89,7 +89,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 2. Buy: "edge bought St. Charles Place"
     if (text.includes(" bought ")) {
         const buyMatch = text.match(/(.*?) bought (.*)/);
@@ -104,7 +104,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 3. Upgrade: "edge upgraded St. Charles Place"
     if (text.includes(" upgraded ")) {
         const upgradeMatch = text.match(/(.*?) upgraded (.*)/);
@@ -119,7 +119,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 4. Rent: "edge paid $26 rent to chrome"
     if (text.includes(" paid $") && text.includes(" rent to ")) {
         const rentMatch = text.match(/(.*?) paid \$(.*?) rent to (.*)/);
@@ -136,7 +136,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 5. Tax: "chrome paid $200 Income Tax" or "chrome paid $100 Luxury Tax"
     if (text.includes(" paid $") && text.toLowerCase().includes("tax")) {
         const taxMatch = text.match(/(.*?) paid \$(.*?) (Income Tax|Luxury Tax)/i);
@@ -152,7 +152,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 6. Jail: "chrome goes to jail"
     if (text.includes(" goes to jail")) {
         const jailMatch = text.match(/(.*?) goes to jail/);
@@ -166,7 +166,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 7. Unjail pay: "chrome paid $50 to leave jail"
     if (text.includes(" paid $50 to leave jail")) {
         const unjailMatch = text.match(/(.*?) paid \$50 to leave jail/);
@@ -180,7 +180,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // Unjail card: "chrome used a Get Out of Jail Free card to leave jail"
     if (text.includes("used a Get Out of Jail Free card to leave jail")) {
         const cardUnjailMatch = text.match(/(.*?) used a Get Out of Jail Free card to leave jail/);
@@ -194,7 +194,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 8. Mortgage: unmortgage / mortgage
     if (text.includes("mortgage")) {
         if (text.includes("cancel the mortgage on")) {
@@ -224,7 +224,7 @@ function parseHistoryAction(action: string): ParsedHistory {
                 };
             }
         }
-        
+
         // Also check nicer direct strings
         const mortgagedMatch = text.match(/(.*?) mortgaged (.*?) for \$(.*)/);
         if (mortgagedMatch) {
@@ -238,7 +238,7 @@ function parseHistoryAction(action: string): ParsedHistory {
                 bgClass: "hist-mortgage",
             };
         }
-        
+
         const unmortgagedMatch = text.match(/(.*?) unmortgaged (.*?) for \$(.*)/);
         if (unmortgagedMatch) {
             return {
@@ -252,7 +252,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 9. Card drew: Chance or Community Chest
     if (text.includes(" drew Chance:") || text.includes(" drew Community Chest:")) {
         const cardMatch = text.match(/(.*?) drew (Chance|Community Chest): "(.*?)"/);
@@ -268,7 +268,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 10. Pass Go: "chrome passed Go and collected $200"
     if (text.includes("passed Go and collected")) {
         const goMatch = text.match(/(.*?) passed Go and collected \$(.*)/);
@@ -283,7 +283,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 11. Trade: "chrome done a trade with edge"
     if (text.includes(" done a trade with ")) {
         const tradeMatch = text.match(/(.*?) done a trade with (.*)/);
@@ -298,7 +298,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 12. Bankruptcy: "chrome declared bankruptcy to edge" or "chrome declared bankruptcy to the Bank"
     if (text.includes(" declared bankruptcy to ")) {
         const bankruptMatch = text.match(/(.*?) declared bankruptcy to (.*)/);
@@ -313,7 +313,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 13. Mortgage Fee: "edge paid $10 interest to Bank for mortgaged St. Charles Place"
     if (text.includes(" paid $") && text.includes(" interest to Bank for mortgaged ")) {
         const feeMatch = text.match(/(.*?) paid \$(.*?) interest to Bank for mortgaged (.*)/);
@@ -330,7 +330,7 @@ function parseHistoryAction(action: string): ParsedHistory {
             };
         }
     }
-    
+
     // 14. Property Transfer: "edge received St. Charles Place from chrome"
     if (text.includes(" received ") && text.includes(" from ")) {
         const transferMatch = text.match(/(.*?) received (.*?) from (.*)/);
@@ -362,7 +362,7 @@ function renderHistoryIcon(type: string) {
     const iconProps = {
         width: 13,
         height: 13,
-        style: { verticalAlign: "middle", marginRight: "4px" }
+        style: { verticalAlign: "middle", marginRight: "4px" },
     };
     switch (type) {
         case "roll":
@@ -425,7 +425,7 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
             return [obj.posistion ?? 0, obj];
-        })
+        }),
     );
 
     const [current, SetCurrentPlayer] = useState<Player | undefined>();
@@ -448,7 +448,7 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
             gameEngine: "2d",
             accessibility: [45, 5, false, false, true],
             audio: [100, 100, 5],
-            notifications: true
+            notifications: true,
         };
     });
 
@@ -486,7 +486,7 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
     }));
 
     function sum(number: number[]) {
-        var x = 0;
+        let x = 0;
         for (const n of number) {
             x += n;
         }
@@ -523,14 +523,14 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-            <div 
-                className="container-top-custom" 
-                style={{ 
-                    flex: current === undefined ? "1 1 55%" : "1 1 100%", 
-                    overflowY: "auto", 
+            <div
+                className="container-top-custom"
+                style={{
+                    flex: current === undefined ? "1 1 55%" : "1 1 100%",
+                    overflowY: "auto",
                     paddingBottom: "10px",
                     display: "flex",
-                    flexDirection: "column"
+                    flexDirection: "column",
                 }}
             >
                 <h3
@@ -543,11 +543,15 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                 >
                     {current !== undefined ? "← Back to Players" : "Players"}
                 </h3>
-                
+
                 {current === undefined && (
                     <div className="bank-pool-status">
-                        <span className="pool-item houses">🏠 Houses: <strong>{props.bankHouses ?? 32}</strong>/32</span>
-                        <span className="pool-item hotels">🏨 Hotels: <strong>{props.bankHotels ?? 12}</strong>/12</span>
+                        <span className="pool-item houses">
+                            🏠 Houses: <strong>{props.bankHouses ?? 32}</strong>/32
+                        </span>
+                        <span className="pool-item hotels">
+                            🏨 Hotels: <strong>{props.bankHotels ?? 12}</strong>/12
+                        </span>
                     </div>
                 )}
 
@@ -571,7 +575,13 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                 </tr>
                                 <tr>
                                     <td>houses counts</td>
-                                    <td>{sum(current.properties.filter((v) => typeof v.count === "number").map((v) => v.count as number))}</td>
+                                    <td>
+                                        {sum(
+                                            current.properties
+                                                .filter((v) => typeof v.count === "number")
+                                                .map((v) => v.count as number),
+                                        )}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td>hotel counts</td>
@@ -606,7 +616,13 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                                 backgroundColor: translateGroup(v.group),
                                             }}
                                         ></i>
-                                        <h3 style={v.morgage !== undefined && v.morgage === true ? { textDecoration: "line-through white" } : {}}>
+                                        <h3
+                                            style={
+                                                v.morgage !== undefined && v.morgage === true
+                                                    ? { textDecoration: "line-through white" }
+                                                    : {}
+                                            }
+                                        >
                                             {propretyMap.get(v.posistion)?.name ?? ""}
                                         </h3>
                                         <div>
@@ -640,9 +656,12 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                         gap: "12px",
                                     }}
                                     onClick={() => {
-                                        const element = document.querySelector(`div.player[player-id="${v.id}"]`) as HTMLDivElement;
+                                        const element = document.querySelector(
+                                            `div.player[player-id="${v.id}"]`,
+                                        ) as HTMLDivElement;
                                         if (element) {
-                                            element.style.animation = "spin2 1s cubic-bezier(.21, 1.57, .55, 1) infinite";
+                                            element.style.animation =
+                                                "spin2 1s cubic-bezier(.21, 1.57, .55, 1) infinite";
                                             setTimeout(() => {
                                                 element.style.animation = "";
                                             }, 1 * 1000);
@@ -652,22 +671,45 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                         SetCurrentPlayer(v);
                                     }}
                                 >
-                                    <div 
-                                        className={`sidebar-player-avatar-badge ${isTurn ? "is-turn" : ""}`} 
-                                        style={{ 
+                                    <div
+                                        className={`sidebar-player-avatar-badge ${isTurn ? "is-turn" : ""}`}
+                                        style={{
                                             backgroundColor: v.color || "#64748b",
                                             borderColor: isTurn ? "#ffffff" : "transparent",
-                                            color: v.color || "#64748b"
+                                            color: v.color || "#64748b",
                                         }}
                                     >
                                         <img src={`./p${v.icon + 1}.png`} alt="" />
                                     </div>
 
-                                    <p key={60} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, flexGrow: 1 }}>
+                                    <p
+                                        key={60}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                            margin: 0,
+                                            flexGrow: 1,
+                                        }}
+                                    >
                                         <span>
-                                            {settings?.accessibility[2] ? `[${v.id}]` : ""} {v.username} {v.id === props.hostId && <Icons.Crown width={12} height={12} style={{verticalAlign:'middle', marginLeft:3, color:'#fbbf24'}} />}
+                                            {settings?.accessibility[2] ? `[${v.id}]` : ""} {v.username}{" "}
+                                            {v.id === props.hostId && (
+                                                <Icons.Crown
+                                                    width={12}
+                                                    height={12}
+                                                    style={{ verticalAlign: "middle", marginLeft: 3, color: "#fbbf24" }}
+                                                />
+                                            )}
                                             {v.isBankrupt && (
-                                                <span style={{ color: '#ff4444', fontSize: '0.8em', fontWeight: 700, marginLeft: 4 }}>
+                                                <span
+                                                    style={{
+                                                        color: "#ff4444",
+                                                        fontSize: "0.8em",
+                                                        fontWeight: 700,
+                                                        marginLeft: 4,
+                                                    }}
+                                                >
                                                     (Bankrupt)
                                                 </span>
                                             )}
@@ -676,23 +718,25 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (window.confirm(`Are you sure you want to kick ${v.username}?`)) {
+                                                    if (
+                                                        window.confirm(`Are you sure you want to kick ${v.username}?`)
+                                                    ) {
                                                         props.socket.emit("kick-player", v.id);
                                                     }
                                                 }}
                                                 style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    color: '#ff4444',
-                                                    cursor: 'pointer',
-                                                    fontSize: '18px',
-                                                    padding: '0 5px',
+                                                    background: "none",
+                                                    border: "none",
+                                                    color: "#ff4444",
+                                                    cursor: "pointer",
+                                                    fontSize: "18px",
+                                                    padding: "0 5px",
                                                     lineHeight: 1,
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    verticalAlign: 'middle',
-                                                    marginLeft: '5px'
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    verticalAlign: "middle",
+                                                    marginLeft: "5px",
                                                 }}
                                                 title="Kick Player"
                                             >
@@ -700,7 +744,11 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                             </button>
                                         )}
                                     </p>
-                                    {isTurn ? <img src={DiceIcon.replace("public/", "")} className="turn-dice-icon" /> : <></>}
+                                    {isTurn ? (
+                                        <img src={DiceIcon.replace("public/", "")} className="turn-dice-icon" />
+                                    ) : (
+                                        <></>
+                                    )}
                                     {v.getoutCards > 0 ? (
                                         <p key={61} className="orange">
                                             {v.getoutCards}
@@ -719,14 +767,14 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
 
             {/* Timeline History Event Log at the bottom */}
             {current === undefined && (
-                <div 
-                    className="timeline-logs-container" 
-                    style={{ 
-                        flex: "1 1 45%", 
-                        borderTop: "1px solid var(--border-color)", 
-                        display: "flex", 
-                        flexDirection: "column", 
-                        overflow: "hidden" 
+                <div
+                    className="timeline-logs-container"
+                    style={{
+                        flex: "1 1 45%",
+                        borderTop: "1px solid var(--border-color)",
+                        display: "flex",
+                        flexDirection: "column",
+                        overflow: "hidden",
                     }}
                 >
                     <div className="timeline-logs-header">
@@ -735,7 +783,7 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                             Elapsed: {calculateTimeDifference(props.time, currentTime)}
                         </span>
                     </div>
-                    
+
                     <div className="timeline-logs-scroller">
                         {(() => {
                             const sortedHistory = [...props.history].sort((a, b) => {
@@ -743,33 +791,76 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                             });
                             return sortedHistory.map((v, i) => {
                                 const getPlayerColor = (username: string) => {
-                                    const p = props.players.find(pl => pl.username === username);
+                                    const p = props.players.find((pl) => pl.username === username);
                                     return p ? p.color : "#38bdf8";
                                 };
                                 const parsed = parseHistoryAction(v.action);
-                                
+
                                 const playerColor = getPlayerColor(parsed.player);
                                 const targetColor = parsed.target ? PROPERTY_COLORS.get(parsed.target) : undefined;
-                                const targetPlayerColor = parsed.targetPlayer ? getPlayerColor(parsed.targetPlayer) : undefined;
-                                
+                                const targetPlayerColor = parsed.targetPlayer
+                                    ? getPlayerColor(parsed.targetPlayer)
+                                    : undefined;
+
                                 const key = `${v.time}-${i}`;
                                 const isExpanded = !!expandedIndex[key];
-                                const balanceChangingTypes = ["buy", "upgrade", "rent", "tax", "unmortgage", "mortgage", "go", "trade", "chance", "chest", "bankruptcy", "bankruptcy-fee", "transfer"];
+                                const balanceChangingTypes = [
+                                    "buy",
+                                    "upgrade",
+                                    "rent",
+                                    "tax",
+                                    "unmortgage",
+                                    "mortgage",
+                                    "go",
+                                    "trade",
+                                    "chance",
+                                    "chest",
+                                    "bankruptcy",
+                                    "bankruptcy-fee",
+                                    "transfer",
+                                ];
                                 const isUnjailPay = parsed.type === "unjail" && v.action.includes("paid $50");
-                                const showBalancesDropdown = v.balances && v.balances.length > 0 && (balanceChangingTypes.includes(parsed.type) || isUnjailPay);
+                                const showBalancesDropdown =
+                                    v.balances &&
+                                    v.balances.length > 0 &&
+                                    (balanceChangingTypes.includes(parsed.type) || isUnjailPay);
                                 return (
                                     <div className={`timeline-event ${parsed.bgClass}`} key={key}>
-                                        <div className="timeline-event-dot" style={{ backgroundColor: playerColor || "var(--text-muted)" }}></div>
-                                        
-                                        <div className="history-action-header" style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)", marginBottom: "3px" }}>
-                                            <div className="history-action-type" style={{ display: "flex", alignItems: "center" }}>
+                                        <div
+                                            className="timeline-event-dot"
+                                            style={{ backgroundColor: playerColor || "var(--text-muted)" }}
+                                        ></div>
+
+                                        <div
+                                            className="history-action-header"
+                                            style={{
+                                                display: "flex",
+                                                justifyContent: "space-between",
+                                                fontSize: "11px",
+                                                color: "var(--text-muted)",
+                                                marginBottom: "3px",
+                                            }}
+                                        >
+                                            <div
+                                                className="history-action-type"
+                                                style={{ display: "flex", alignItems: "center" }}
+                                            >
                                                 {renderHistoryIcon(parsed.type)}
-                                                <span style={{ fontSize: "10px", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px" }}>{parsed.type}</span>
+                                                <span
+                                                    style={{
+                                                        fontSize: "10px",
+                                                        textTransform: "uppercase",
+                                                        fontWeight: 700,
+                                                        letterSpacing: "0.5px",
+                                                    }}
+                                                >
+                                                    {parsed.type}
+                                                </span>
                                             </div>
                                             <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
                                                 <div>{getTimeString(v.time)}</div>
                                                 {showBalancesDropdown && (
-                                                    <button 
+                                                    <button
                                                         className={`history-balances-toggle ${isExpanded ? "expanded" : ""}`}
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -781,7 +872,7 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                                             color: "var(--text-muted)",
                                                             cursor: "pointer",
                                                             fontSize: "9px",
-                                                            padding: 0
+                                                            padding: 0,
                                                         }}
                                                         title="Show balances"
                                                     >
@@ -790,64 +881,152 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                                 )}
                                             </div>
                                         </div>
-                                        
-                                        <div className="history-action-body" style={{ fontSize: "12px", color: "var(--text-main)", lineHeight: 1.4 }}>
+
+                                        <div
+                                            className="history-action-body"
+                                            style={{ fontSize: "12px", color: "var(--text-main)", lineHeight: 1.4 }}
+                                        >
                                             {parsed.player && (
-                                                <span className="history-player" style={{ color: playerColor || "#fff", fontWeight: 600, marginRight: "4px" }}>
+                                                <span
+                                                    className="history-player"
+                                                    style={{
+                                                        color: playerColor || "#fff",
+                                                        fontWeight: 600,
+                                                        marginRight: "4px",
+                                                    }}
+                                                >
                                                     {parsed.player}
                                                 </span>
                                             )}
                                             <span>{parsed.details}</span>
                                             {parsed.amount && (
-                                                <span className="history-amount" style={{ fontWeight: 600, color: "var(--color-primary)", marginInline: "3px" }}>
+                                                <span
+                                                    className="history-amount"
+                                                    style={{
+                                                        fontWeight: 600,
+                                                        color: "var(--color-primary)",
+                                                        marginInline: "3px",
+                                                    }}
+                                                >
                                                     {parsed.amount}
                                                 </span>
                                             )}
                                             {parsed.details2 && <span>{parsed.details2}</span>}
                                             {parsed.targetPlayer && (
-                                                <span className="history-player" style={{ color: targetPlayerColor || "#fff", fontWeight: 600, marginInline: "3px" }}>
+                                                <span
+                                                    className="history-player"
+                                                    style={{
+                                                        color: targetPlayerColor || "#fff",
+                                                        fontWeight: 600,
+                                                        marginInline: "3px",
+                                                    }}
+                                                >
                                                     {parsed.targetPlayer}
                                                 </span>
                                             )}
                                             {parsed.target && (
-                                                <span 
-                                                    className="history-target" 
-                                                    style={{ 
+                                                <span
+                                                    className="history-target"
+                                                    style={{
                                                         color: targetColor || "#fff",
                                                         borderBottom: `1px solid ${targetColor || "rgba(255,255,255,0.2)"}`,
                                                         paddingBottom: "1px",
                                                         marginInline: "3px",
-                                                        fontWeight: 500
+                                                        fontWeight: 500,
                                                     }}
                                                 >
                                                     {parsed.target}
                                                 </span>
                                             )}
                                             {parsed.cardText && (
-                                                <span className="history-card-text" style={{ fontStyle: "italic", opacity: 0.85, display: "block", marginTop: "2px", paddingLeft: "6px", borderLeft: "2px solid rgba(255,255,255,0.15)" }}>
+                                                <span
+                                                    className="history-card-text"
+                                                    style={{
+                                                        fontStyle: "italic",
+                                                        opacity: 0.85,
+                                                        display: "block",
+                                                        marginTop: "2px",
+                                                        paddingLeft: "6px",
+                                                        borderLeft: "2px solid rgba(255,255,255,0.15)",
+                                                    }}
+                                                >
                                                     {parsed.cardText}
                                                 </span>
                                             )}
                                         </div>
 
                                         {isExpanded && v.balances && (
-                                            <div className="history-action-balances" style={{ marginTop: "6px", padding: "6px", background: "rgba(0,0,0,0.15)", borderRadius: "6px", fontSize: "11px" }}>
+                                            <div
+                                                className="history-action-balances"
+                                                style={{
+                                                    marginTop: "6px",
+                                                    padding: "6px",
+                                                    background: "rgba(0,0,0,0.15)",
+                                                    borderRadius: "6px",
+                                                    fontSize: "11px",
+                                                }}
+                                            >
                                                 {v.balances.map((pl, idx) => {
                                                     const origIdx = props.history.indexOf(v);
-                                                    const prevEvent = origIdx > 0 ? props.history[origIdx - 1] : undefined;
-                                                    const prevPl = prevEvent?.balances?.find(p => p.username === pl.username);
-                                                    const prevBalance = prevPl ? prevPl.balance : (props.selectedMode?.startingCash ?? 1500);
+                                                    const prevEvent =
+                                                        origIdx > 0 ? props.history[origIdx - 1] : undefined;
+                                                    const prevPl = prevEvent?.balances?.find(
+                                                        (p) => p.username === pl.username,
+                                                    );
+                                                    const prevBalance = prevPl
+                                                        ? prevPl.balance
+                                                        : (props.selectedMode?.startingCash ?? 1500);
                                                     const diff = pl.balance - prevBalance;
                                                     return (
-                                                        <div key={idx} className="history-balance-row" style={{ display: "flex", justifyContent: "space-between", paddingBlock: "2px", borderLeft: `2px solid ${pl.color || "#64748b"}`, paddingLeft: "6px", marginBottom: "2px" }}>
-                                                            <span className="balance-username" style={{ color: "var(--text-muted)" }}>{pl.username}</span>
+                                                        <div
+                                                            key={idx}
+                                                            className="history-balance-row"
+                                                            style={{
+                                                                display: "flex",
+                                                                justifyContent: "space-between",
+                                                                paddingBlock: "2px",
+                                                                borderLeft: `2px solid ${pl.color || "#64748b"}`,
+                                                                paddingLeft: "6px",
+                                                                marginBottom: "2px",
+                                                            }}
+                                                        >
+                                                            <span
+                                                                className="balance-username"
+                                                                style={{ color: "var(--text-muted)" }}
+                                                            >
+                                                                {pl.username}
+                                                            </span>
                                                             <span className="balance-value">
                                                                 {diff !== 0 ? (
                                                                     <>
-                                                                        <span className="balance-prev" style={{ opacity: 0.6 }}>{prevBalance}M</span>
-                                                                        <span className="balance-arrow" style={{ marginInline: "4px" }}>➔</span>
-                                                                        <span className="balance-curr" style={{ fontWeight: 600 }}>{pl.balance}M</span>
-                                                                        <span className={`balance-diff ${diff > 0 ? "positive" : "negative"}`} style={{ marginLeft: "4px", color: diff > 0 ? "var(--color-green)" : "var(--color-red)" }}>
+                                                                        <span
+                                                                            className="balance-prev"
+                                                                            style={{ opacity: 0.6 }}
+                                                                        >
+                                                                            {prevBalance}M
+                                                                        </span>
+                                                                        <span
+                                                                            className="balance-arrow"
+                                                                            style={{ marginInline: "4px" }}
+                                                                        >
+                                                                            ➔
+                                                                        </span>
+                                                                        <span
+                                                                            className="balance-curr"
+                                                                            style={{ fontWeight: 600 }}
+                                                                        >
+                                                                            {pl.balance}M
+                                                                        </span>
+                                                                        <span
+                                                                            className={`balance-diff ${diff > 0 ? "positive" : "negative"}`}
+                                                                            style={{
+                                                                                marginLeft: "4px",
+                                                                                color:
+                                                                                    diff > 0
+                                                                                        ? "var(--color-green)"
+                                                                                        : "var(--color-red)",
+                                                                            }}
+                                                                        >
                                                                             {diff > 0 ? `(+${diff}M)` : `(${diff}M)`}
                                                                         </span>
                                                                     </>

@@ -2,9 +2,7 @@ import CryptoJS from "crypto-js";
 import { Config } from "../config/index";
 
 export function TranslateCode(ip: string) {
-    const hashed = CryptoJS.SHA256(Config.CODE_PREFIX + ip).toString(
-        CryptoJS.enc.Hex
-    );
+    const hashed = CryptoJS.SHA256(Config.CODE_PREFIX + ip).toString(CryptoJS.enc.Hex);
     return hashed;
 }
 

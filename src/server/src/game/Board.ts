@@ -1,13 +1,9 @@
 import monopolyJSON from "../../../shared/data/monopoly.json";
 import { Player } from "./Player";
 
-export const propertyByPosition = new Map<number, any>(
-    monopolyJSON.properties.map((p) => [p.posistion ?? 0, p])
-);
+export const propertyByPosition = new Map<number, any>(monopolyJSON.properties.map((p) => [p.posistion ?? 0, p]));
 
-export const propertyById = new Map<string, any>(
-    monopolyJSON.properties.map((p) => [p.id ?? "", p])
-);
+export const propertyById = new Map<string, any>(monopolyJSON.properties.map((p) => [p.id ?? "", p]));
 
 export const CARD_TILES = new Set(["communitychest", "chance"]);
 export const INERT_TILES = new Set(["go", "jail", "freeparking"]);
@@ -20,7 +16,7 @@ export function computeRent(
     position: number,
     rolls: number,
     players: Player[],
-    multiplier = 1
+    multiplier = 1,
 ): { owner: Player | null; amount: number } {
     const prop = propertyByPosition.get(position);
     if (!prop) return { owner: null, amount: 0 };
@@ -33,7 +29,7 @@ export function computeRent(
             let amt = 0;
             if (prop.group === "Utilities") {
                 const cnt = player.properties.filter((p: any) => p.group === "Utilities").length;
-                const baseRate = multiplier === 10 ? 1 : (cnt === 2 ? 10 : 4);
+                const baseRate = multiplier === 10 ? 1 : cnt === 2 ? 10 : 4;
                 amt = rolls * baseRate * multiplier;
             } else if (prop.group === "Railroad") {
                 const cnt = player.properties.filter((p: any) => p.group === "Railroad").length;

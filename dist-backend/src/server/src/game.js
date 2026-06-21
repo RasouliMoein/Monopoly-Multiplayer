@@ -7,7 +7,7 @@ const handlers_1 = require("./ws/handlers");
 async function main(playersCount, f) {
     const maxPlayers = playersCount > 0 ? Math.min(playersCount, 6) : 6;
     const gameState = new GameState_1.GameState();
-    const gameServer = new sockets_1.Server((server) => {
+    new sockets_1.Server((server) => {
         server.clientsCount = () => gameState.clients.size;
         server.maxPlayers = maxPlayers;
         server.gameStarted = () => gameState.gameStarted;
@@ -16,7 +16,9 @@ async function main(playersCount, f) {
             return hostClient ? hostClient.player.username : "Unknown";
         };
         server.hostId = () => gameState.hostId;
-        server.setHostId = (id) => { gameState.hostId = id; };
+        server.setHostId = (id) => {
+            gameState.hostId = id;
+        };
         f?.(server.code, server);
     }, (socket, server) => {
         (0, handlers_1.registerSocketHandlers)(socket, server, gameState, maxPlayers);

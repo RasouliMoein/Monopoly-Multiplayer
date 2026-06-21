@@ -48,11 +48,13 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
     const [tabIndex, SetTab] = useState<number>(0);
     const [messages, SetMessages] = useState<Array<{ from: string; message: string }>>([]);
     const [displayPlayers, SetDisplays] = useState<Array<Player>>(prop.players);
-    
+
     // Premium Chat alert and micro-animation state variables
     const [unreadCount, setUnreadCount] = useState<number>(0);
     const [shouldShake, setShouldShake] = useState<boolean>(false);
-    const [chatToast, setChatToast] = useState<{ from: string; message: string; color: string; icon: number } | null>(null);
+    const [chatToast, setChatToast] = useState<{ from: string; message: string; color: string; icon: number } | null>(
+        null,
+    );
 
     function reRenderPlayerList() {
         SetDisplays(prop.players);
@@ -73,13 +75,15 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                 setShouldShake(true);
                 setTimeout(() => setShouldShake(false), 500);
 
-                const sender = prop.players.find(p => p.username === arg.from);
+                const sender = prop.players.find((p) => p.username === arg.from);
                 const senderColor = sender ? sender.color : "#64748b";
                 const senderIcon = sender ? sender.icon : 0;
                 setChatToast({ from: arg.from, message: arg.message, color: senderColor, icon: senderIcon });
 
                 setTimeout(() => {
-                    setChatToast(prev => prev && prev.message === arg.message && prev.from === arg.from ? null : prev);
+                    setChatToast((prev) =>
+                        prev && prev.message === arg.message && prev.from === arg.from ? null : prev,
+                    );
                 }, 4000);
             }
         },
@@ -165,9 +169,7 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         style={{ position: "relative" }}
                     >
                         <img src={ChatIcon.replace("public/", "")} alt="" />
-                        {unreadCount > 0 && (
-                            <span className="chat-badge">{unreadCount}</span>
-                        )}
+                        {unreadCount > 0 && <span className="chat-badge">{unreadCount}</span>}
                     </div>
 
                     <div
@@ -178,7 +180,11 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                         className="button"
                         style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
                     >
-                        <Icons.Insights width={20} height={20} style={{ color: prop.showInsights ? "#fff" : "rgba(255,255,255,0.6)" }} />
+                        <Icons.Insights
+                            width={20}
+                            height={20}
+                            style={{ color: prop.showInsights ? "#fff" : "rgba(255,255,255,0.6)" }}
+                        />
                     </div>
                 </div>
                 <div className="lower">

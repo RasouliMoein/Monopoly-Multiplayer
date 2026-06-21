@@ -1,50 +1,31 @@
 import Slider from "./utils/slider";
 import { useEffect, useState } from "react";
 import { CookieManager } from "../utils/cookieManager";
-import {
-    MonopolyCookie,
-    MonopolySettings,
-    EngineSettings
-} from "../../../shared/types/game";
+import { MonopolyCookie, MonopolySettings, EngineSettings } from "../../../shared/types/game";
 export default function settingsNav() {
     const cookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
     const l: {
-        gameEngine: [
-            EngineSettings,
-            React.Dispatch<React.SetStateAction<EngineSettings>>
-        ];
+        gameEngine: [EngineSettings, React.Dispatch<React.SetStateAction<EngineSettings>>];
         numbers: [number, React.Dispatch<React.SetStateAction<number>>][];
         booleans: [boolean, React.Dispatch<React.SetStateAction<boolean>>][];
     } = {
         gameEngine: useState<EngineSettings>("2d"),
         numbers: [
-            useState<number>(
-                cookie.settings ? cookie.settings.accessibility[0] : 45
-            ),
-            useState<number>(
-                cookie.settings ? cookie.settings.accessibility[1] : 5
-            ),
+            useState<number>(cookie.settings ? cookie.settings.accessibility[0] : 45),
+            useState<number>(cookie.settings ? cookie.settings.accessibility[1] : 5),
             useState<number>(cookie.settings ? cookie.settings.audio[0] : 100),
             useState<number>(cookie.settings ? cookie.settings.audio[1] : 100),
             useState<number>(cookie.settings ? cookie.settings.audio[2] : 5),
         ],
         booleans: [
-            useState<boolean>(
-                cookie.settings ? cookie.settings.accessibility[2] : false
-            ),
-            useState<boolean>(
-                cookie.settings ? cookie.settings.accessibility[3] : false
-            ),
+            useState<boolean>(cookie.settings ? cookie.settings.accessibility[2] : false),
+            useState<boolean>(cookie.settings ? cookie.settings.accessibility[3] : false),
             useState<boolean>(true),
             useState<boolean>(
-                (cookie.settings && cookie.settings.notifications !== undefined)
-                    ? cookie.settings.notifications
-                    : true
+                cookie.settings && cookie.settings.notifications !== undefined ? cookie.settings.notifications : true,
             ),
             useState<boolean>(
-                cookie.settings && cookie.settings.debugEnabled !== undefined
-                    ? cookie.settings.debugEnabled
-                    : false
+                cookie.settings && cookie.settings.debugEnabled !== undefined ? cookie.settings.debugEnabled : false,
             ),
         ],
     };
@@ -60,42 +41,41 @@ export default function settingsNav() {
     }, []);
 
     useEffect(() => {
-        const cookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
+        const cookie = JSON.parse(
+            decodeURIComponent(CookieManager.get("monopolySettings") as string),
+        ) as MonopolyCookie;
         const settings = {
             gameEngine: l.gameEngine[0],
-            accessibility: [
-                l.numbers[0][0],
-                l.numbers[1][0],
-                l.booleans[0][0],
-                l.booleans[1][0],
-                l.booleans[2][0],
-            ],
+            accessibility: [l.numbers[0][0], l.numbers[1][0], l.booleans[0][0], l.booleans[1][0], l.booleans[2][0]],
             audio: [l.numbers[2][0], l.numbers[3][0], l.numbers[4][0]],
             notifications: l.booleans[3][0],
             debugEnabled: l.booleans[4][0],
         } as MonopolySettings;
 
-        CookieManager.set("monopolySettings",encodeURIComponent( JSON.stringify({
-            login: cookie.login,
-            settings: settings,
-        } as MonopolyCookie)))
-    }, [
-        l.gameEngine[0],
-        ...l.numbers.map((v) => v[0]),
-        ...l.booleans.map((v) => v[0]),
-    ]);
+        CookieManager.set(
+            "monopolySettings",
+            encodeURIComponent(
+                JSON.stringify({
+                    login: cookie.login,
+                    settings: settings,
+                } as MonopolyCookie),
+            ),
+        );
+    }, [l.gameEngine[0], ...l.numbers.map((v) => v[0]), ...l.booleans.map((v) => v[0])]);
     return (
         <div className="settings-container">
             <div className="settings-header">
                 <h2 className="settings-title">System Settings</h2>
-                <p className="settings-subtitle">Configure audio levels, rendering engine parameters, and game preferences.</p>
+                <p className="settings-subtitle">
+                    Configure audio levels, rendering engine parameters, and game preferences.
+                </p>
             </div>
 
             <div className="settings-grid">
                 {/* CARD 1: Game Options */}
                 <div className="settings-card">
                     <h3 className="card-subtitle">Game Options</h3>
-                    
+
                     <div className="settings-row">
                         <div className="setting-info">
                             <span className="setting-label">Game Engine</span>
@@ -292,12 +272,16 @@ export default function settingsNav() {
                                             return;
                                         }
                                         sessionStorage.setItem("debug_password", pass);
-                                        window.dispatchEvent(new CustomEvent("debug_toggle_auth", { detail: { password: pass } }));
+                                        window.dispatchEvent(
+                                            new CustomEvent("debug_toggle_auth", { detail: { password: pass } }),
+                                        );
                                         l.booleans[4][1](true);
                                     } else {
                                         sessionStorage.removeItem("debug_password");
                                         sessionStorage.removeItem("debug_unlocked");
-                                        window.dispatchEvent(new CustomEvent("debug_toggle_auth", { detail: { password: null } }));
+                                        window.dispatchEvent(
+                                            new CustomEvent("debug_toggle_auth", { detail: { password: null } }),
+                                        );
                                         l.booleans[4][1](false);
                                     }
                                 }}

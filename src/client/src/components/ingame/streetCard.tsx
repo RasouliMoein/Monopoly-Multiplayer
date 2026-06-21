@@ -135,11 +135,7 @@ function RailroadCard({ args }: { args: RailroadDisplayInfo }) {
     return (
         <div className="street-card">
             <div data-clear>
-                <img
-                    data-type="rail"
-                    src={RailIcon.replace("/public", "")}
-                    alt=""
-                />
+                <img data-type="rail" src={RailIcon.replace("/public", "")} alt="" />
                 <h3>{args.title}</h3>
             </div>
             <div>
@@ -189,12 +185,10 @@ function UtilityCard({ args }: { args: UtilitiesDisplayInfo }) {
             </div>
             <div>
                 <p style={{ lineHeight: 1, paddingInline: 10 }}>
-                    If one Utility is owned, rent is 4 times amount shown on
-                    dice.
+                    If one Utility is owned, rent is 4 times amount shown on dice.
                     <br />
                     <br />
-                    If both Utilities are owned, rent is 10 times amount shown
-                    on dice
+                    If both Utilities are owned, rent is 10 times amount shown on dice
                 </p>
                 <hr />
                 <br />

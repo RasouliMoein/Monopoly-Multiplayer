@@ -66,7 +66,7 @@ wss.on("connection", (ws, req) => {
 });
 app.use(express_1.default.json());
 // API Endpoint to Get Active Rooms
-app.get("/api/rooms", (req, res) => {
+app.get("/api/rooms", (_req, res) => {
     const list = Array.from(sockets_js_1.activeServers.entries()).map(([translatedCode, gameServer]) => {
         return {
             code: gameServer.code,
@@ -89,7 +89,7 @@ app.post("/api/create-room", (req, res) => {
         res.json({ success: true, hostCode: hostCode, translatedCode: gameServerInstance.code });
     });
 });
-app.get("*", (req, res) => {
+app.get("*", (_req, res) => {
     res.sendFile(path_1.default.join(__dirname, "..", "dist", "index.html"));
 });
 server.listen(PORT, "0.0.0.0", () => {

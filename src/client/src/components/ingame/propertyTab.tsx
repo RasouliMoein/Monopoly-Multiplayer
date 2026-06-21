@@ -29,7 +29,7 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
             return [obj.posistion ?? 0, obj];
-        })
+        }),
     );
 
     const mortgageApi = {
@@ -37,11 +37,7 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
             const x = propretyMap.get(location);
             const localP = props.players.filter((v) => v.id === props.socket.id)[0];
 
-            return (
-                x !== undefined &&
-                x.group !== "Special" &&
-                localP.properties.some((v) => v.posistion === location)
-            );
+            return x !== undefined && x.group !== "Special" && localP.properties.some((v) => v.posistion === location);
         },
         isMortaged: (location: number) => {
             const localP = props.players.filter((v) => v.id === props.socket.id)[0];
@@ -67,7 +63,7 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
                 props.socket.emit("mortgage_action", {
                     action: "unmortgage",
                     amount: cost,
-                    propertyPosition: location
+                    propertyPosition: location,
                 });
             },
             pay: () => {
@@ -93,7 +89,7 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
                 props.socket.emit("mortgage_action", {
                     action: "mortgage",
                     amount: -mortgageVal,
-                    propertyPosition: location
+                    propertyPosition: location,
                 });
             },
         },
@@ -132,17 +128,17 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
     let isShortage = false;
 
     if (isColorGroup && propData) {
-        const groupProps = Array.from(propretyMap.values()).filter(p => p.group === group);
-        const ownedGroupProps = localPlayer.properties.filter(p => p.group === group);
+        const groupProps = Array.from(propretyMap.values()).filter((p) => p.group === group);
+        const ownedGroupProps = localPlayer.properties.filter((p) => p.group === group);
         ownsFullSet = groupProps.length > 0 && ownedGroupProps.length === groupProps.length;
-        hasMortgagedPropertyInGroup = ownedGroupProps.some(p => p.morgage === true);
+        hasMortgagedPropertyInGroup = ownedGroupProps.some((p) => p.morgage === true);
 
         const transformCount = (v: any) => {
             if (v === "h") return 5;
             return typeof v === "number" ? v : 0;
         };
 
-        const groupCounts = ownedGroupProps.map(p => transformCount(p.count));
+        const groupCounts = ownedGroupProps.map((p) => transformCount(p.count));
         targetCount = transformCount(prp.count);
 
         const minCountInGroup = Math.min(...groupCounts);
@@ -155,13 +151,15 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
         isShortage = targetCount === 5 && props.bankHouses !== undefined && props.bankHouses < 4;
         sellRefund = isShortage
             ? Math.round((propData.ohousecost ?? 0) * 0.5) + Math.round((propData.housecost ?? 0) * 0.5) * 4
-            : (targetCount === 5 ? Math.round((propData.ohousecost ?? 0) * 0.5) : Math.round((propData.housecost ?? 0) * 0.5));
+            : targetCount === 5
+              ? Math.round((propData.ohousecost ?? 0) * 0.5)
+              : Math.round((propData.housecost ?? 0) * 0.5);
     }
 
     const handleBuild = () => {
         if (!prp || !propData) return;
 
-        let audio = new Audio("./buying1.mp3");
+        const audio = new Audio("./buying1.mp3");
         const cookieStr = CookieManager.get("monopolySettings");
         let volume = 0.5;
         if (cookieStr) {
@@ -181,7 +179,7 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
             action: "buy-advance",
             newCount: targetCount + 1,
             housesAdded: 1,
-            propertyPosition: currentCardPosition
+            propertyPosition: currentCardPosition,
         });
     };
 
@@ -190,12 +188,12 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
 
         if (isShortage) {
             const confirmed = window.confirm(
-                `There is a house shortage in the Bank. Selling this hotel will also sell all 4 houses on this property, reverting it to an unimproved state.\n\nYou will receive a total refund of $${sellRefund}M.\n\nAre you sure you want to proceed?`
+                `There is a house shortage in the Bank. Selling this hotel will also sell all 4 houses on this property, reverting it to an unimproved state.\n\nYou will receive a total refund of $${sellRefund}M.\n\nAre you sure you want to proceed?`,
             );
             if (!confirmed) return;
         }
 
-        let audio = new Audio("./moneyplus.mp3");
+        const audio = new Audio("./moneyplus.mp3");
         const cookieStr = CookieManager.get("monopolySettings");
         let volume = 0.5;
         if (cookieStr) {
@@ -213,7 +211,7 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
 
         props.socket.emit("player_action", {
             action: "sell-advance",
-            propertyPosition: currentCardPosition
+            propertyPosition: currentCardPosition,
         });
     };
     function searchResults() {
@@ -242,7 +240,11 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
     return (
         <>
             <h3 style={{ textAlign: "center" }}>Propreties</h3>
-            <input type="text" onChange={(e) => SetSearch(e.currentTarget.value)} placeholder="Search for global cards..." />
+            <input
+                type="text"
+                onChange={(e) => SetSearch(e.currentTarget.value)}
+                placeholder="Search for global cards..."
+            />
 
             <div
                 className="propertyList"
@@ -299,7 +301,13 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
                                     backgroundColor: translateGroup(v.group),
                                 }}
                             ></i>
-                            <h3 style={v.morgage !== undefined && v.morgage === true ? { textDecoration: "line-through white" } : {}}>
+                            <h3
+                                style={
+                                    v.morgage !== undefined && v.morgage === true
+                                        ? { textDecoration: "line-through white" }
+                                        : {}
+                                }
+                            >
                                 {propretyMap.get(v.posistion)?.name ?? ""}
                             </h3>
                             <div>
@@ -337,53 +345,111 @@ const propertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
                                 <>
                                     {" "}
                                     <h2>Actions</h2>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%", alignItems: "center", marginTop: "10px" }}>
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: "10px",
+                                            width: "100%",
+                                            alignItems: "center",
+                                            marginTop: "10px",
+                                        }}
+                                    >
                                         {mortgageApi.isMortaged(currentCardPosition) ? (
-                                            <button className="railroads-actions" onClick={mortgageApi.buttons.cancel} style={{ width: "100%" }}>
-                                                <Icons.Unlock width={13} height={13} style={{verticalAlign:'middle', marginRight:4}} />Unmortgage — Pay {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.55)}M
+                                            <button
+                                                className="railroads-actions"
+                                                onClick={mortgageApi.buttons.cancel}
+                                                style={{ width: "100%" }}
+                                            >
+                                                <Icons.Unlock
+                                                    width={13}
+                                                    height={13}
+                                                    style={{ verticalAlign: "middle", marginRight: 4 }}
+                                                />
+                                                Unmortgage — Pay{" "}
+                                                {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.55)}M
                                             </button>
                                         ) : (
-                                            <button className="railroads-actions" onClick={mortgageApi.buttons.pay} style={{ width: "100%" }}>
-                                                <Icons.Lock width={13} height={13} style={{verticalAlign:'middle', marginRight:4}} />Mortgage — Get {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.5)}M
+                                            <button
+                                                className="railroads-actions"
+                                                onClick={mortgageApi.buttons.pay}
+                                                style={{ width: "100%" }}
+                                            >
+                                                <Icons.Lock
+                                                    width={13}
+                                                    height={13}
+                                                    style={{ verticalAlign: "middle", marginRight: 4 }}
+                                                />
+                                                Mortgage — Get{" "}
+                                                {Math.round((propretyMap.get(currentCardPosition)?.price ?? 0) * 0.5)}M
                                             </button>
                                         )}
 
-                                        {isColorGroup && ownsFullSet && !mortgageApi.isMortaged(currentCardPosition) && (
-                                            <>
-                                                <button
-                                                    className="railroads-actions"
-                                                    style={{ width: "100%" }}
-                                                    disabled={!props.myTurn || hasMortgagedPropertyInGroup || targetCount >= 5 || !canBuildEvenly || localPlayer.balance < buildCost}
-                                                    onClick={handleBuild}
-                                                    title={
-                                                        !props.myTurn ? "Not your turn" :
-                                                        hasMortgagedPropertyInGroup ? "Cannot build: a property in this set is mortgaged" :
-                                                        targetCount >= 5 ? "Fully built (Hotel)" :
-                                                        !canBuildEvenly ? "Cannot build: must build evenly across all properties in the set" :
-                                                        localPlayer.balance < buildCost ? "Cannot build: not enough money" :
-                                                        ""
-                                                    }
-                                                >
-                                                    <Icons.Home width={13} height={13} style={{verticalAlign:'middle', marginRight:4}} />{targetCount === 4 ? "Build Hotel" : "Build House"} — Pay {buildCost}M
-                                                </button>
+                                        {isColorGroup &&
+                                            ownsFullSet &&
+                                            !mortgageApi.isMortaged(currentCardPosition) && (
+                                                <>
+                                                    <button
+                                                        className="railroads-actions"
+                                                        style={{ width: "100%" }}
+                                                        disabled={
+                                                            !props.myTurn ||
+                                                            hasMortgagedPropertyInGroup ||
+                                                            targetCount >= 5 ||
+                                                            !canBuildEvenly ||
+                                                            localPlayer.balance < buildCost
+                                                        }
+                                                        onClick={handleBuild}
+                                                        title={
+                                                            !props.myTurn
+                                                                ? "Not your turn"
+                                                                : hasMortgagedPropertyInGroup
+                                                                  ? "Cannot build: a property in this set is mortgaged"
+                                                                  : targetCount >= 5
+                                                                    ? "Fully built (Hotel)"
+                                                                    : !canBuildEvenly
+                                                                      ? "Cannot build: must build evenly across all properties in the set"
+                                                                      : localPlayer.balance < buildCost
+                                                                        ? "Cannot build: not enough money"
+                                                                        : ""
+                                                        }
+                                                    >
+                                                        <Icons.Home
+                                                            width={13}
+                                                            height={13}
+                                                            style={{ verticalAlign: "middle", marginRight: 4 }}
+                                                        />
+                                                        {targetCount === 4 ? "Build Hotel" : "Build House"} — Pay{" "}
+                                                        {buildCost}M
+                                                    </button>
 
-                                                <button
-                                                    className="railroads-actions"
-                                                    style={{ width: "100%" }}
-                                                    disabled={!props.myTurn || targetCount === 0 || !canSellEvenly}
-                                                    onClick={handleSell}
-                                                    title={
-                                                        !props.myTurn ? "Not your turn" :
-                                                        targetCount === 0 ? "No houses to sell" :
-                                                        !canSellEvenly ? "Cannot sell: must sell evenly across all properties in the set" :
-                                                        isShortage ? "Bank house shortage: hotel and all replacement houses will be sold back to the Bank." :
-                                                        ""
-                                                    }
-                                                >
-                                                    🪙 {isShortage ? "Sell Hotel & Houses" : (targetCount === 5 ? "Sell Hotel" : "Sell House")} — Get {sellRefund}M
-                                                </button>
-                                            </>
-                                        )}
+                                                    <button
+                                                        className="railroads-actions"
+                                                        style={{ width: "100%" }}
+                                                        disabled={!props.myTurn || targetCount === 0 || !canSellEvenly}
+                                                        onClick={handleSell}
+                                                        title={
+                                                            !props.myTurn
+                                                                ? "Not your turn"
+                                                                : targetCount === 0
+                                                                  ? "No houses to sell"
+                                                                  : !canSellEvenly
+                                                                    ? "Cannot sell: must sell evenly across all properties in the set"
+                                                                    : isShortage
+                                                                      ? "Bank house shortage: hotel and all replacement houses will be sold back to the Bank."
+                                                                      : ""
+                                                        }
+                                                    >
+                                                        🪙{" "}
+                                                        {isShortage
+                                                            ? "Sell Hotel & Houses"
+                                                            : targetCount === 5
+                                                              ? "Sell Hotel"
+                                                              : "Sell House"}{" "}
+                                                        — Get {sellRefund}M
+                                                    </button>
+                                                </>
+                                            )}
                                     </div>
                                 </>
                             ) : (

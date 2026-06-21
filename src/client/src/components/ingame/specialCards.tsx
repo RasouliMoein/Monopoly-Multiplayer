@@ -2,13 +2,7 @@ export interface ChanceDisplayInfo {
     title: string;
 }
 
-export default function selector({
-    chance,
-    chest,
-}: {
-    chance?: ChanceDisplayInfo;
-    chest?: ChanceDisplayInfo;
-}) {
+export default function selector({ chance, chest }: { chance?: ChanceDisplayInfo; chest?: ChanceDisplayInfo }) {
     if (chance !== undefined) {
         return <ChanceCard args={chance} />;
     } else if (chest !== undefined) {

@@ -5,7 +5,7 @@ const LOG_LEVELS = {
     debug: 0,
     info: 1,
     warn: 2,
-    error: 3
+    error: 3,
 };
 class Logger {
     getLogLevel() {
@@ -15,7 +15,9 @@ class Logger {
                 envVal = process.env.LOG_LEVEL;
             }
         }
-        catch { }
+        catch {
+            // ignore
+        }
         try {
             const getMeta = new Function("return import.meta");
             const meta = getMeta();
@@ -23,7 +25,9 @@ class Logger {
                 envVal = meta.env.VITE_LOG_LEVEL;
             }
         }
-        catch { }
+        catch {
+            // ignore
+        }
         const level = envVal?.toLowerCase() || "info";
         return LOG_LEVELS[level] !== undefined ? LOG_LEVELS[level] : 1;
     }

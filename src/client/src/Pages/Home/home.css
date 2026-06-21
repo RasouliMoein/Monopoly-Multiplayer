@@ -3,7 +3,7 @@
    ========================================================================== */
 
 /* --- Import outfit font if not already loaded globally --- */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap");
 
 /* --- Root Variables & Design Tokens --- */
 :root {
@@ -12,36 +12,36 @@
     --bg-card-inner: #16151c;
     --bg-sidebar: #1e1d25;
     --bg-input: #111014;
-    
+
     --border-color: rgba(255, 255, 255, 0.05);
     --border-color-hover: rgba(255, 255, 255, 0.12);
     --border-active: #4f8eff;
-    
+
     --color-primary: #4f8eff;
     --color-primary-hover: #6fa1ff;
     --color-primary-glow: rgba(79, 142, 255, 0.35);
-    
+
     --color-orange: #ea7a53;
     --color-orange-hover: #f09475;
     --color-orange-bg: rgba(234, 122, 83, 0.15);
-    
+
     --color-yellow: #f1b53e;
     --color-yellow-hover: #f4c562;
     --color-yellow-bg: rgba(241, 181, 62, 0.15);
-    
+
     --color-green: #3bb36c;
     --color-green-hover: #4dc47d;
     --color-green-bg: rgba(59, 179, 108, 0.15);
-    
+
     --color-red: #f35f5f;
     --color-red-hover: #f67d7d;
     --color-red-bg: rgba(243, 95, 95, 0.15);
-    
+
     --text-main: #ffffff;
     --text-muted: #8c8b96;
     --text-dark: #111014;
-    
-    --font-outfit: 'Outfit', 'Inter', -apple-system, sans-serif;
+
+    --font-outfit: "Outfit", "Inter", -apple-system, sans-serif;
     --shadow-premium: 0 24px 72px -12px rgba(0, 0, 0, 0.6);
     --shadow-glow: 0 0 40px rgba(79, 142, 255, 0.06);
 }
@@ -49,7 +49,7 @@
 /* --- Global Overrides --- */
 body {
     background-color: var(--bg-page) !important;
-    background-image: 
+    background-image:
         radial-gradient(circle at 10% 20%, rgba(25, 63, 145, 0.15) 0%, transparent 45%),
         radial-gradient(circle at 90% 80%, rgba(44, 27, 61, 0.15) 0%, transparent 45%) !important;
     font-family: var(--font-outfit) !important;
@@ -68,7 +68,8 @@ body {
 }
 
 /* --- Main Glassmorphic Wrapper --- */
-div.entry, div.lobby {
+div.entry,
+div.lobby {
     position: absolute !important;
     top: 50% !important;
     left: 50% !important;
@@ -92,19 +93,24 @@ div.entry, div.lobby {
 }
 
 /* Custom Scrollbars for the main wrapper */
-div.entry::-webkit-scrollbar, div.lobby::-webkit-scrollbar {
+div.entry::-webkit-scrollbar,
+div.lobby::-webkit-scrollbar {
     width: 6px;
 }
-div.entry::-webkit-scrollbar-track, div.lobby::-webkit-scrollbar-track {
+div.entry::-webkit-scrollbar-track,
+div.lobby::-webkit-scrollbar-track {
     background: transparent;
 }
-div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
+div.entry::-webkit-scrollbar-thumb,
+div.lobby::-webkit-scrollbar-thumb {
     background: #2b2a33;
     border-radius: 3px;
 }
 
 /* CRITICAL RESET: Global main override to prevent height squishing */
-.entry-main, div.entry main, div.lobby main {
+.entry-main,
+div.entry main,
+div.lobby main {
     all: unset !important;
     display: block !important;
     position: relative !important;
@@ -219,7 +225,7 @@ div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
     align-items: center;
     justify-content: center;
     border: 2px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .profile-info {
@@ -243,7 +249,8 @@ div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
     transition: all 0.2s ease !important;
 }
 
-.header-name-input:hover, .header-name-input:focus {
+.header-name-input:hover,
+.header-name-input:focus {
     border-bottom: 1.5px solid var(--color-primary) !important;
     background: rgba(255, 255, 255, 0.04) !important;
     border-radius: 4px 4px 0 0 !important;
@@ -339,7 +346,8 @@ div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
 }
 
 /* --- Left Column Card Structure --- */
-.lobbies-board-card, .bots-setup-card {
+.lobbies-board-card,
+.bots-setup-card {
     background-color: var(--bg-card-inner);
     border: 1px solid var(--border-color);
     border-radius: 20px;
@@ -398,17 +406,21 @@ div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
 }
 
 /* Custom Scrollbar Styles */
-.lobbies-scroll-list::-webkit-scrollbar, .bots-list-scroll::-webkit-scrollbar {
+.lobbies-scroll-list::-webkit-scrollbar,
+.bots-list-scroll::-webkit-scrollbar {
     width: 6px;
 }
-.lobbies-scroll-list::-webkit-scrollbar-track, .bots-list-scroll::-webkit-scrollbar-track {
+.lobbies-scroll-list::-webkit-scrollbar-track,
+.bots-list-scroll::-webkit-scrollbar-track {
     background: transparent;
 }
-.lobbies-scroll-list::-webkit-scrollbar-thumb, .bots-list-scroll::-webkit-scrollbar-thumb {
+.lobbies-scroll-list::-webkit-scrollbar-thumb,
+.bots-list-scroll::-webkit-scrollbar-thumb {
     background: #2b2a33;
     border-radius: 3px;
 }
-.lobbies-scroll-list::-webkit-scrollbar-thumb:hover, .bots-list-scroll::-webkit-scrollbar-thumb:hover {
+.lobbies-scroll-list::-webkit-scrollbar-thumb:hover,
+.bots-list-scroll::-webkit-scrollbar-thumb:hover {
     background: #3c3b45;
 }
 
@@ -418,7 +430,7 @@ div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
     align-items: center;
     justify-content: center;
     padding: 40px 20px;
-    border: 1px dashed rgba(255,255,255,0.06);
+    border: 1px dashed rgba(255, 255, 255, 0.06);
     border-radius: 12px;
     text-align: center;
 }
@@ -469,7 +481,7 @@ div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
 }
 
 .room-code-tag {
-    font-family: 'Consolas', monospace;
+    font-family: "Consolas", monospace;
     font-size: 15px;
     font-weight: 700;
     letter-spacing: 1px;
@@ -548,7 +560,7 @@ div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
 /* --- Search Bar Bottom Horizontal Box (Calendar Selector in Reference) --- */
 .search-bar-horizontal {
     display: grid;
-    grid-template-columns: 1.4fr 1.2fr 1fr 0.50fr;
+    grid-template-columns: 1.4fr 1.2fr 1fr 0.5fr;
     gap: 12px;
     background-color: var(--bg-input);
     border: 1px solid var(--border-color);
@@ -815,59 +827,84 @@ div.entry::-webkit-scrollbar-thumb, div.lobby::-webkit-scrollbar-thumb {
     background-color: var(--color-red-bg);
     color: var(--color-red);
 }
-.red-pill:hover, .red-pill.active {
+.red-pill:hover,
+.red-pill.active {
     background-color: var(--color-red);
     color: var(--text-dark);
 }
-.red-dot { background-color: var(--color-red); }
-.red-pill.active .red-dot { background-color: var(--text-dark); }
+.red-dot {
+    background-color: var(--color-red);
+}
+.red-pill.active .red-dot {
+    background-color: var(--text-dark);
+}
 
 .orange-pill {
     background-color: var(--color-orange-bg);
     color: var(--color-orange);
 }
-.orange-pill:hover, .orange-pill.active {
+.orange-pill:hover,
+.orange-pill.active {
     background-color: var(--color-orange);
     color: var(--text-dark);
 }
-.orange-dot { background-color: var(--color-orange); }
-.orange-pill.active .orange-dot { background-color: var(--text-dark); }
+.orange-dot {
+    background-color: var(--color-orange);
+}
+.orange-pill.active .orange-dot {
+    background-color: var(--text-dark);
+}
 
 .yellow-pill {
     background-color: var(--color-yellow-bg);
     color: var(--color-yellow);
 }
-.yellow-pill:hover, .yellow-pill.active {
+.yellow-pill:hover,
+.yellow-pill.active {
     background-color: var(--color-yellow);
     color: var(--text-dark);
 }
-.yellow-dot { background-color: var(--color-yellow); }
-.yellow-pill.active .yellow-dot { background-color: var(--text-dark); }
+.yellow-dot {
+    background-color: var(--color-yellow);
+}
+.yellow-pill.active .yellow-dot {
+    background-color: var(--text-dark);
+}
 
 .green-pill {
     background-color: var(--color-green-bg);
     color: var(--color-green);
 }
-.green-pill:hover, .green-pill.active {
+.green-pill:hover,
+.green-pill.active {
     background-color: var(--color-green);
     color: var(--text-dark);
 }
-.green-dot { background-color: var(--color-green); }
-.green-pill.active .green-dot { background-color: var(--text-dark); }
+.green-dot {
+    background-color: var(--color-green);
+}
+.green-pill.active .green-dot {
+    background-color: var(--text-dark);
+}
 
 .blue-pill {
     background-color: var(--color-primary-glow);
     color: var(--color-primary);
 }
-.blue-pill:hover, .blue-pill.active {
+.blue-pill:hover,
+.blue-pill.active {
     background-color: var(--color-primary);
     color: var(--text-dark);
 }
-.blue-dot { background-color: var(--color-primary); }
-.blue-pill.active .blue-dot { background-color: var(--text-dark); }
+.blue-dot {
+    background-color: var(--color-primary);
+}
+.blue-pill.active .blue-dot {
+    background-color: var(--text-dark);
+}
 
 .color-pill.active {
-    box-shadow: 0 4px 12px rgba(255,255,255,0.06);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.06);
     transform: scale(1.03);
 }
 
@@ -1000,7 +1037,7 @@ div.lobby {
 }
 
 .pill-code {
-    font-family: 'Consolas', monospace;
+    font-family: "Consolas", monospace;
     font-size: 15px;
     font-weight: 700;
     color: var(--color-primary);
@@ -1047,7 +1084,7 @@ div.lobby {
 .offline-badge {
     font-size: 10px;
     font-weight: 500;
-    background-color: rgba(255,255,255,0.05);
+    background-color: rgba(255, 255, 255, 0.05);
     color: var(--text-muted);
     padding: 1px 5px;
     border-radius: 3px;
@@ -1200,14 +1237,14 @@ p#floating-clock {
     width: 260px;
     height: 260px;
     z-index: 9999998;
-    font-family: var(--font-outfit, 'Outfit', sans-serif);
+    font-family: var(--font-outfit, "Outfit", sans-serif);
     font-size: 160px;
     font-weight: 900;
     color: #ffffff;
     text-align: center;
     line-height: 260px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(10, 8, 20, 0.80) 40%, transparent 100%);
+    background: radial-gradient(circle, rgba(10, 8, 20, 0.8) 40%, transparent 100%);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     text-shadow:
@@ -1223,9 +1260,18 @@ p#floating-clock.clocking {
 }
 
 @keyframes clockPulse {
-    0%   { transform: scale(1);    opacity: 1; }
-    50%  { transform: scale(1.12); opacity: 0.75; }
-    100% { transform: scale(1);    opacity: 1; }
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.12);
+        opacity: 0.75;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 /* ==========================================================================
@@ -1363,7 +1409,7 @@ p#floating-clock.clocking {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    font-family: 'Consolas', monospace;
+    font-family: "Consolas", monospace;
     font-size: 13px;
     color: var(--color-primary);
     font-weight: 600;
@@ -1420,7 +1466,7 @@ p#floating-clock.clocking {
     right: 0;
     bottom: 0;
     background-color: #24222d;
-    transition: .3s;
+    transition: 0.3s;
     border-radius: 22px;
     border: 1px solid var(--border-color);
 }
@@ -1433,7 +1479,7 @@ p#floating-clock.clocking {
     left: 3px;
     bottom: 3px;
     background-color: var(--text-muted);
-    transition: .3s;
+    transition: 0.3s;
     border-radius: 50%;
 }
 
@@ -1486,7 +1532,9 @@ div.notification {
     font-family: var(--font-outfit) !important;
     font-size: 14px !important;
     font-weight: 500 !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(79, 142, 255, 0.1) !important;
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.5),
+        0 0 15px rgba(79, 142, 255, 0.1) !important;
     animation: toast-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
     pointer-events: auto !important;
     white-space: nowrap !important;
@@ -1496,13 +1544,17 @@ div.notification {
 div.notification[data-notif-type="warn"] {
     border-color: rgba(241, 181, 62, 0.4) !important;
     color: var(--color-yellow) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(241, 181, 62, 0.1) !important;
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.5),
+        0 0 15px rgba(241, 181, 62, 0.1) !important;
 }
 
 div.notification[data-notif-type="error"] {
     border-color: rgba(243, 95, 95, 0.4) !important;
     color: var(--color-red) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(243, 95, 95, 0.1) !important;
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.5),
+        0 0 15px rgba(243, 95, 95, 0.1) !important;
 }
 
 .copy-room-code-btn {

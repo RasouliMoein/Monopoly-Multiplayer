@@ -77,10 +77,16 @@ export interface historyAction {
     balances?: Array<{ username: string; balance: number; color: string }>;
 }
 
-export function history(action: string, balances?: Array<{ username: string; balance: number; color: string }>): historyAction {
+export function history(
+    action: string,
+    balances?: Array<{ username: string; balance: number; color: string }>,
+): historyAction {
     const time = new Date().toJSON();
     return {
-        action: action.replace(/\s+/g, " ").replace(/\bpayed\b/gi, "paid").trim(),
+        action: action
+            .replace(/\s+/g, " ")
+            .replace(/\bpayed\b/gi, "paid")
+            .trim(),
         time,
         balances,
     } as historyAction;

@@ -12,6 +12,6 @@ export function rollDice(): DiceRoll {
         d1,
         d2,
         sum: d1 + d2,
-        isDoubles: d1 === d2
+        isDoubles: d1 === d2,
     };
 }

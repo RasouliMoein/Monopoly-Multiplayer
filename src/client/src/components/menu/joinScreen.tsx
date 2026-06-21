@@ -41,13 +41,11 @@ export default function JoinScreen(props: {
                         <div className="board-header">
                             <div style={{ textAlign: "left" }}>
                                 <h3 className="section-title">Active Public Rooms</h3>
-                                <p className="section-subtitle">Join an ongoing public lobby or quickly connect with friends.</p>
+                                <p className="section-subtitle">
+                                    Join an ongoing public lobby or quickly connect with friends.
+                                </p>
                             </div>
-                            <button 
-                                onClick={fetchRooms}
-                                disabled={isRefreshing}
-                                className="refresh-btn"
-                            >
+                            <button onClick={fetchRooms} disabled={isRefreshing} className="refresh-btn">
                                 {isRefreshing ? "Refreshing..." : "Refresh Lobbies ↻"}
                             </button>
                         </div>
@@ -55,7 +53,12 @@ export default function JoinScreen(props: {
                         <div className="lobbies-scroll-list">
                             {activeRooms.length === 0 ? (
                                 <div className="no-lobbies-fallback">
-                                    <div className="fallback-icon" style={{ display:'flex', alignItems:'center', justifyContent:'center' }}><Icons.Antenna width={24} height={24} style={{ opacity:0.4 }} /></div>
+                                    <div
+                                        className="fallback-icon"
+                                        style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+                                    >
+                                        <Icons.Antenna width={24} height={24} style={{ opacity: 0.4 }} />
+                                    </div>
                                     <p>No active public lobbies found.</p>
                                     <span>Be the first to host a multiplayer room!</span>
                                 </div>
@@ -63,7 +66,7 @@ export default function JoinScreen(props: {
                                 activeRooms.map((room) => {
                                     const isJoinable = !room.gameStarted && room.clientsCount < room.maxPlayers;
                                     return (
-                                        <div 
+                                        <div
                                             key={room.translatedCode}
                                             onClick={() => {
                                                 props.SetAddress(room.code);
@@ -77,19 +80,37 @@ export default function JoinScreen(props: {
                                         >
                                             <div className="lobby-row-left">
                                                 <span className="room-code-tag">{room.code}</span>
-                                                <span className={`room-status-badge ${room.gameStarted ? 'in-game' : 'waiting'}`}>
+                                                <span
+                                                    className={`room-status-badge ${room.gameStarted ? "in-game" : "waiting"}`}
+                                                >
                                                     {room.gameStarted ? "In-Game" : "Lobby"}
                                                 </span>
                                             </div>
                                             <div className="lobby-row-middle">
-                                                <span className="host-name-label"><Icons.Crown width={12} height={12} style={{verticalAlign:'middle', marginRight:3}} />{room.hostName}</span>
+                                                <span className="host-name-label">
+                                                    <Icons.Crown
+                                                        width={12}
+                                                        height={12}
+                                                        style={{ verticalAlign: "middle", marginRight: 3 }}
+                                                    />
+                                                    {room.hostName}
+                                                </span>
                                             </div>
                                             <div className="lobby-row-right">
-                                                <span className="player-count-label"><Icons.Users width={12} height={12} style={{verticalAlign:'middle', marginRight:3}} />{room.clientsCount}/{room.maxPlayers}</span>
+                                                <span className="player-count-label">
+                                                    <Icons.Users
+                                                        width={12}
+                                                        height={12}
+                                                        style={{ verticalAlign: "middle", marginRight: 3 }}
+                                                    />
+                                                    {room.clientsCount}/{room.maxPlayers}
+                                                </span>
                                                 {isJoinable ? (
                                                     <span className="join-arrow-btn">Join →</span>
                                                 ) : (
-                                                    <span className="join-arrow-btn spectate-btn-label">Spectate 👁️</span>
+                                                    <span className="join-arrow-btn spectate-btn-label">
+                                                        Spectate 👁️
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
@@ -100,8 +121,8 @@ export default function JoinScreen(props: {
                     </div>
 
                     {/* BOTTOM BAR: Join Game Only */}
-                    <div className="search-bar-horizontal" style={{ gridTemplateColumns: '1.6fr 1fr 1fr', gap: '8px' }}>
-                        <div className="search-pill-input code-pill" style={{ width: '100%' }}>
+                    <div className="search-bar-horizontal" style={{ gridTemplateColumns: "1.6fr 1fr 1fr", gap: "8px" }}>
+                        <div className="search-pill-input code-pill" style={{ width: "100%" }}>
                             <input
                                 type="text"
                                 id="room-code"
@@ -110,23 +131,42 @@ export default function JoinScreen(props: {
                                 placeholder="Enter Lobby Code"
                                 maxLength={8}
                                 className="pill-text-field"
-                                style={{ width: '100%' }}
+                                style={{ width: "100%" }}
                             />
-                            <span className="pill-icon"><Icons.MapPin width={12} height={12} /></span>
+                            <span className="pill-icon">
+                                <Icons.MapPin width={12} height={12} />
+                            </span>
                         </div>
                         <button
                             onClick={() => props.joinViaCode()}
                             disabled={props.disabled || !props.addr || !props.name}
                             className="primary-action-btn"
-                            style={{ height: '40px', padding: '0 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            style={{
+                                height: "40px",
+                                padding: "0 10px",
+                                fontSize: "13px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                            }}
                         >
-                            <Icons.Zap width={14} height={14} style={{flexShrink:0}} /> Join Lobby
+                            <Icons.Zap width={14} height={14} style={{ flexShrink: 0 }} /> Join Lobby
                         </button>
                         <button
                             onClick={() => props.spectateLobby()}
                             disabled={props.disabled || !props.addr || !props.name}
                             className="primary-action-btn secondary-btn"
-                            style={{ height: '40px', padding: '0 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc' }}
+                            style={{
+                                height: "40px",
+                                padding: "0 10px",
+                                fontSize: "13px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background: "rgba(255,255,255,0.05)",
+                                border: "1px solid rgba(255,255,255,0.1)",
+                                color: "#f8fafc",
+                            }}
                         >
                             👁️ Spectate
                         </button>
@@ -143,12 +183,12 @@ export default function JoinScreen(props: {
                         {/* Max Players Selection (Moved from bottom left) */}
                         <div className="input-group-bordered">
                             <label className="input-label">MAX PLAYERS LIMIT</label>
-                            <div className="select-container" style={{ width: '100%' }}>
+                            <div className="select-container" style={{ width: "100%" }}>
                                 <select
                                     value={maxPlayers}
                                     onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
                                     className="premium-select"
-                                    style={{ width: '100%', height: '40px', fontSize: '14px' }}
+                                    style={{ width: "100%", height: "40px", fontSize: "14px" }}
                                 >
                                     <option value={2}>2 Players Max</option>
                                     <option value={3}>3 Players Max</option>

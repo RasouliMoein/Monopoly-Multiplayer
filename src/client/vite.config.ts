@@ -7,7 +7,7 @@ export default defineConfig({
     plugins: [react(), basicSsl()],
     build: {
         outDir: "../../dist", // Build to root dist so backend can serve it
-        emptyOutDir: true
+        emptyOutDir: true,
     },
     server: {
         https: true,

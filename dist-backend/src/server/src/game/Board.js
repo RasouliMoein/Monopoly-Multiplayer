@@ -26,7 +26,7 @@ function computeRent(position, rolls, players, multiplier = 1) {
             let amt = 0;
             if (prop.group === "Utilities") {
                 const cnt = player.properties.filter((p) => p.group === "Utilities").length;
-                const baseRate = multiplier === 10 ? 1 : (cnt === 2 ? 10 : 4);
+                const baseRate = multiplier === 10 ? 1 : cnt === 2 ? 10 : 4;
                 amt = rolls * baseRate * multiplier;
             }
             else if (prop.group === "Railroad") {

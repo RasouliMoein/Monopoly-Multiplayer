@@ -8,7 +8,7 @@ function rollDice() {
         d1,
         d2,
         sum: d1 + d2,
-        isDoubles: d1 === d2
+        isDoubles: d1 === d2,
     };
 }
 exports.rollDice = rollDice;

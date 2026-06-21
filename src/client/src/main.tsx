@@ -17,6 +17,5 @@ function App() {
     return <RouterProvider router={router} />;
 }
 
-
 document.title = "Monopoly";
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<App />);

@@ -5,8 +5,8 @@ export class Player {
     public username: string;
     public icon: number;
     public position: number;
-    
-    private _balance: number = 0;
+
+    private _balance = 0;
     public get balance(): number {
         return this._balance;
     }
