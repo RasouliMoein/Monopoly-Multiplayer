@@ -1,99 +1,171 @@
-# 🎲 Monopoly 🎲 - A Multiplayer React.js and Peer.js Game
+<div align="center">
 
-[3.9.23] Taking A Break so i disabled firebase [accounts and so on, system that are not completed]
+# 🎲 MONOPOLY MULTIPLAYER 🎲
 
-Welcome to my Monopoly, a thrilling online multiplayer game developed using React.js, Express.js, and TypeScript. This exciting rendition of the classic Monopoly game incorporates some intriguing rule changes. this Monopoly can only be played in multiplayer mode.
+### 🚀 Fully AI-Remastered & Vibe-Coded Edition
+**Experience a sleek, modern, server-authoritative Monopoly game built entirely by AI agents.**
 
-### Features
+[![Frontend - React](https://img.shields.io/badge/Frontend-React%2018-blue?style=for-the-badge&logo=react)](https://react.dev)
+[![Backend - Node.js](https://img.shields.io/badge/Backend-Node.js-green?style=for-the-badge&logo=node.js)](https://nodejs.org)
+[![Language - TypeScript](https://img.shields.io/badge/Language-TypeScript-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
+[![Network - WebSockets](https://img.shields.io/badge/Network-WebSockets-orange?style=for-the-badge&logo=socket.io)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+[![Tooling - Antigravity IDE](https://img.shields.io/badge/Powered%20By-Antigravity%20IDE-9C27B0?style=for-the-badge)](https://gemini.google.com)
+[![AI Coded - Claude 4.6 & Gemini 3.5](https://img.shields.io/badge/AI%20Coded-Claude%204.6%20%7C%20Gemini%203.5-red?style=for-the-badge)](https://gemini.google.com)
 
-Monopoly boasts an array of fantastic features to enhance your gaming journey. The game includes a user-friendly dialog box that keeps you informed about important events and announcements, along with a robust notification system to ensure you never miss a crucial update. Engage in lively conversations with other players through the integrated chat feature, fostering a sense of community and fun.
+---
 
-the player navigation panel enables you to view the status of other players in the game, providing valuable insights into their progress and strategies. Similarly, the property navigation system allows you to manage and monitor your properties and even search for details about others.
+![Project Banner](./public/banner.png)
 
-### Gameplay and UI
+</div>
 
-Immerse yourself in an interactive gaming experience through the game UI. By clicking on the streets on the virtual board, you can access detailed cards for each property, helping you make informed decisions during gameplay. The roll UI enables smooth and engaging dice rolling, adding excitement to each turn. With the card UI system, you can view the cards for each street, gaining a comprehensive understanding of the game's dynamics.
+---
 
-Participate in the property-buying process through the intuitive buy-in UI and system, making strategic investments to grow your wealth and secure your victory. The game mechanics are designed to be straightforward, ensuring a user-friendly experience for players of all levels.
+## 🤖 The AI Vibe-Coding Statement
 
-## How to run the project
+> [!IMPORTANT]
+> **Every single line of custom code, logic, styling, and asset integration added to this repository since cloning was built autonomously by AI Agents.**
+> Using **Claude 4.6 Sonnet** and **Gemini 3.5** inside the **Antigravity IDE**, the game was fully refactored, polished, and upgraded without manual human coding.
 
-theres `src/config.ts` file that is hidden (inside .gitignore file), that his structure is:
+The original project was cloned from [itaylayzer/Monopoly](https://github.com/itaylayzer/Monopoly). Through iterative prompting, analysis, and execution, the AI agents transformed a client-side prototype into an ultra-premium, production-ready, multiplayer gaming platform.
 
-```ts
-export default {
-	CODE_PREFIX: <string> // required,
-	PEER_SERVER_HOST: <string?>, // optional
-	PEER_SERVER_PORT: <number?>, // optional, default 443
-	PEER_SECURE: <boolean?>, // optional, default false
-	PEER_DEBUG_LEVEL: <number?>, // optional, default 0
-};
+---
+
+## 🎮 Key Capabilities & Upgraded Systems
+
+### 📡 1. Server-Authoritative State Sync
+To eliminate client desynchronizations, room state cheats, and race conditions, the core state machine was completely rewritten to execute on the Node.js backend.
+
+```mermaid
+sequenceDiagram
+    participant Client as 🖥️ Client (React)
+    participant Server as ⚙️ Authoritative Server (Node/WS)
+    participant State as 💾 Room Game State
+
+    Client->>Server: Action Event (e.g. roll_dice, buy_property)
+    Note over Server: Validate action against rules<br/>& player turns
+    alt Action is Valid
+        Server->>State: Update state data
+        State-->>Server: Return updated state
+        Server->>Client: Broadcast state change to all clients
+    else Action is Invalid
+        Server-->>Client: Send reject notification / rollback
+    end
 ```
 
-## Credits
+### 🔄 2. Resilient Session Reconnection & Recovery
+Players can safely reload tabs or recover from socket disconnects without breaking active matches.
 
-credit for danielstern for the monopoly.json file which i modified
-https://github.com/danielstern/science/blob/master/monopoly.json
+```mermaid
+sequenceDiagram
+    participant Client as 🖥️ Client Browser
+    participant Server as ⚙️ WebSocket Server
 
-### Pascol Credits
+    Client->>Client: Load page / trigger refresh
+    Note over Client: Retrieve token from sessionStorage
+    Client->>Server: Connect request: /room/:code?token=uuid
+    Note over Server: Check token in active room session registry
+    alt Session Found & Match
+        Server-->>Client: Assign client ID & send full game state delta
+        Client->>Client: Redraw Board UI & restore active turn
+    else Session Expired / Invalid
+        Server-->>Client: Close socket (1008 Room Not Found)
+        Client->>Client: Clear session storage & route back to Home
+    end
+```
 
-Main Theme : https://youtu.be/NaH_BiPeZ80
+### 👁️ 3. Spectator Mode
+* **Lobby Overfill:** If a game has already started or the lobby is full (max 6 players), players can join as **Spectators**.
+* **Seamless Streaming:** Spectators receive real-time board updates, history outputs, and analytics without modifying the game state.
 
-#### Sound Effects:
+### 🎩 4. Strict Classic Rules Enforcement
+* **Property Auctions:** If a player lands on an unowned street and declines to buy it, an interactive property auction triggers for all other active players.
+* **Finite Housing Pools:** Standard Monopoly house limits (**32 Houses** and **12 Hotels**). Handles hotel demotions on shortage automatically.
+* **Refined Trading Panel:** Reworked trading setup featuring 2-way approval, trade mortgage transfer resolution, and blocks on negative cash trades.
+* **Bankruptcy & Debt Resolution:** Automatic debt state management. Declaring bankruptcy triggers asset transfers, balance clearing, and double-confirmation checks.
 
--   Rolling Dice: https://youtu.be/rVjCSaXhZTs
--   Buying: https://youtu.be/IVjC5fTeubA
--   Dying: https://youtu.be/_asNhzXq72w
--   Winning: https://youtu.be/K0ZNtpTYKpI
--   Notification: https://youtu.be/84frnbTWGis
--   Walking: https://youtu.be/7skwR49UhqA
--   Jail: https://youtu.be/h2CTMrzxe24
--   Money: https://www.epidemicsound.com/track/oKEES3Rkmk/
--   Swipe: https://youtu.be/4-lY0NT-bJs
--   Clicking: https://youtu.be/3c-yEJYQcgM
+### 📊 5. Premium Insights Drawer & Luck Index
+* **Asset Allocation:** An interactive bottom-drawer details current property value distribution, liquidity ratios, and total asset worth using custom inline SVG progress bars.
+* **Luck Index Calculations:** Tracks and computes live dice roll distribution graphs, checking expected roll frequencies against actual rolls to assign a live "Luck Index" to every player.
 
-Soundtrakcs Where edited using Adobe Audition
+### 🛠️ 6. Secure QA Sandbox & Debug Console
+* A password-secured, collapsible debugger panel allows game testing: force dice values, grant mock assets, trigger instant debt, and manually swap active turns.
 
-## Legal Disclaimer
+---
 
-As the developer of this Monopoly game project, it is essential to clarify the following legal aspects:
+## 🎨 Aesthetic Upgrades
+* **Slate Glassmorphism Theme:** Transparent navigation containers, blur filters, sleek dark backdrops, and modern typography (Outfit / Inter).
+* **Mortgaged Stamps:** Mortgaged properties feature a bright styled overlay stamp reading `MORTGAGED` directly on the board tiles.
+* **Custom React SVGs:** Completely replaced external icons with inline, high-performance scalable vector assets.
 
-1. Game Mechanics and Rules: The game mechanics and rules of Monopoly have been widely known and played for many years. This project aims to offer a digital rendition of the classic Monopoly experience, utilizing original concepts that have become common knowledge.
+---
 
-2. Original Monopoly Intellectual Property: The Monopoly board game is a registered trademark and copyrighted property of Hasbro Inc. and its respective licensors. This project is not an official representation or product of Hasbro Inc., and no direct affiliation or endorsement is implied.
+## 🚀 Getting Started
 
-3. License and Usage: This Monopoly game project is developed with the intent of being an educational and personal project. It is offered as a free-to-use, open-source initiative for learning purposes, and no commercial use or distribution is intended.
+The project builds the React app into static files served by the Express backend, running both on a single port to eliminate CORS and cross-origin WebSocket blocks.
 
-4. Fair Use and Transformative Work: This project may fall under the category of "fair use" as it is a transformative work that provides a unique digital experience based on the original Monopoly game. It is not intended to compete with or harm the commercial interests of the original trademark owner.
+### ⚙️ Configuration Setup
+1. Create a `.env` file in the project root:
+   ```env
+   PORT=3064
+   ```
+2. Configure settings inside [src/config.ts](file:///d:/Games/Monopoly-main/Monopoly-main/src/config.ts):
+   ```ts
+   export default {
+     CODE_PREFIX: "my_monopoly_game",
+   };
+   ```
 
-5. No Warranty or Liability: While efforts have been made to create an enjoyable and bug-free experience, this project is provided as-is without any warranty. The developer shall not be liable for any issues or damages arising from the use of this software.
+### 💻 Running the App
 
-6. Attribution: This project may include third-party libraries or assets that are appropriately credited and licensed under their respective terms. Any attributions and licenses should be preserved as required by the respective authors.
+#### Windows (Quick Play)
+Simply execute `play.bat` from your file explorer, or run the following in PowerShell/CMD:
+```cmd
+play.bat
+```
 
-7. Personal Responsibility: As the developer, you are responsible for complying with all applicable laws, including intellectual property laws, and ensuring that your usage of this project is within legal boundaries.
+#### Linux / macOS
+Grant execution rights and launch the script:
+```bash
+chmod +x start.sh
+./start.sh
+```
 
-## TODO List:
+#### Manual Custom Build
+If you prefer running build steps manually:
+```bash
+# 1. Install dependencies
+npm install
 
-1. Bots System [trying to achive that with Tensorflow.js]
-2. Advanced Server Display [Event Logs, Player Statistics, Memory and Network Use]
-3. Advanced Game Mode - Economic System & Rebuy Street from Owner
-4. Firestore Usage:
-    1. Score System
-    2. Players LeaderBoard
-    3. Search for Player Statistics
-5. Responsive UI:
-    1. Mobile Design
-    2. 3D Game Version
+# 2. Build the client app
+npm run build
 
-## Pictures and Videos of the game!
+# 3. Compile backend TS
+npm run build:backend
 
-for more pictures https://itaylayzer.github.io/Monopoly/gallery
-![picture of the monopoly game](https://cdn.discordapp.com/attachments/1005211638191890532/1133681326793433138/7.PNG)
+# 4. Start Server
+npm start
+```
+Open your browser at **[http://localhost:3064](http://localhost:3064)**.
 
-## Features
+---
 
-### Keys
+## 🎮 Key Controls & Keyboards
 
-1. [1-9]: Nav Tabs
-2. Mouse Wheel: Rotate the Board
-3. Mouse Wheel + Shift: Scale the Board
+* **`[1-9]` Keys:** Switch through active board navigation drawers.
+* **Mouse Scroll:** Rotate the board grid.
+* **Shift + Mouse Scroll:** Zoom/scale the board scale size.
+
+---
+
+## 📜 Credits & Disclaimers
+
+### Project Foundations
+* Original codebase: [itaylayzer/Monopoly](https://github.com/itaylayzer/Monopoly).
+* Credit to [Daniel Stern](https://github.com/danielstern) for the initial `monopoly.json` schema layout.
+
+### Soundtrack Credits
+* Main Game Soundtrack: [Monopoly Theme Sound](https://youtu.be/NaH_BiPeZ80)
+* Sound effects mastered using Adobe Audition.
+
+### Legal Notice
+* **Hasbro Property:** Monopoly is a registered trademark of Hasbro Inc. This project is a non-commercial, open-source educational exercise and is not affiliated with or endorsed by Hasbro.
