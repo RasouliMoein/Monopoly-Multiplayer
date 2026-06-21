@@ -1,14 +1,18 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "rootDir": "../../",
-    "outDir": "../../dist-backend",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true
-  },
-  "include": ["src/**/*", "../shared/**/*"]
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "CommonJS",
+        "rootDir": "../../",
+        "outDir": "../../dist-backend",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "noImplicitReturns": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true
+    },
+    "include": ["src/**/*", "../shared/**/*"]
 }
