@@ -77,7 +77,9 @@ export default function InsightsTab({ stats, players }: InsightsTabProps) {
                     <OverviewTab 
                         stats={stats} 
                         players={players} 
-                        getPlayerAssets={getPlayerAssets} 
+                        getPlayerAssets={getPlayerAssets}
+                        getPropertyDetails={getPropertyDetails}
+                        getGroupColor={getGroupColor}
                     />
                 )}
                 {subTab === 1 && (
@@ -110,9 +112,11 @@ interface SubTabProps {
     stats: GameStats;
     players: Array<Player>;
     getPlayerAssets: (p: Player) => number;
+    getPropertyDetails: (pos: number) => any;
+    getGroupColor: (g: string) => string;
 }
 
-function OverviewTab({ stats, players, getPlayerAssets }: SubTabProps) {
+function OverviewTab({ stats, players, getPlayerAssets, getPropertyDetails, getGroupColor }: SubTabProps) {
     // 1. Board Dominance (Donut Chart)
     const playerAssetsList = players.map(p => ({
         id: p.id,
@@ -133,8 +137,109 @@ function OverviewTab({ stats, players, getPlayerAssets }: SubTabProps) {
     const diceSums = Array.from({ length: 11 }, (_, i) => i + 2);
     const maxRollCount = Math.max(...diceSums.map(s => stats.diceRolls[s] || 0), 1);
 
+    // Leader, Hotspot, Max Rent calculations
+    const leader = playerAssetsList.length > 0
+        ? playerAssetsList.reduce((max, curr) => curr.assets > max.assets ? curr : max, playerAssetsList[0])
+        : null;
+
+    const visitsList = Object.entries(stats.tileVisits)
+        .map(([pos, count]) => ({
+            position: parseInt(pos),
+            count: count as number
+        }))
+        .sort((a, b) => b.count - a.count);
+    const hotspot = visitsList.length > 0 ? visitsList[0] : null;
+    const hotspotDetails = hotspot ? getPropertyDetails(hotspot.position) : null;
+
+    let maxRentProp: any = null;
+    let maxRentValue = 0;
+    let maxRentOwnerName = "";
+    let maxRentOwnerColor = "";
+
+    players.forEach(p => {
+        p.properties.forEach(prop => {
+            const details = getPropertyDetails(prop.posistion);
+            if (!details) return;
+
+            const isMortgaged = prop.morgage === true || (prop.morgage as any) === "true";
+            if (isMortgaged) return;
+
+            let rent = 0;
+            if (details.group === "Utilities") {
+                const ownedUtilitiesCount = p.properties.filter(op => getPropertyDetails(op.posistion)?.group === "Utilities").length;
+                rent = 7 * (ownedUtilitiesCount === 2 ? 10 : 4);
+            } else if (details.group === "Railroad") {
+                const ownedRailroadsCount = p.properties.filter(op => getPropertyDetails(op.posistion)?.group === "Railroad").length;
+                rent = [0, 25, 50, 100, 200][Math.min(ownedRailroadsCount, 4)];
+            } else {
+                const houseCount = typeof prop.count === "number" ? prop.count : (prop.count === "h" ? 5 : 0);
+                if (houseCount === 0) {
+                    const groupList = monopolyJSON.properties.filter(pj => pj.group === details.group);
+                    const ownedGroup = p.properties.filter(op => getPropertyDetails(op.posistion)?.group === details.group);
+                    const hasMonopoly = groupList.length > 0 && ownedGroup.length === groupList.length;
+                    const allUnimproved = ownedGroup.every(op => {
+                        const opHouseCount = typeof op.count === "number" ? op.count : (op.count === "h" ? 5 : 0);
+                        return opHouseCount === 0;
+                    });
+                    const noneMortgaged = ownedGroup.every(op => {
+                        return op.morgage !== true && (op.morgage as any) !== "true";
+                    });
+                    rent = details.rent * (hasMonopoly && allUnimproved && noneMortgaged ? 2 : 1);
+                } else {
+                    rent = details.multpliedrent[houseCount - 1] ?? details.rent;
+                }
+            }
+
+            if (rent > maxRentValue) {
+                maxRentValue = rent;
+                maxRentProp = details;
+                maxRentOwnerName = p.username;
+                maxRentOwnerColor = p.color;
+            }
+        });
+    });
+
     return (
         <div className="insights-section fade-in">
+            {/* Insights Summary Cards */}
+            <div className="insights-summary-grid">
+                <div className="summary-card">
+                    <div className="summary-card-icon leader">👑</div>
+                    <div className="summary-card-content">
+                        <span className="summary-card-label">Current Leader</span>
+                        <span className="summary-card-value" style={{ color: leader?.color }}>
+                            {leader ? leader.username : "None"}
+                        </span>
+                        <span className="summary-card-subtext">
+                            {leader ? `$${leader.assets} Assets` : "N/A"}
+                        </span>
+                    </div>
+                </div>
+                <div className="summary-card">
+                    <div className="summary-card-icon hotspot">🔥</div>
+                    <div className="summary-card-content">
+                        <span className="summary-card-label">Board Hotspot</span>
+                        <span className="summary-card-value" style={{ color: hotspotDetails ? getGroupColor(hotspotDetails.group) : "#fff" }}>
+                            {hotspotDetails ? hotspotDetails.name : "None"}
+                        </span>
+                        <span className="summary-card-subtext">
+                            {hotspot ? `${hotspot.count} visits` : "0 visits"}
+                        </span>
+                    </div>
+                </div>
+                <div className="summary-card">
+                    <div className="summary-card-icon danger-zone">⚡</div>
+                    <div className="summary-card-content">
+                        <span className="summary-card-label">Highest Rent</span>
+                        <span className="summary-card-value" style={{ color: maxRentProp ? getGroupColor(maxRentProp.group) : "#fff" }}>
+                            {maxRentProp ? maxRentProp.name : "None"}
+                        </span>
+                        <span className="summary-card-subtext" style={{ color: maxRentOwnerColor || "rgba(255,255,255,0.4)" }}>
+                            {maxRentProp ? `$${maxRentValue} rent (${maxRentOwnerName})` : "No developed properties"}
+                        </span>
+                    </div>
+                </div>
+            </div>
             <div className="insights-card">
                 <h4>Board Dominance (Assets Value Share)</h4>
                 <div className="donut-chart-wrapper">
@@ -360,7 +465,7 @@ function PerformanceTab({ stats, players }: PerformanceTabProps) {
                                         className="line-path"
                                         style={{ filter: `drop-shadow(0 2px 4px ${h.color}33)` }}
                                     />
-                                    {h.data.map((d, index) => (
+                                    {h.data.length < 25 && h.data.map((d, index) => (
                                         <circle
                                             key={index}
                                             cx={getX(d.turn)}
@@ -523,9 +628,16 @@ function HotspotsTab({ stats, players, getPropertyDetails, getGroupColor }: Hots
                     if (houseCount === 0) {
                         // Check for group monopoly
                         const groupList = monopolyJSON.properties.filter(pj => pj.group === details.group);
-                        const ownedCount = p.properties.filter(op => getPropertyDetails(op.posistion)?.group === details.group).length;
-                        const hasMonopoly = groupList.length > 0 && ownedCount === groupList.length;
-                        currentRent = details.rent * (hasMonopoly ? 2 : 1);
+                        const ownedGroup = p.properties.filter(op => getPropertyDetails(op.posistion)?.group === details.group);
+                        const hasMonopoly = groupList.length > 0 && ownedGroup.length === groupList.length;
+                        const allUnimproved = ownedGroup.every(op => {
+                            const opHouseCount = typeof op.count === "number" ? op.count : (op.count === "h" ? 5 : 0);
+                            return opHouseCount === 0;
+                        });
+                        const noneMortgaged = ownedGroup.every(op => {
+                            return op.morgage !== true && (op.morgage as any) !== "true";
+                        });
+                        currentRent = details.rent * (hasMonopoly && allUnimproved && noneMortgaged ? 2 : 1);
                     } else {
                         currentRent = details.multpliedrent[houseCount - 1] ?? details.rent;
                     }
@@ -630,6 +742,22 @@ interface LuckTabProps {
 function LuckTab({ stats, players }: LuckTabProps) {
     return (
         <div className="insights-section fade-in">
+            <div className="luck-tab-header">
+                <h4>Player Luck Index</h4>
+                <div className="luck-help-container">
+                    <span className="luck-help-trigger">ℹ️ How is this calculated?</span>
+                    <div className="luck-help-tooltip">
+                        <h5>True Luck Index (0-100)</h5>
+                        <p>The Luck Index compares your actual rolls to mathematical expectations:</p>
+                        <ul>
+                            <li><strong>Dodging Rent:</strong> Rolling past expensive opponent properties and landing on safe tiles instead gains Luck Points! Landing on expensive rent tiles loses Luck Points.</li>
+                            <li><strong>Board Opportunities:</strong> Landing on unowned properties counts as a positive opportunity (<strong>+0.20</strong> luck, or <strong>+0.50</strong> if it completes a monopoly).</li>
+                            <li><strong>Doubles & Cards:</strong> Rolling doubles or drawing positive cards adds luck; going to jail or drawing bad cards subtracts luck.</li>
+                        </ul>
+                        <div className="luck-help-footer">A score of 50 is perfectly average. Above 50 is lucky; below 50 is unlucky. Trades and purchases are player decisions, so they do not count.</div>
+                    </div>
+                </div>
+            </div>
             {players.map(p => {
                 const statsObj: PlayerStats = stats.playerStats[p.id] || {
                     totalGained: 0,
@@ -641,12 +769,29 @@ function LuckTab({ stats, players }: LuckTabProps) {
                     doublesRolled: 0,
                     goodCardsDrawn: 0,
                     badCardsDrawn: 0,
-                    jailCount: 0
+                    jailCount: 0,
+                    luckyEvents: 0,
+                    unluckyEvents: 0,
+                    cumulativeLuck: 0,
+                    luckEventsCount: 0
                 };
 
                 // Luck Score formula
-                // Base 50, doubles +12, good cards +15, bad cards -12, jail -8
-                let luckScore = 50 + (statsObj.doublesRolled * 12) + (statsObj.goodCardsDrawn * 15) - (statsObj.badCardsDrawn * 12) - (statsObj.jailCount * 8);
+                let luckScore = 50;
+                let avgLuck = 0;
+                if (statsObj.luckEventsCount !== undefined && statsObj.luckEventsCount > 0) {
+                    avgLuck = statsObj.cumulativeLuck / statsObj.luckEventsCount;
+                    luckScore = Math.round(50 + avgLuck * 50);
+                } else {
+                    // Fallback to event count formula if expectation fields are not defined or 0
+                    const lucky = statsObj.luckyEvents ?? (statsObj.doublesRolled + statsObj.goodCardsDrawn);
+                    const unlucky = statsObj.unluckyEvents ?? (statsObj.badCardsDrawn + statsObj.jailCount);
+                    const totalEvents = lucky + unlucky;
+                    if (totalEvents > 0) {
+                        avgLuck = (lucky - unlucky) / totalEvents;
+                        luckScore = Math.round(50 + avgLuck * 50);
+                    }
+                }
                 luckScore = Math.max(0, Math.min(100, luckScore));
 
                 // Luck Profile description
@@ -717,6 +862,52 @@ function LuckTab({ stats, players }: LuckTabProps) {
                                     <span className="counter-val warning">{statsObj.jailCount}</span>
                                     <span className="counter-lbl">Jail Stays</span>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Raw Calculations & Variables breakdown */}
+                        <div className="luck-calculations-details">
+                            <div className="luck-details-grid">
+                                <div className="luck-detail-item">
+                                    <span className={`luck-detail-val ${statsObj.cumulativeLuck > 0 ? 'positive' : statsObj.cumulativeLuck < 0 ? 'negative' : 'neutral'}`}>
+                                        {statsObj.cumulativeLuck > 0 ? '+' : ''}{statsObj.cumulativeLuck.toFixed(2)}
+                                    </span>
+                                    <span className="luck-detail-lbl">Net Luck Points</span>
+                                </div>
+                                <div className="luck-detail-item">
+                                    <span className="luck-detail-val neutral">
+                                        {statsObj.luckEventsCount}
+                                    </span>
+                                    <span className="luck-detail-lbl">Turns Tracked</span>
+                                </div>
+                                <div className="luck-detail-item">
+                                    <span className={`luck-detail-val ${avgLuck > 0 ? 'positive' : avgLuck < 0 ? 'negative' : 'neutral'}`}>
+                                        {avgLuck > 0 ? '+' : ''}{avgLuck.toFixed(3)}
+                                    </span>
+                                    <span className="luck-detail-lbl">Avg Roll Luck</span>
+                                </div>
+                            </div>
+
+                            <div className="luck-details-grid" style={{ marginTop: '4px', gridTemplateColumns: '1fr 1fr' }}>
+                                <div className="luck-detail-item">
+                                    <span className="luck-detail-val success">
+                                        {statsObj.luckyEvents}
+                                    </span>
+                                    <span className="luck-detail-lbl">Lucky Events</span>
+                                </div>
+                                <div className="luck-detail-item">
+                                    <span className="luck-detail-val danger">
+                                        {statsObj.unluckyEvents}
+                                    </span>
+                                    <span className="luck-detail-lbl">Unlucky Events</span>
+                                </div>
+                            </div>
+
+                            <div className="luck-formula-bar">
+                                <span className="luck-formula-lbl">Luck Score Formula</span>
+                                <span className="luck-formula-val">
+                                    50 + ({avgLuck > 0 ? '+' : ''}{avgLuck.toFixed(3)} * 50) = {luckScore}
+                                </span>
                             </div>
                         </div>
                     </div>

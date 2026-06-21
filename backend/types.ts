@@ -115,6 +115,10 @@ export interface PlayerStats {
     goodCardsDrawn: number;
     badCardsDrawn: number;
     jailCount: number;
+    luckyEvents: number;
+    unluckyEvents: number;
+    cumulativeLuck: number;
+    luckEventsCount: number;
 }
 
 export interface GameStats {

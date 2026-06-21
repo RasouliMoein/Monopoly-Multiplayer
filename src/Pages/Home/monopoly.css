@@ -4246,6 +4246,12 @@ main nav.content table tr td:nth-child(2) {
         display: flex;
         flex-direction: column;
     }
+    .insights-summary-grid {
+        grid-column: 1 / -1;
+    }
+    .luck-tab-header {
+        grid-column: 1 / -1;
+    }
 }
 
 @keyframes slideUp {
@@ -4292,3 +4298,275 @@ main nav.content table tr td:nth-child(2) {
     color: #fff;
     margin-top: 2px;
 }
+
+/* --- Insights Overview Tab Summary Cards --- */
+.insights-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.summary-card {
+    background: rgba(30, 27, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(79, 142, 255, 0.2);
+}
+
+.summary-card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.summary-card-icon.leader {
+    background: rgba(234, 179, 8, 0.15);
+    border: 1px solid rgba(234, 179, 8, 0.3);
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.15);
+}
+
+.summary-card-icon.hotspot {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);
+}
+
+.summary-card-icon.danger-zone {
+    background: rgba(168, 85, 247, 0.15);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.15);
+}
+
+.summary-card-content {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    min-width: 0;
+}
+
+.summary-card-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-muted, rgba(255, 255, 255, 0.5));
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.summary-card-value {
+    font-size: 12px;
+    font-weight: 750;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 2px 0;
+}
+
+.summary-card-subtext {
+    font-size: 9.5px;
+    color: var(--text-muted, rgba(255, 255, 255, 0.5));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --- Luck Tab Header & Hover Tooltip --- */
+.luck-tab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    position: relative;
+}
+
+.luck-tab-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-left: 3px solid var(--color-primary);
+    padding-left: 8px;
+}
+
+.luck-help-container {
+    position: relative;
+    display: inline-block;
+}
+
+.luck-help-trigger {
+    font-size: 11px;
+    color: var(--color-primary, #4f8eff);
+    cursor: help;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    background: rgba(79, 142, 255, 0.08);
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(79, 142, 255, 0.15);
+    transition: all 0.2s ease;
+}
+
+.luck-help-trigger:hover {
+    background: rgba(79, 142, 255, 0.16);
+    color: #fff;
+}
+
+.luck-help-tooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    right: 0;
+    top: 28px;
+    width: 290px;
+    background: rgba(20, 19, 26, 0.98);
+    border: 1px solid rgba(79, 142, 255, 0.3);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+    z-index: 200;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform: translateY(4px);
+    pointer-events: none;
+    backdrop-filter: blur(12px);
+    text-align: left;
+}
+
+.luck-help-container:hover .luck-help-tooltip {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.luck-help-tooltip h5 {
+    margin: 0 0 6px 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--color-primary, #4f8eff);
+}
+
+.luck-help-tooltip p {
+    margin: 0 0 8px 0;
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.45;
+}
+
+.luck-help-tooltip ul {
+    margin: 0 0 8px 0;
+    padding-left: 14px;
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.luck-help-tooltip li {
+    line-height: 1.4;
+}
+
+.luck-help-tooltip li strong {
+    color: #fff;
+}
+
+.luck-help-footer {
+    font-size: 9.5px;
+    color: var(--text-muted);
+    font-style: italic;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 6px;
+    margin-top: 6px;
+}
+
+/* Luck Calculation Details */
+.luck-calculations-details {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.luck-details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.luck-detail-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.luck-detail-val {
+    font-size: 11.5px;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+.luck-detail-val.positive { color: #34d399; }
+.luck-detail-val.negative { color: #f87171; }
+.luck-detail-val.neutral { color: #fff; }
+
+.luck-detail-lbl {
+    font-size: 8px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    margin-top: 2px;
+    text-align: center;
+}
+
+.luck-formula-bar {
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10.5px;
+}
+
+.luck-formula-lbl {
+    color: var(--text-muted);
+    font-size: 9px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.luck-formula-val {
+    font-family: monospace;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 700;
+}
+
+
+

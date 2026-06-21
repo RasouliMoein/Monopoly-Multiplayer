@@ -169,7 +169,11 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                 doublesRolled: 0,
                 goodCardsDrawn: 0,
                 badCardsDrawn: 0,
-                jailCount: 0
+                jailCount: 0,
+                luckyEvents: 0,
+                unluckyEvents: 0,
+                cumulativeLuck: 0,
+                luckEventsCount: 0
             };
         }
         player.onBalanceChange = (prev: number, val: number) => {
@@ -344,10 +348,11 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prop.group);
                     const ownedGroup = player.properties.filter((p: any) => p.group === prop.group);
                     const hasMonopoly = groupProps.length > 0 && ownedGroup.length === groupProps.length;
-                    // Only apply double when ALL properties in the set are unimproved.
-                    // If any have been built on, that property uses its own rent tier instead.
+                    // Only apply double when ALL properties in the set are unimproved
+                    // AND none are mortgaged (official rules: mortgaged property breaks monopoly double rent).
                     const allUnimproved = ownedGroup.every((p: any) => p.count === 0);
-                    amt = (prop.rent ?? 0) * (hasMonopoly && allUnimproved ? 2 : 1) * multiplier;
+                    const noneMortgaged = ownedGroup.every((p: any) => p.morgage !== true && (p.morgage as any) !== "true");
+                    amt = (prop.rent ?? 0) * (hasMonopoly && allUnimproved && noneMortgaged ? 2 : 1) * multiplier;
                 } else if (typeof prp.count === "number" && prp.count > 0) {
                     amt = ((prop.multpliedrent ?? [])[prp.count - 1] ?? 0) * multiplier;
                 } else if (prp.count === "h") {
@@ -360,6 +365,80 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
     }
 
     /**
+     * Calculate Expected Rent/Tax Exposure for a player from their current position.
+     * This loops over all possible outcomes of a dice roll (2 to 12) and computes the expected rent/tax cost.
+     */
+    function getExpectedRentExposure(player: Player, oldPos: number): { expectedRent: number; maxRent: number } {
+        const probs: Record<number, number> = {
+            2: 1/36, 12: 1/36,
+            3: 2/36, 11: 2/36,
+            4: 3/36, 10: 3/36,
+            5: 4/36, 9: 4/36,
+            6: 5/36, 8: 5/36,
+            7: 6/36
+        };
+
+        let expectedRent = 0;
+        let maxRent = 0;
+
+        for (let roll = 2; roll <= 12; roll++) {
+            const targetPos = (oldPos + roll) % 40;
+            const prop = propertyByPosition.get(targetPos);
+            if (!prop) continue;
+
+            let rentOrTax = 0;
+
+            if (prop.id === "incometax") {
+                rentOrTax = 200;
+            } else if (prop.id === "luxerytax") {
+                rentOrTax = 100;
+            } else if (prop.group && prop.group !== "Special") {
+                // Find owner
+                const clientOwner = Array.from(Clients.values()).find(
+                    (c) => c.player.properties.some((p) => p.posistion === targetPos) && !c.player.isBankrupt
+                );
+                if (clientOwner && clientOwner.player.id !== player.id) {
+                    const owner = clientOwner.player;
+                    const prp = owner.properties.find((p) => p.posistion === targetPos);
+                    if (prp && prp.morgage !== true && (prp.morgage as any) !== "true") {
+                        if (prop.group === "Utilities") {
+                            const ownedCount = owner.properties.filter(
+                                (op) => propertyByPosition.get(op.posistion)?.group === "Utilities"
+                            ).length;
+                            rentOrTax = 7 * (ownedCount === 2 ? 10 : 4);
+                        } else if (prop.group === "Railroad") {
+                            const ownedCount = owner.properties.filter(
+                                (op) => propertyByPosition.get(op.posistion)?.group === "Railroad"
+                            ).length;
+                            rentOrTax = [0, 25, 50, 100, 200][Math.min(ownedCount, 4)];
+                        } else {
+                            const prpCount = prp.count;
+                            const houseCount = typeof prpCount === "number" ? prpCount : (prpCount === "h" ? 5 : 0);
+                            if (houseCount === 0) {
+                                const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prop.group);
+                                const ownedGroup = owner.properties.filter((p: any) => p.group === prop.group);
+                                const hasMonopoly = groupProps.length > 0 && ownedGroup.length === groupProps.length;
+                                const allUnimproved = ownedGroup.every((p: any) => p.count === 0);
+                                const noneMortgaged = ownedGroup.every((p: any) => p.morgage !== true && (p.morgage as any) !== "true");
+                                rentOrTax = (prop.rent ?? 0) * (hasMonopoly && allUnimproved && noneMortgaged ? 2 : 1);
+                            } else {
+                                rentOrTax = (prop.multpliedrent ?? [])[houseCount - 1] ?? prop.rent ?? 0;
+                            }
+                        }
+                    }
+                }
+            }
+
+            expectedRent += probs[roll] * rentOrTax;
+            if (rentOrTax > maxRent) {
+                maxRent = rentOrTax;
+            }
+        }
+
+        return { expectedRent, maxRent };
+    }
+
+    /**
      * Process landing on a tile — mutates balances in place.
      * Returns: requiresPurchaseDecision (client should show buy/upgrade UI)
      *          landingNote (encoded event string for client notifications)
@@ -368,7 +447,8 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
         player: Player,
         position: number,
         rolls: number,
-        multiplier = 1
+        multiplier = 1,
+        isCardMove = false
     ): { requiresPurchaseDecision: boolean; landingNote: string } {
         const prop = propertyByPosition.get(position);
         if (!prop) return { requiresPurchaseDecision: false, landingNote: "" };
@@ -376,47 +456,119 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
         if (CARD_TILES.has(prop.id ?? "")) return { requiresPurchaseDecision: false, landingNote: "" };
         if (prop.id === "gotojail") return { requiresPurchaseDecision: false, landingNote: "" }; // handled in roll_dice
 
+        const getRentLuckWeight = (pOwner: Player, pos: number) => {
+            const prp = pOwner.properties.find(p => p.posistion === pos);
+            if (!prp) return 1;
+            if (prp.count === "h") return 3;
+            if (typeof prp.count === "number" && prp.count > 0) return 2;
+            return 1;
+        };
+
+        // Expected Exposure Calculations (Normal Roll only)
+        let expectedRent = 0;
+        let maxRent = 0;
+        if (!isCardMove) {
+            const oldPos = ((position - rolls) % 40 + 40) % 40;
+            const exposure = getExpectedRentExposure(player, oldPos);
+            expectedRent = exposure.expectedRent;
+            maxRent = exposure.maxRent;
+        }
+
+        let actualPaid = 0;
+        let result: { requiresPurchaseDecision: boolean; landingNote: string } = { requiresPurchaseDecision: false, landingNote: "" };
+
         if (prop.id === "incometax") {
             player.balance -= 200;
+            actualPaid = 200;
             const pStatsTax = gameStats.playerStats[player.id];
-            if (pStatsTax) pStatsTax.taxesPaid += 200;
-            return { requiresPurchaseDecision: false, landingNote: "incometax:200" };
-        }
-        if (prop.id === "luxerytax") {
-            player.balance -= 100;
-            const pStatsLux = gameStats.playerStats[player.id];
-            if (pStatsLux) pStatsLux.taxesPaid += 100;
-            return { requiresPurchaseDecision: false, landingNote: "luxerytax:100" };
-        }
-
-        const { owner, amount } = computeRent(position, rolls, multiplier);
-        if (owner !== null) {
-            if (owner.id === player.id) return { requiresPurchaseDecision: true, landingNote: `own:${position}` };
-            if (amount > 0) {
-                player.balance -= amount;
-                if (player.balance >= 0) {
-                    // Player can fully afford rent — normal transfer
-                    owner.balance += amount;
-                    const pStatsRent = gameStats.playerStats[player.id];
-                    const oStatsRent = gameStats.playerStats[owner.id];
-                    if (pStatsRent) pStatsRent.rentPaid += amount;
-                    if (oStatsRent) oStatsRent.rentReceived += amount;
-                    return { requiresPurchaseDecision: false, landingNote: `rent:${owner.id}:${amount}` };
-                } else {
-                    // Player cannot afford rent — store the owed amount to settle on finish-turn or handle in bankruptcy.
-                    debtAmountMap.set(player.id, { creditorId: owner.id, amount });
-                    const pStatsRent = gameStats.playerStats[player.id];
-                    if (pStatsRent) pStatsRent.rentPaid += amount;
-                    return { requiresPurchaseDecision: false, landingNote: `rent:${owner.id}:${amount}` };
-                }
+            if (pStatsTax) {
+                pStatsTax.taxesPaid += 200;
+                pStatsTax.unluckyEvents += 1;
             }
-            return { requiresPurchaseDecision: false, landingNote: "" };
+            result = { requiresPurchaseDecision: false, landingNote: "incometax:200" };
+        } else if (prop.id === "luxerytax") {
+            player.balance -= 100;
+            actualPaid = 100;
+            const pStatsLux = gameStats.playerStats[player.id];
+            if (pStatsLux) {
+                pStatsLux.taxesPaid += 100;
+                pStatsLux.unluckyEvents += 1;
+            }
+            result = { requiresPurchaseDecision: false, landingNote: "luxerytax:100" };
+        } else {
+            const { owner, amount } = computeRent(position, rolls, multiplier);
+            if (owner !== null) {
+                if (owner.id === player.id) {
+                    result = { requiresPurchaseDecision: true, landingNote: `own:${position}` };
+                } else if (amount > 0) {
+                    player.balance -= amount;
+                    actualPaid = amount;
+                    const rentWeight = getRentLuckWeight(owner, position);
+                    const pStatsRent = gameStats.playerStats[player.id];
+                    if (pStatsRent) {
+                        pStatsRent.rentPaid += amount;
+                        pStatsRent.unluckyEvents += rentWeight;
+                    }
+                    // Landlord luck tracking — independent of tenant's ability to pay.
+                    // The luck event happened when someone landed here; only the balance
+                    // transfer is deferred when the tenant is insolvent.
+                    const oStatsRent = gameStats.playerStats[owner.id];
+                    if (oStatsRent) {
+                        oStatsRent.rentReceived += amount;
+                        oStatsRent.luckyEvents += rentWeight;
+                        oStatsRent.cumulativeLuck += rentWeight * 0.25;
+                        oStatsRent.luckEventsCount += 1;
+                    }
+                    if (player.balance >= 0) {
+                        // Player can fully afford rent — normal transfer
+                        owner.balance += amount;
+                    } else {
+                        // Player cannot afford rent — store the owed amount to settle on finish-turn or handle in bankruptcy.
+                        debtAmountMap.set(player.id, { creditorId: owner.id, amount });
+                    }
+                    result = { requiresPurchaseDecision: false, landingNote: `rent:${owner.id}:${amount}` };
+                } else {
+                    result = { requiresPurchaseDecision: false, landingNote: "" };
+                }
+            } else if (prop.price !== undefined && prop.group !== "Special") {
+                // Calculate Asset Acquisition Opportunity Luck
+                const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prop.group);
+                const ownedGroup = player.properties.filter((op: any) => op.group === prop.group);
+                const isCompletingMonopoly = groupProps.length > 0 && ownedGroup.length === groupProps.length - 1;
+
+                let opportunityLuck = 0.20;
+                if (isCompletingMonopoly) {
+                    if (prop.group === "Railroad" || prop.group === "Utilities") {
+                        opportunityLuck = 0.40;
+                    } else {
+                        opportunityLuck = 0.50;
+                    }
+                }
+
+                const pStats = gameStats.playerStats[player.id];
+                if (pStats) {
+                    pStats.luckyEvents += isCompletingMonopoly ? 2 : 1;
+                    pStats.cumulativeLuck += opportunityLuck;
+                    pStats.luckEventsCount += 1;
+                }
+
+                result = { requiresPurchaseDecision: true, landingNote: `unowned:${position}` };
+            } else {
+                result = { requiresPurchaseDecision: false, landingNote: "" };
+            }
         }
 
-        if (prop.price !== undefined && prop.group !== "Special") {
-            return { requiresPurchaseDecision: true, landingNote: `unowned:${position}` };
+        // Apply risk-adjusted expectation luck deviation at end of normal landing
+        if (!isCardMove && maxRent > 0) {
+            const deviation = (expectedRent - actualPaid) / maxRent;
+            const pStats = gameStats.playerStats[player.id];
+            if (pStats) {
+                pStats.cumulativeLuck += deviation;
+                pStats.luckEventsCount += 1;
+            }
         }
-        return { requiresPurchaseDecision: false, landingNote: "" };
+
+        return result;
     }
 
     /**
@@ -443,6 +595,14 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                 for (const { player: p } of Array.from(Clients.values()).filter((c) => c.player.id !== player.id && !c.player.isBankrupt)) {
                     p.balance -= card.amount ?? 0;
                     player.balance += card.amount ?? 0;
+                    
+                    // Track unlucky events AND EV-based luck for paying players
+                    const otherStats = gameStats.playerStats[p.id];
+                    if (otherStats) {
+                        otherStats.unluckyEvents += 1;
+                        otherStats.cumulativeLuck -= 0.5;
+                        otherStats.luckEventsCount += 1;
+                    }
                 }
                 return { requiresPurchaseDecision: false };
             }
@@ -452,6 +612,14 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                 for (const { player: p } of Array.from(Clients.values()).filter((c) => c.player.id !== player.id && !c.player.isBankrupt)) {
                     p.balance += card.amount ?? 0;
                     player.balance -= card.amount ?? 0;
+                    
+                    // Track lucky events AND EV-based luck for receiving players
+                    const otherStats = gameStats.playerStats[p.id];
+                    if (otherStats) {
+                        otherStats.luckyEvents += 1;
+                        otherStats.cumulativeLuck += 0.5;
+                        otherStats.luckEventsCount += 1;
+                    }
                 }
                 return { requiresPurchaseDecision: false };
             }
@@ -520,7 +688,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                     } as any;
                 }
 
-                const landing = processLanding(player, targetPos, rolls);
+                const landing = processLanding(player, targetPos, rolls, 1, true);
                 return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: targetPos, landingNote: landing.landingNote };
             }
 
@@ -541,10 +709,10 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                 if (group === "Utilities") {
                     const d1 = Math.floor(Math.random() * 6) + 1;
                     const d2 = Math.floor(Math.random() * 6) + 1;
-                    const landing = processLanding(player, nearest, d1 + d2, card.rentmultiplier ?? 1);
+                    const landing = processLanding(player, nearest, d1 + d2, card.rentmultiplier ?? 1, true);
                     return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest, extraRoll: [d1, d2], landingNote: landing.landingNote };
                 }
-                const landing = processLanding(player, nearest, rolls, card.rentmultiplier ?? 1);
+                const landing = processLanding(player, nearest, rolls, card.rentmultiplier ?? 1, true);
                 return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest, landingNote: landing.landingNote };
             }
 
@@ -627,6 +795,15 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
             count: 0,
             group: prop.group ?? "",
         });
+
+        // Log monopoly completion
+        if (prop.group && prop.group !== "Special") {
+            const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prop.group);
+            const ownedGroup = winner.properties.filter((p: any) => p.group === prop.group);
+            if (groupProps.length > 0 && ownedGroup.length === groupProps.length) {
+                emitServerHistory(`${winner.username} completed the ${prop.group} color group monopoly!`);
+            }
+        }
 
         EmitAll("auction-end", {
             winnerId: winner.id,
@@ -812,6 +989,9 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                             const pStats = gameStats.playerStats[player.id];
                             if (pStats && d1 === d2) {
                                 pStats.doublesRolled += 1;
+                                pStats.luckyEvents += 1;
+                                pStats.cumulativeLuck += 0.3; // Doubles flat boost
+                                pStats.luckEventsCount += 1;
                             }
 
                             // ── In Jail branch ──
@@ -836,6 +1016,12 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                         // DO NOT return — fall through to normal movement below
                                     } else {
                                         emitServerHistory(`${player.username} failed doubles roll and stayed in Jail`);
+                                        const pStatsJail = gameStats.playerStats[player.id];
+                                        if (pStatsJail) {
+                                            pStatsJail.unluckyEvents += 1;
+                                            pStatsJail.cumulativeLuck -= 0.16; // Expected jail fail penalty
+                                            pStatsJail.luckEventsCount += 1;
+                                        }
                                         player.hasRolled = true;
                                         player.allowRollAgain = false;
                                         EmitAll("dice_roll_result", {
@@ -854,6 +1040,11 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                     // Doubles — escape jail, fall through to normal roll
                                     player.isInJail = false;
                                     player.jailTurnsRemaining = 0;
+                                    const pStatsJail = gameStats.playerStats[player.id];
+                                    if (pStatsJail) {
+                                        pStatsJail.cumulativeLuck += 0.8; // Expected jail escape doubles success
+                                        pStatsJail.luckEventsCount += 1;
+                                    }
                                     emitServerHistory(`${player.username} rolled doubles [${d1}, ${d2}] and escaped Jail!`);
                                 }
                             }
@@ -875,7 +1066,12 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                         // Stats!
                                          gameStats.tileVisits[10] = (gameStats.tileVisits[10] || 0) + 1;
                                          const pStatsConsecJail = gameStats.playerStats[player.id];
-                                         if (pStatsConsecJail) pStatsConsecJail.jailCount += 1;
+                                         if (pStatsConsecJail) {
+                                             pStatsConsecJail.jailCount += 1;
+                                             pStatsConsecJail.unluckyEvents += 1;
+                                             pStatsConsecJail.cumulativeLuck -= 0.6; // Going to jail penalty
+                                             pStatsConsecJail.luckEventsCount += 1;
+                                         }
 
                                          emitServerHistory(`${player.username} rolled doubles 3 times in a row and goes to Jail!`);
                                         player.hasRolled = true;
@@ -925,7 +1121,14 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 gameStats.tileVisits[30] = (gameStats.tileVisits[30] || 0) + 1;
                                 gameStats.tileVisits[10] = (gameStats.tileVisits[10] || 0) + 1;
                                 const pStatsJailRoll = gameStats.playerStats[player.id];
-                                if (pStatsJailRoll) pStatsJailRoll.jailCount += 1;
+                                if (pStatsJailRoll) {
+                                    pStatsJailRoll.cumulativeLuck -= 0.6; // Going to jail penalty
+                                    pStatsJailRoll.luckEventsCount += 1;
+                                }
+                                 if (pStatsJailRoll) {
+                                     pStatsJailRoll.jailCount += 1;
+                                     pStatsJailRoll.unluckyEvents += 1;
+                                 }
                             } else {
                                 player.position = rolledPosition;
                                 gameStats.tileVisits[rolledPosition] = (gameStats.tileVisits[rolledPosition] || 0) + 1;
@@ -951,11 +1154,23 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                     const pStatsCard = gameStats.playerStats[player.id];
                                     if (pStatsCard) {
                                         if (cardDiff > 0 || (card.action === "jail" && card.subaction === "getout")) {
-                                            pStatsCard.goodCardsDrawn += 1;
+                                            pStatsCard.cumulativeLuck += 0.5;
+                                            pStatsCard.luckEventsCount += 1;
                                         } else if (cardDiff < 0 || (card.action === "jail" && card.subaction === "goto")) {
-                                            pStatsCard.badCardsDrawn += 1;
+                                            pStatsCard.cumulativeLuck -= 0.5;
+                                            pStatsCard.luckEventsCount += 1;
                                         }
                                     }
+                                    if (pStatsCard) {
+                                        if (cardDiff > 0 || (card.action === "jail" && card.subaction === "getout")) {
+                                            pStatsCard.goodCardsDrawn += 1;
+                                            pStatsCard.luckyEvents += 1;
+                                        } else if (cardDiff < 0 || (card.action === "jail" && card.subaction === "goto")) {
+                                            pStatsCard.badCardsDrawn += 1;
+                                            pStatsCard.unluckyEvents += 1;
+                                        }
+                                    }
+
                                     if (result.newPosition !== undefined) {
                                         finalPosition = result.newPosition;
                                         player.position = finalPosition;
@@ -1056,6 +1271,15 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" bought ${prop.name ?? player.position}.`);
                                 server.logFunction(`{${getCurrentTime()}} Player "${player.username}" bought ${prop.name ?? player.position}.`);
                                 emitServerHistory(`${player.username} bought ${prop.name ?? "a property"}`);
+
+                                // Log monopoly completion
+                                if (prop.group && prop.group !== "Special") {
+                                    const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prop.group);
+                                    const ownedGroup = player.properties.filter((p: any) => p.group === prop.group);
+                                    if (groupProps.length > 0 && ownedGroup.length === groupProps.length) {
+                                        emitServerHistory(`${player.username} completed the ${prop.group} color group monopoly!`);
+                                    }
+                                }
                             } else if (args.action === "buy-advance") {
                                 const targetPosition = args.propertyPosition !== undefined ? args.propertyPosition : player.position;
                                 const targetProp = propertyByPosition.get(targetPosition) as any;
@@ -1221,14 +1445,14 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                                 const creditorClient = Clients.get(debt.creditorId);
                                 if (creditorClient) {
                                     // Rent was already deducted from debtor's balance in processLanding.
-                                    // We only need to add it to the creditor's balance here.
+                                    // Stats (rentReceived, luckyEvents, cumulativeLuck) were also recorded
+                                    // at landing time. We only need to transfer the balance here.
                                     creditorClient.player.balance += debt.amount;
-                                    const oStats = gameStats.playerStats[creditorClient.player.id];
-                                    if (oStats) oStats.rentReceived += debt.amount;
                                     emitServerHistory(`${player.username} settled $${debt.amount} rent debt to ${creditorClient.player.username}`);
                                 }
                                 debtAmountMap.delete(socket.id);
                             }
+
 
                             // Phase 2A: Reset doubles streak and creditor on clean turn end
                             consecutiveDoublesMap.set(socket.id, 0);
@@ -1707,6 +1931,26 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
                         tp.properties.push(...tGets);
                         ap.properties.push(...aGets);
+
+                        // Check for completed monopolies after trade (no luck updates for trade decisions)
+                        for (const prp of tGets) {
+                            if (prp.group && prp.group !== "Special") {
+                                const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prp.group);
+                                const ownedGroup = tp.properties.filter((p: any) => p.group === prp.group);
+                                if (groupProps.length > 0 && ownedGroup.length === groupProps.length) {
+                                    emitServerHistory(`${tp.username} completed the ${prp.group} color group monopoly via trade!`);
+                                }
+                            }
+                        }
+                        for (const prp of aGets) {
+                            if (prp.group && prp.group !== "Special") {
+                                const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prp.group);
+                                const ownedGroup = ap.properties.filter((p: any) => p.group === prp.group);
+                                if (groupProps.length > 0 && ownedGroup.length === groupProps.length) {
+                                    emitServerHistory(`${ap.username} completed the ${prp.group} color group monopoly via trade!`);
+                                }
+                            }
+                        }
 
                         // Detect transferred mortgaged properties
                         const tpMortgaged = tGets.filter((prp: any) => prp.morgage === true || prp.morgage === "true");
