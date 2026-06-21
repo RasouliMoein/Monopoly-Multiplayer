@@ -8,10 +8,29 @@ import MonopolyGame, { MonopolyGameRef } from "../../components/ingame/game.tsx"
 import NotifyElement, { NotificatorRef } from "../../components/notificator.tsx";
 import monopolyJSON from "../../../../shared/data/monopoly.json";
 import { Icons } from "../../components/icons";
-import { MonopolySettings, MonopolyModes, historyAction, history, GameTrading, MonopolyMode, MonopolyCookie, GameStats } from "../../../../shared/types/game";
+import {
+    MonopolySettings,
+    MonopolyModes,
+    historyAction,
+    history,
+    GameTrading,
+    MonopolyMode,
+    MonopolyCookie,
+    GameStats,
+} from "../../../../shared/types/game";
 import { CookieManager } from "../../utils/cookieManager";
 import { logger } from "../../utils/logger";
-function App({ socket, name, server, isSpectator = false }: { socket: Socket; name: string; server: Server | undefined; isSpectator?: boolean }) {
+function App({
+    socket,
+    name,
+    server,
+    isSpectator = false,
+}: {
+    socket: Socket;
+    name: string;
+    server: Server | undefined;
+    isSpectator?: boolean;
+}) {
     const [clients, SetClients] = useState<Map<string, Player>>(new Map());
     const players = Array.from(clients.values());
     const clientsRef = useRef(clients);
@@ -48,7 +67,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
         mortageAllowed: true,
         startingCash: 1500,
         turnTimer: undefined,
-        allowAuctions: true
+        allowAuctions: true,
     });
     const [showCustomModal, setShowCustomModal] = useState<boolean>(false);
     const selectedModeRef = useRef(selectedMode);
@@ -61,13 +80,16 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
     const [allowRollAgain, setAllowRollAgain] = useState<boolean>(false);
     const [isDebtState, setIsDebtState] = useState<boolean>(false);
     // Fix 5b: mortgage transfer choice state (for the creditor when a bankruptcy happens)
-    const [mortgageTransferPending, setMortgageTransferPending] = useState<{
-        position: number;
-        name: string;
-        mortgageValue: number;
-        interestFee: number;
-        unmortgageCost: number;
-    }[] | null>(null);
+    const [mortgageTransferPending, setMortgageTransferPending] = useState<
+        | {
+              position: number;
+              name: string;
+              mortgageValue: number;
+              interestFee: number;
+              unmortgageCost: number;
+          }[]
+        | null
+    >(null);
     const [mortgageBankruptName, setMortgageBankruptName] = useState<string>("");
 
     // Phase 2 — Housing & Hotel pool states
@@ -105,7 +127,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
             gameEngine: "2d",
             accessibility: [45, 5, false, false, true],
             audio: [100, 100, 5],
-            notifications: true
+            notifications: true,
         };
     });
     const [mainTheme, SetTheme] = useState(new Audio("./main-theme.mp3"));
@@ -118,7 +140,9 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
     const leavingRoomRef = useRef<boolean>(false);
 
     const [debugCollapsed, setDebugCollapsed] = useState<boolean>(false);
-    const [isDebugUnlocked, setIsDebugUnlocked] = useState<boolean>(() => sessionStorage.getItem("debug_unlocked") === "true");
+    const [isDebugUnlocked, setIsDebugUnlocked] = useState<boolean>(
+        () => sessionStorage.getItem("debug_unlocked") === "true",
+    );
     const isDebugMode = isDebugUnlocked;
 
     const [targetPlayerId, setTargetPlayerId] = useState<string>(socket.id);
@@ -134,7 +158,11 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
             setAllowRollAgain(false);
             setIsDebtState(true);
         }
-        notifyRef.current?.message(`Bankruptcy test triggered for ${clients.get(activeTargetId)?.username}!`, "info", 3);
+        notifyRef.current?.message(
+            `Bankruptcy test triggered for ${clients.get(activeTargetId)?.username}!`,
+            "info",
+            3,
+        );
     };
 
     const handlePreviewMortgageModal = () => {
@@ -153,7 +181,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                 mortgageValue: 200,
                 interestFee: 20,
                 unmortgageCost: 220,
-            }
+            },
         ]);
         notifyRef.current?.message("Previewing Mortgage Transfer Modal!", "info", 2);
     };
@@ -168,7 +196,11 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
         if (targetPlayer) {
             const newBalance = targetPlayer.balance + amount;
             socket.emit("debug_set_balance", { targetPlayerId: activeTargetId, balance: newBalance });
-            notifyRef.current?.message(`Balance of ${targetPlayer.username} adjusted by ${amount > 0 ? "+" : ""}$${amount}`, "info", 2);
+            notifyRef.current?.message(
+                `Balance of ${targetPlayer.username} adjusted by ${amount > 0 ? "+" : ""}$${amount}`,
+                "info",
+                2,
+            );
         }
     };
 
@@ -182,17 +214,29 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
 
     const handleSetDice = () => {
         socket.emit("debug_override_dice", { targetPlayerId: activeTargetId, d1: overrideD1, d2: overrideD2 });
-        notifyRef.current?.message(`Next roll for ${clients.get(activeTargetId)?.username} set to [${overrideD1}, ${overrideD2}]`, "info", 2);
+        notifyRef.current?.message(
+            `Next roll for ${clients.get(activeTargetId)?.username} set to [${overrideD1}, ${overrideD2}]`,
+            "info",
+            2,
+        );
     };
 
     const handleToggleJail = (inJail: boolean) => {
         socket.emit("debug_send_to_jail", { targetPlayerId: activeTargetId, inJail });
-        notifyRef.current?.message(`${clients.get(activeTargetId)?.username} ${inJail ? "sent to" : "released from"} jail`, "info", 2);
+        notifyRef.current?.message(
+            `${clients.get(activeTargetId)?.username} ${inJail ? "sent to" : "released from"} jail`,
+            "info",
+            2,
+        );
     };
 
     const handleTeleport = () => {
         socket.emit("debug_move_player", { targetPlayerId: activeTargetId, position: teleportPos });
-        notifyRef.current?.message(`${clients.get(activeTargetId)?.username} teleported to tile ${teleportPos}`, "info", 2);
+        notifyRef.current?.message(
+            `${clients.get(activeTargetId)?.username} teleported to tile ${teleportPos}`,
+            "info",
+            2,
+        );
     };
 
     const handleForceBankruptcy = () => {
@@ -263,7 +307,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
             return [obj.posistion ?? 0, obj];
-        })
+        }),
     );
     if (server !== undefined) {
         server.RenderLogs((array) => {
@@ -317,7 +361,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                         }),
                     ],
                 }),
-                "winning"
+                "winning",
             );
         };
 
@@ -383,7 +427,6 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     if (clientsRef.current.has(playerId)) {
                         // request a loop frame!
                         requestAnimationFrame(removePlayer);
-                    } else {
                     }
                 });
             }
@@ -401,7 +444,6 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     if (document.querySelector(`div.player[player-id="${playerId}"]`) !== null) {
                         // request a loop frame!
                         requestAnimationFrame(removeChild);
-                    } else {
                     }
                 });
             }
@@ -411,12 +453,12 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
         function playerMoveGENERATOR(
             final_position: number,
             _xplayer: Player,
-            get200whengo: boolean = true,
+            get200whengo = true,
             afterFinished?: () => void,
-            adding: boolean = true
+            adding = true,
         ) {
             animatingPlayersRef.current.add(_xplayer.id);
-            var sum_moves = (final_position - _xplayer.position) % 40;
+            let sum_moves = (final_position - _xplayer.position) % 40;
             if ((final_position < _xplayer.position || sum_moves < 0) && adding) {
                 sum_moves = 40 - _xplayer.position + final_position;
             }
@@ -440,16 +482,18 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
 
             const time = 0.35 * 1000 * sum_moves;
 
-            logger.debug(`${new Date().toTimeString()} generator ${Math.random()} target ${final_position} time ${time} current ${_xplayer.position}`);
+            logger.debug(
+                `${new Date().toTimeString()} generator ${Math.random()} target ${final_position} time ${time} current ${_xplayer.position}`,
+            );
             function _playerMoveFunc() {
-                var firstPosition = 0;
-                var addedMoney = false;
-                var i = 0;
+                let firstPosition = 0;
+                let addedMoney = false;
+                let i = 0;
                 const element = document.querySelector(`div.player[player-id="${_xplayer.id}"]`) as HTMLDivElement;
 
                 firstPosition = _xplayer.position;
                 _xplayer.position = (_xplayer.position + (adding ? 1 : -1) + 40) % 40;
-                var audio = new Audio("./step2.mp3");
+                const audio = new Audio("./step2.mp3");
                 audio.volume = 0.1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                 audio.loop = false;
                 audio.play();
@@ -457,17 +501,19 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                 const movingAnim = () => {
                     if (i < sum_moves) {
                         i += 1;
-                        var audio = new Audio("./step2.mp3");
-                        audio.volume = 1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                        audio.loop = false;
-                        audio.play();
+                        const stepAudio = new Audio("./step2.mp3");
+                        stepAudio.volume =
+                            1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                        stepAudio.loop = false;
+                        stepAudio.play();
                         _xplayer.position = (_xplayer.position + (adding ? 1 : -1) + 40) % 40;
                         if (_xplayer.position == 0 && get200whengo) {
                             // Go payment is handled server-side — just play audio/animation
-                            var audio = new Audio("./moneyplus.mp3");
-                            audio.volume = 1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            audio.loop = false;
-                            audio.play();
+                            const goAudio = new Audio("./moneyplus.mp3");
+                            goAudio.volume =
+                                1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                            goAudio.loop = false;
+                            goAudio.play();
                             addedMoney = true;
                             SetClients(new Map(clientsRef.current.set(_xplayer.id, _xplayer)));
                         }
@@ -480,10 +526,11 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
 
                             if (!addedMoney && firstPosition > _xplayer.position && get200whengo && adding) {
                                 // Go payment is handled server-side — just play audio
-                                var audio = new Audio("./moneyplus.mp3");
-                                audio.volume = 1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                                audio.loop = false;
-                                audio.play();
+                                const goAudio2 = new Audio("./moneyplus.mp3");
+                                goAudio2.volume =
+                                    1 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                                goAudio2.loop = false;
+                                goAudio2.play();
                                 addedMoney = true;
                                 SetClients(new Map(clientsRef.current.set(_xplayer.id, _xplayer)));
                             }
@@ -607,13 +654,18 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                             }),
                         ],
                     }),
-                    "winning"
+                    "winning",
                 );
             }
             destroyPlayer(args.id);
         };
 
-        const socket_TurnFinished = (args: { from: string; turnId: string; pJson: PlayerJSON; WinningMode: string }) => {
+        const socket_TurnFinished = (args: {
+            from: string;
+            turnId: string;
+            pJson: PlayerJSON;
+            WinningMode: string;
+        }) => {
             const x = clientsRef.current.get(args.from);
 
             // Phase 2F: Reset turn-flow state when any turn ends
@@ -622,7 +674,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
 
             if (x !== undefined && JSON.stringify(x.properties) != JSON.stringify(args.pJson.properties)) {
                 // sound part - other player part
-                var audio = new Audio("./buying1.mp3");
+                const audio = new Audio("./buying1.mp3");
                 audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                 audio.loop = false;
                 audio.play();
@@ -635,7 +687,6 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
             }
             SetClients(updatedClients);
 
-
             if (checkVictory(updatedClients)) return;
 
             SetCurrent(args.turnId);
@@ -643,7 +694,6 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                 const x = clientsRef.current.get(args.turnId);
                 if (x && x.isInJail) {
                     engineRef.current?.showJailsButtons((x?.getoutCards ?? -1) > 0);
-                } else {
                 }
             }
             navRef.current?.reRenderPlayerList();
@@ -665,19 +715,19 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
             pendingCard?: any;
             landingNote?: string;
             forcedJailPayment?: number; // Fix #6: set to 50 when 3rd jail attempt forces payment
-            allowRollAgain?: boolean;   // Phase 2E: true when player rolled doubles and may roll again
+            allowRollAgain?: boolean; // Phase 2E: true when player rolled doubles and may roll again
         }) => {
             const xplayer = clientsRef.current.get(args.turnId) as Player;
             const wasInJail = xplayer?.isInJail;
-            var audio = new Audio("./rolling.mp3");
+            const audio = new Audio("./rolling.mp3");
             audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
             audio.loop = false;
             audio.play();
- 
+
             const isActivePlayer = args.turnId === socket.id;
             const rolls = args.listOfNums[0] + args.listOfNums[1];
             const rolledPosition = args.listOfNums[2]; // position before jail correction
- 
+
             // Phase 2F: Track hasRolled / allowRollAgain for the active player
             if (isActivePlayer) {
                 setHasRolled(true);
@@ -686,7 +736,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
 
             // ── Helpers to defer notifications/audios until movement animations finish ──
             const triggerGoNotification = () => {
-                var goAudio = new Audio("./moneyplus.mp3");
+                const goAudio = new Audio("./moneyplus.mp3");
                 goAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                 goAudio.loop = false;
                 goAudio.play();
@@ -702,14 +752,14 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     if (note.startsWith("incometax")) {
                         if (settings?.notifications === true)
                             notifyRef.current?.message(`Paid $200 income tax`, "info", 2, () => {}, false);
-                        var taxAudio = new Audio("./moneyminus.mp3");
+                        const taxAudio = new Audio("./moneyminus.mp3");
                         taxAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                         taxAudio.play();
                         engineRef.current?.applyAnimation(1);
                     } else if (note.startsWith("luxerytax")) {
-                         if (settings?.notifications === true)
+                        if (settings?.notifications === true)
                             notifyRef.current?.message(`Paid $100 luxury tax`, "info", 2, () => {}, false);
-                        var taxAudio2 = new Audio("./moneyminus.mp3");
+                        const taxAudio2 = new Audio("./moneyminus.mp3");
                         taxAudio2.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                         taxAudio2.play();
                         engineRef.current?.applyAnimation(1);
@@ -717,8 +767,14 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                         const [, ownerId, rentAmt] = note.split(":");
                         const ownerName = clientsRef.current.get(ownerId)?.username ?? "someone";
                         if (settings?.notifications === true)
-                            notifyRef.current?.message(`Paid $${rentAmt} rent to ${ownerName}`, "info", 2, () => {}, false);
-                        var rentAudio = new Audio("./moneyminus.mp3");
+                            notifyRef.current?.message(
+                                `Paid $${rentAmt} rent to ${ownerName}`,
+                                "info",
+                                2,
+                                () => {},
+                                false,
+                            );
+                        const rentAudio = new Audio("./moneyminus.mp3");
                         rentAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                         rentAudio.play();
                         engineRef.current?.applyAnimation(1);
@@ -732,7 +788,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     if (ownerId === socket.id && !isActivePlayer) {
                         if (settings?.notifications === true)
                             notifyRef.current?.message(`Received $${rentAmt} rent`, "info", 2, () => {}, false);
-                        var rentRecAudio = new Audio("./moneyplus.mp3");
+                        const rentRecAudio = new Audio("./moneyplus.mp3");
                         rentRecAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                         rentRecAudio.play();
                         engineRef.current?.applyAnimation(2);
@@ -754,30 +810,51 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     location,
                     rolls,
                     onResponse: (b: string, info: any) => {
-                        let time_till_free = 0;
+                        const time_till_free = 0;
                         if (b === "buy" || b === "special_action") {
                             socket.emit("player_action", { action: "buy" });
                             if (settings?.notifications === true)
                                 notifyRef.current?.message(
                                     `${clientsRef.current.get(socket.id)?.username ?? "you"} bought ${proprety?.name ?? "a property"} for $${proprety?.price ?? 0}`,
-                                    "info", 2, () => {}, false
+                                    "info",
+                                    2,
+                                    () => {},
+                                    false,
                                 );
-                            var buyAudio = new Audio("./buying1.mp3");
-                            buyAudio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                            const buyAudio = new Audio("./buying1.mp3");
+                            buyAudio.volume =
+                                0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             buyAudio.play();
                             engineRef.current?.applyAnimation(1);
                         } else if (b === "advance-buy") {
                             const _info = info as { state: 1 | 2 | 3 | 4 | 5; money: number };
-                            socket.emit("player_action", { action: "buy-advance", newCount: _info.state, housesAdded: _info.money });
+                            socket.emit("player_action", {
+                                action: "buy-advance",
+                                newCount: _info.state,
+                                housesAdded: _info.money,
+                            });
                             if (_info.state === 5) {
                                 if (settings?.notifications === true)
-                                    notifyRef.current?.message(`Built a hotel on ${proprety?.name}`, "info", 2, () => {}, false);
+                                    notifyRef.current?.message(
+                                        `Built a hotel on ${proprety?.name}`,
+                                        "info",
+                                        2,
+                                        () => {},
+                                        false,
+                                    );
                             } else {
                                 if (settings?.notifications === true)
-                                    notifyRef.current?.message(`Built ${_info.money} house${_info.money > 1 ? "s" : ""} on ${proprety?.name}`, "info", 2, () => {}, false);
+                                    notifyRef.current?.message(
+                                        `Built ${_info.money} house${_info.money > 1 ? "s" : ""} on ${proprety?.name}`,
+                                        "info",
+                                        2,
+                                        () => {},
+                                        false,
+                                    );
                             }
-                            var houseAudio = new Audio("./buying1.mp3");
-                            houseAudio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                            const houseAudio = new Audio("./buying1.mp3");
+                            houseAudio.volume =
+                                0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             houseAudio.play();
                             engineRef.current?.applyAnimation(1);
                         }
@@ -812,12 +889,16 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     setTimeout(() => {
                         const jailGen = playerMoveGENERATOR(10, xplayer, false, () => {
                             xplayer.position = 10;
-                            var jailAudio = new Audio("./jail.mp3");
-                            jailAudio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                            const jailAudio = new Audio("./jail.mp3");
+                            jailAudio.volume =
+                                0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                             jailAudio.play();
                             // isInJail/jailTurnsRemaining set by server via state_update
                             if (isActivePlayer) {
-                                setTimeout(() => { engineRef.current?.freeDice(); socket.emit("finish-turn"); }, 500);
+                                setTimeout(() => {
+                                    engineRef.current?.freeDice();
+                                    socket.emit("finish-turn");
+                                }, 500);
                             }
                         });
                         jailGen.func();
@@ -850,7 +931,10 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     if (settings?.notifications === true)
                         notifyRef.current?.message(
                             `Paid $${args.forcedJailPayment} (forced) — released from Jail after 3 failed attempts`,
-                            "info", 3, () => {}, false
+                            "info",
+                            3,
+                            () => {},
+                            false,
                         );
                     engineRef.current?.applyAnimation(1);
                 }
@@ -861,7 +945,10 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     if (settings?.notifications === true)
                         notifyRef.current?.message(
                             `Paid $${args.pendingCard.element.amount} to ${clientsRef.current.get(args.turnId)?.username ?? "active player"}`,
-                            "info", 3, () => {}, false
+                            "info",
+                            3,
+                            () => {},
+                            false,
                         );
                     engineRef.current?.applyAnimation(1);
                 }
@@ -869,7 +956,10 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     if (settings?.notifications === true)
                         notifyRef.current?.message(
                             `Received $${args.pendingCard.element.amount} from ${clientsRef.current.get(args.turnId)?.username ?? "active player"}`,
-                            "info", 3, () => {}, false
+                            "info",
+                            3,
+                            () => {},
+                            false,
                         );
                     engineRef.current?.applyAnimation(2);
                 }
@@ -881,26 +971,35 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     if (isActivePlayer && settings?.notifications === true)
                         notifyRef.current?.message(
                             `${args.pendingCard.is_chance ? "Chance" : "Community Chest"}: "${args.pendingCard.element?.title ?? ""}"`,
-                            "info", 3, () => {}, false
+                            "info",
+                            3,
+                            () => {},
+                            false,
                         );
 
                     setTimeout(() => {
                         // If card triggers a movement, animate it for ALL clients
-                        if (args.pendingCard.newPosition !== undefined && args.pendingCard.newPosition !== rolledPosition) {
+                        if (
+                            args.pendingCard.newPosition !== undefined &&
+                            args.pendingCard.newPosition !== rolledPosition
+                        ) {
                             // Fix #5: detect backward moves (e.g. "Go Back 3 Spaces" has count: -3)
-                            const isBackward = (
+                            const isBackward =
                                 args.pendingCard.element?.count !== undefined &&
                                 typeof args.pendingCard.element.count === "number" &&
-                                args.pendingCard.element.count < 0
-                            );
-                            const cardPassedGo = args.pendingCard.newPosition !== undefined && args.pendingCard.newPosition < rolledPosition && !isBackward;
+                                args.pendingCard.element.count < 0;
+                            const cardPassedGo =
+                                args.pendingCard.newPosition !== undefined &&
+                                args.pendingCard.newPosition < rolledPosition &&
+                                !isBackward;
                             const cardMoveGen = playerMoveGENERATOR(
-                                args.pendingCard.newPosition, xplayer,
+                                args.pendingCard.newPosition,
+                                xplayer,
                                 !isBackward,
                                 () => {
                                     xplayer.position = args.pendingCard.newPosition;
                                     SetClients(new Map(clientsRef.current.set(args.turnId, xplayer)));
-                                    
+
                                     if (cardPassedGo) {
                                         triggerGoNotification();
                                     }
@@ -914,11 +1013,17 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                                         if (isActivePlayer && settings?.notifications === true)
                                             notifyRef.current?.message(
                                                 `${nested.is_chance ? "Chance" : "Community Chest"}: "${nested.element?.title ?? ""}"`,
-                                                "info", 3, () => {}, false
+                                                "info",
+                                                3,
+                                                () => {},
+                                                false,
                                             );
                                         setTimeout(() => {
                                             if (isActivePlayer) {
-                                                if (nested.requiresPurchaseDecision && nested.newPosition !== undefined) {
+                                                if (
+                                                    nested.requiresPurchaseDecision &&
+                                                    nested.newPosition !== undefined
+                                                ) {
                                                     showBuyUI(nested.newPosition);
                                                 } else {
                                                     if (args.allowRollAgain) {
@@ -946,7 +1051,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                                         }
                                     }
                                 },
-                                !isBackward
+                                !isBackward,
                             );
                             cardMoveGen.func();
                         } else {
@@ -955,7 +1060,10 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                                 triggerLandingNotification(args.landingNote);
                             }
                             if (isActivePlayer) {
-                                if (args.pendingCard.requiresPurchaseDecision && args.pendingCard.newPosition !== undefined) {
+                                if (
+                                    args.pendingCard.requiresPurchaseDecision &&
+                                    args.pendingCard.newPosition !== undefined
+                                ) {
                                     showBuyUI(args.pendingCard.newPosition);
                                 } else {
                                     // Phase 2E: Re-roll on doubles if applicable
@@ -987,7 +1095,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
 
             // Determine dice display time
             const jailEscape = wasInJail && !args.jailStayed;
-            const diceDisplayTime = (wasInJail && args.jailStayed) ? 2000 : dice_generatorResults.time + 2000 + 800;
+            const diceDisplayTime = wasInJail && args.jailStayed ? 2000 : dice_generatorResults.time + 2000 + 800;
 
             engineRef.current?.diceResults({
                 l: [args.listOfNums[0], args.listOfNums[1]],
@@ -1000,12 +1108,16 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                 setTimeout(() => {
                     if (jailEscape) {
                         // Escaped with doubles — start movement after dice shown
-                        setTimeout(() => { dice_generatorResults.func(); }, 2000);
+                        setTimeout(() => {
+                            dice_generatorResults.func();
+                        }, 2000);
                     }
                     SetClients(new Map(clientsRef.current.set(args.turnId, xplayer)));
                 }, 1500);
             } else {
-                setTimeout(() => { dice_generatorResults.func(); }, 2000);
+                setTimeout(() => {
+                    dice_generatorResults.func();
+                }, 2000);
             }
         };
 
@@ -1015,7 +1127,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
             const x = clientsRef.current.get(args.to);
             if (x) {
                 if (args.option === "pay") {
-                    var audio = new Audio("./moneyminus.mp3");
+                    const audio = new Audio("./moneyminus.mp3");
                     audio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     audio.loop = false;
                     audio.play();
@@ -1023,7 +1135,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                     if (args.to === socket.id && settings?.notifications === true)
                         notifyRef.current?.message("Paid $50 to leave Jail", "info", 2, () => {}, false);
                 } else {
-                    var cardAudio = new Audio("./moneyplus.mp3");
+                    const cardAudio = new Audio("./moneyplus.mp3");
                     cardAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                     cardAudio.loop = false;
                     cardAudio.play();
@@ -1052,7 +1164,9 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
         // socket_ChorchResult: cards are now resolved server-side in roll_dice.
         // The card data arrives as pendingCard in dice_roll_result.
         // This handler is kept for backwards compatibility but does nothing.
-        const socket_ChorchResult = (_args: any) => { /* no-op: handled server-side */ };
+        const socket_ChorchResult = (_args: any) => {
+            /* no-op: handled server-side */
+        };
         function socket_Mouse(args: { id: string; x: number; y: number }) {
             const xplayer = clientsRef.current.get(args.id);
             if (xplayer === undefined) return;
@@ -1073,7 +1187,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                         }),
                     ],
                 }),
-                "loosing"
+                "loosing",
             );
         }
 
@@ -1107,7 +1221,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                 bidderId: "",
                 bidderName: "",
                 timerSeconds: args.timerSeconds,
-                bids: args.bids
+                bids: args.bids,
             });
         };
 
@@ -1126,9 +1240,9 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                           bidderId: args.bidderId,
                           bidderName: args.bidderName,
                           timerSeconds: args.timerSeconds,
-                          bids: args.bids
+                          bids: args.bids,
                       }
-                    : null
+                    : null,
             );
         };
 
@@ -1138,7 +1252,11 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
 
         const socket_AuctionEnd = (args: { winnerId: string; winnerName: string; bid: number; position: number }) => {
             setCurrentAuction(null);
-            notifyRef.current?.message(`Auction finished! ${args.winnerName} won the auction for $${args.bid}.`, "info", 4);
+            notifyRef.current?.message(
+                `Auction finished! ${args.winnerName} won the auction for $${args.bid}.`,
+                "info",
+                4,
+            );
         };
 
         const socket_AuctionSkip = (_args: { position: number }) => {
@@ -1194,45 +1312,54 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                         }),
                     ],
                 }),
-                "loosing"
+                "loosing",
             );
         });
 
         // state_update: server-authoritative balance/status sync.
         // Only preserve position for the player currently being animated.
         // Everyone else accepts the server's authoritative position.
-        socket.on("state_update", (args: { players: PlayerJSON[]; hostId?: string; bankHouses?: number; bankHotels?: number; stats?: GameStats }) => {
-            if (args.hostId) {
-                SetHostId(args.hostId);
-            }
-            if (args.bankHouses !== undefined) setBankHouses(args.bankHouses);
-            if (args.bankHotels !== undefined) setBankHotels(args.bankHotels);
-            if (args.stats) {
-                setGameStats(args.stats);
-            }
-            const nextClients = new Map(clientsRef.current);
-            for (const pJson of args.players) {
-                const p = nextClients.get(pJson.id);
-                if (p) {
-                    // Only preserve animated position for players currently animating
-                    // (their piece is mid-animation via playerMoveGENERATOR)
-                    const isBeingAnimated = animatingPlayersRef.current.has(pJson.id);
-                    const savedPos = p.position;
-                    p.recieveJson(pJson);
-                    if (isBeingAnimated) {
-                        p.position = savedPos;
-                    }
-                } else {
-                    // Create if not exists to avoid losing newly connected players
-                    nextClients.set(pJson.id, new Player(pJson.id, pJson.username).recieveJson(pJson));
+        socket.on(
+            "state_update",
+            (args: {
+                players: PlayerJSON[];
+                hostId?: string;
+                bankHouses?: number;
+                bankHotels?: number;
+                stats?: GameStats;
+            }) => {
+                if (args.hostId) {
+                    SetHostId(args.hostId);
                 }
-            }
-            SetClients(nextClients);
-            navRef.current?.reRenderPlayerList();
-            checkVictory(nextClients);
+                if (args.bankHouses !== undefined) setBankHouses(args.bankHouses);
+                if (args.bankHotels !== undefined) setBankHotels(args.bankHotels);
+                if (args.stats) {
+                    setGameStats(args.stats);
+                }
+                const nextClients = new Map(clientsRef.current);
+                for (const pJson of args.players) {
+                    const p = nextClients.get(pJson.id);
+                    if (p) {
+                        // Only preserve animated position for players currently animating
+                        // (their piece is mid-animation via playerMoveGENERATOR)
+                        const isBeingAnimated = animatingPlayersRef.current.has(pJson.id);
+                        const savedPos = p.position;
+                        p.recieveJson(pJson);
+                        if (isBeingAnimated) {
+                            p.position = savedPos;
+                        }
+                    } else {
+                        // Create if not exists to avoid losing newly connected players
+                        nextClients.set(pJson.id, new Player(pJson.id, pJson.username).recieveJson(pJson));
+                    }
+                }
+                SetClients(nextClients);
+                navRef.current?.reRenderPlayerList();
+                checkVictory(nextClients);
 
-            // Turn state is now synchronized directly via player class properties
-        });
+                // Turn state is now synchronized directly via player class properties
+            },
+        );
 
         // Trade
         socket.on("trade", () => {
@@ -1261,8 +1388,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
             if (localPJson && settings?.notifications === true) {
                 const prev = nextClients.get(socket.id)?.balance ?? localPJson.balance;
                 const diff = localPJson.balance - prev;
-                if (diff > 0)
-                    notifyRef.current?.message(`Trade: received $${diff}`, "info", 2, () => {}, false);
+                if (diff > 0) notifyRef.current?.message(`Trade: received $${diff}`, "info", 2, () => {}, false);
                 else if (diff < 0)
                     notifyRef.current?.message(`Trade: paid $${Math.abs(diff)}`, "info", 2, () => {}, false);
             }
@@ -1277,63 +1403,69 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
         });
 
         // Phase 2B: Handle player-bankrupt event
-        socket.on("player-bankrupt", (args: {
-            bankruptId: string;
-            creditorId: string | "bank";
-            turnId: string;
-            pJsons: PlayerJSON[];
-        }) => {
-            const nextClients = new Map(clientsRef.current);
-            // Update all player states from server truth
-            for (const pJson of args.pJsons) {
-                const p = nextClients.get(pJson.id);
-                if (p) p.recieveJson(pJson);
-            }
-            SetClients(nextClients);
-            SetCurrent(args.turnId);
-            // Phase 2F: Reset turn-flow state on bankruptcy
-            setHasRolled(false);
-            setAllowRollAgain(false);
-            // Fix 5b: clear any pending mortgage modal when bankruptcy finalizes
-            setMortgageTransferPending(null);
+        socket.on(
+            "player-bankrupt",
+            (args: { bankruptId: string; creditorId: string | "bank"; turnId: string; pJsons: PlayerJSON[] }) => {
+                const nextClients = new Map(clientsRef.current);
+                // Update all player states from server truth
+                for (const pJson of args.pJsons) {
+                    const p = nextClients.get(pJson.id);
+                    if (p) p.recieveJson(pJson);
+                }
+                SetClients(nextClients);
+                SetCurrent(args.turnId);
+                // Phase 2F: Reset turn-flow state on bankruptcy
+                setHasRolled(false);
+                setAllowRollAgain(false);
+                // Fix 5b: clear any pending mortgage modal when bankruptcy finalizes
+                setMortgageTransferPending(null);
 
-            const bankruptName = nextClients.get(args.bankruptId)?.username ?? "A player";
-            if (args.bankruptId === socket.id) {
-                // Local player went bankrupt
-                mainTheme.pause();
-                notifyRef.current?.dialog(
-                    (close_func, createButton) => ({
-                        innerHTML: `<h3>YOU WENT BANKRUPT</h3><p>You can continue watching the game as a spectator.</p>`,
-                        buttons: [
-                            createButton("CONTINUE WATCHING", () => { close_func(); }),
-                            createButton("LEAVE GAME", () => { close_func(); leaveGameSession(); }),
-                        ],
-                    }),
-                    "loosing"
-                );
-            } else {
-                notifyRef.current?.message(`${bankruptName} declared bankruptcy!`, "error", 3);
-            }
+                const bankruptName = nextClients.get(args.bankruptId)?.username ?? "A player";
+                if (args.bankruptId === socket.id) {
+                    // Local player went bankrupt
+                    mainTheme.pause();
+                    notifyRef.current?.dialog(
+                        (close_func, createButton) => ({
+                            innerHTML: `<h3>YOU WENT BANKRUPT</h3><p>You can continue watching the game as a spectator.</p>`,
+                            buttons: [
+                                createButton("CONTINUE WATCHING", () => {
+                                    close_func();
+                                }),
+                                createButton("LEAVE GAME", () => {
+                                    close_func();
+                                    leaveGameSession();
+                                }),
+                            ],
+                        }),
+                        "loosing",
+                    );
+                } else {
+                    notifyRef.current?.message(`${bankruptName} declared bankruptcy!`, "error", 3);
+                }
 
-            // Check if only 1 active player remains → winner
-            checkVictory(nextClients);
-            navRef.current?.reRenderPlayerList();
-        });
+                // Check if only 1 active player remains → winner
+                checkVictory(nextClients);
+                navRef.current?.reRenderPlayerList();
+            },
+        );
 
         // Fix 5b: creditor receives mortgaged properties — show choice modal
-        socket.on("mortgage-transfer-pending", (args: {
-            properties: {
-                position: number;
-                name: string;
-                mortgageValue: number;
-                interestFee: number;
-                unmortgageCost: number;
-            }[];
-            bankruptName: string;
-        }) => {
-            setMortgageBankruptName(args.bankruptName);
-            setMortgageTransferPending(args.properties);
-        });
+        socket.on(
+            "mortgage-transfer-pending",
+            (args: {
+                properties: {
+                    position: number;
+                    name: string;
+                    mortgageValue: number;
+                    interestFee: number;
+                    unmortgageCost: number;
+                }[];
+                bankruptName: string;
+            }) => {
+                setMortgageBankruptName(args.bankruptName);
+                setMortgageTransferPending(args.properties);
+            },
+        );
 
         // Game Debugger authentication handlers
         socket.on("debug_auth_success", () => {
@@ -1378,7 +1510,7 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
             }
         }
 
-        var to_emit_name = true;
+        let to_emit_name = true;
         //#endregion
         if (to_emit_name) {
             if (isSpectator) {
@@ -1406,192 +1538,204 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
         <>
             {gameStartedDisplay ? (
                 <>
-            {globalSettings !== undefined && globalSettings.accessibility[3] ? (
-                <div className="cursors">
-                    {Array.from(clients.values())
-                        .filter((v) => v.id !== socket.id)
-                        .map((v, i) => {
-                            return (
-                                <img
-                                    src="./cursor.png"
-                                    style={{
-                                        translate: `${v.positions.x}px ${v.positions.y}px`,
-                                    }}
-                                    key={i}
-                                    className="cursor"
-                                />
-                            );
-                        })}
-                </div>
-            ) : (
-                <></>
-            )}
-            <main>
-                <MonopolyNav
-                    isSpectator={isSpectator}
-                    currentTurn={currentId}
-                    ref={navRef}
-                    name={name}
-                    socket={socket}
-                    players={players}
-                    server={server}
-                    onLeave={() => {
-                        leavingRoomRef.current = true;
-                        sessionStorage.removeItem("current_room");
-                        socket.emit("leave-room");
-                        socket.disconnect();
-                        document.location.reload();
-                    }}
-                    Morgage={{
-                        onCanc: (a, prpName: string) => {
-                            var settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)).settings as MonopolySettings;
-                            const localPlayer = clients.get(socket.id);
-                            if (localPlayer === undefined) return;
-                            if (settings !== undefined && settings.notifications === true)
-                                notifyRef.current?.message(
-                                    `${clients.get(socket.id)?.username ?? "unknown user"} unmortgaged ${prpName} for $${a}`,
-                                    "info",
-                                    2,
-                                    () => {},
-                                    false
-                                );
+                    {globalSettings !== undefined && globalSettings.accessibility[3] ? (
+                        <div className="cursors">
+                            {Array.from(clients.values())
+                                .filter((v) => v.id !== socket.id)
+                                .map((v, i) => {
+                                    return (
+                                        <img
+                                            src="./cursor.png"
+                                            style={{
+                                                translate: `${v.positions.x}px ${v.positions.y}px`,
+                                            }}
+                                            key={i}
+                                            className="cursor"
+                                        />
+                                    );
+                                })}
+                        </div>
+                    ) : (
+                        <></>
+                    )}
+                    <main>
+                        <MonopolyNav
+                            isSpectator={isSpectator}
+                            currentTurn={currentId}
+                            ref={navRef}
+                            name={name}
+                            socket={socket}
+                            players={players}
+                            server={server}
+                            onLeave={() => {
+                                leavingRoomRef.current = true;
+                                sessionStorage.removeItem("current_room");
+                                socket.emit("leave-room");
+                                socket.disconnect();
+                                document.location.reload();
+                            }}
+                            Morgage={{
+                                onCanc: (a, prpName: string) => {
+                                    const settings = JSON.parse(
+                                        decodeURIComponent(CookieManager.get("monopolySettings") as string),
+                                    ).settings as MonopolySettings;
+                                    const localPlayer = clients.get(socket.id);
+                                    if (localPlayer === undefined) return;
+                                    if (settings !== undefined && settings.notifications === true)
+                                        notifyRef.current?.message(
+                                            `${clients.get(socket.id)?.username ?? "unknown user"} unmortgaged ${prpName} for $${a}`,
+                                            "info",
+                                            2,
+                                            () => {},
+                                            false,
+                                        );
 
-                            localPlayer.balance -= a;
-                            engineRef.current?.applyAnimation(1);
-                            var audio = new Audio("./buying1.mp3");
-                            audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            audio.loop = false;
-                            audio.play();
-                            emitHistory(`${clients.get(socket.id)?.username ?? "unknown player"} unmortgaged ${prpName} for $${a}`);
-                            SetClients(new Map(clients.set(socket.id, localPlayer)));
-                        },
-                        onMort: (a, prpName) => {
-                            var settings = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)).settings as MonopolySettings;
-                            const localPlayer = clients.get(socket.id);
-                            if (localPlayer === undefined) return;
-                            if (settings !== undefined && settings.notifications === true)
-                                notifyRef.current?.message(
-                                    `${clients.get(socket.id)?.username ?? "unknown user"} mortgaged ${prpName} for $${a}`,
-                                    "info",
-                                    2,
-                                    () => {},
-                                    false
-                                );
-                            localPlayer.balance += a; // Mortgaging GIVES cash!
-                            engineRef.current?.applyAnimation(1);
-                            var audio = new Audio("./buying1.mp3");
-                            audio.volume = 0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            audio.loop = false;
-                            emitHistory(`${clients.get(socket.id)?.username ?? "unknown player"} mortgaged ${prpName} for $${a}`);
-                            SetClients(new Map(clients.set(socket.id, localPlayer)));
-                        },
-                    }}
-                    callServer={() => {
-                        const root = document.body.querySelector("#root") as HTMLDivElement;
-
-                        root.style.transform = "translateX(100%)";
-                    }}
-                    history={histories}
-                    stats={gameStats}
-                    showInsights={showInsights}
-                    onToggleInsights={() => setShowInsights(prev => !prev)}
-                    time={startTIme}
-                    selectedMode={selectedMode}
-                    hostId={hostId}
-                    bankHouses={bankHouses}
-                    bankHotels={bankHotels}
-                />
-
-                <MonopolyGame
-                    isSpectator={isSpectator}
-                    clickedOnBoard={(a) => {
-                        navRef.current?.clickedOnBoard(a);
-                    }}
-                    ref={engineRef}
-                    socket={socket}
-                    players={Array.from(clients.values())}
-                    myTurn={currentId === socket.id && !isSpectator}
-                    tradeObj={currentTrade}
-                    tradeApi={{
-                        onSelectPlayer(pId) {
-                            const xplayer = clients.get(pId);
-                            const localPlayer = clients.get(socket.id);
-                            if (xplayer === undefined || localPlayer === undefined) return;
-                            const x = {
-                                turnPlayer: {
-                                    id: localPlayer.id,
-                                    balance: 0,
-                                    prop: [],
-                                    accepted: false,
+                                    localPlayer.balance -= a;
+                                    engineRef.current?.applyAnimation(1);
+                                    const audio = new Audio("./buying1.mp3");
+                                    audio.volume =
+                                        0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                                    audio.loop = false;
+                                    audio.play();
+                                    emitHistory(
+                                        `${clients.get(socket.id)?.username ?? "unknown player"} unmortgaged ${prpName} for $${a}`,
+                                    );
+                                    SetClients(new Map(clients.set(socket.id, localPlayer)));
                                 },
-                                againstPlayer: {
-                                    id: xplayer.id,
-                                    balance: 0,
-                                    prop: [],
-                                    accepted: false,
+                                onMort: (a, prpName) => {
+                                    const settings = JSON.parse(
+                                        decodeURIComponent(CookieManager.get("monopolySettings") as string),
+                                    ).settings as MonopolySettings;
+                                    const localPlayer = clients.get(socket.id);
+                                    if (localPlayer === undefined) return;
+                                    if (settings !== undefined && settings.notifications === true)
+                                        notifyRef.current?.message(
+                                            `${clients.get(socket.id)?.username ?? "unknown user"} mortgaged ${prpName} for $${a}`,
+                                            "info",
+                                            2,
+                                            () => {},
+                                            false,
+                                        );
+                                    localPlayer.balance += a; // Mortgaging GIVES cash!
+                                    engineRef.current?.applyAnimation(1);
+                                    const audio = new Audio("./buying1.mp3");
+                                    audio.volume =
+                                        0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                                    audio.loop = false;
+                                    emitHistory(
+                                        `${clients.get(socket.id)?.username ?? "unknown player"} mortgaged ${prpName} for $${a}`,
+                                    );
+                                    SetClients(new Map(clients.set(socket.id, localPlayer)));
                                 },
-                            };
-                            socket.emit("trade-update", x);
-                        },
-                    }}
-                    selectedMode={selectedMode}
-                    hasRolled={hasRolled}
-                    allowRollAgain={allowRollAgain}
-                    isDebtState={isDebtState}
-                    mortgageTransferPending={mortgageTransferPending}
-                    mortgageBankruptName={mortgageBankruptName}
-                    currentAuction={currentAuction}
-                    onMortgageTransferResolve={(choices) => {
-                        socket.emit("mortgage-transfer-resolve", { choices });
-                        setMortgageTransferPending(null);
-                    }}
-                    onDeclaredBankruptcy={() => {
-                        setHasRolled(false);
-                        setAllowRollAgain(false);
-                    }}
-                />
-            </main>
-            <NotifyElement ref={notifyRef} />
-            {showInsights && (
-                <div className="insights-bottom-drawer">
-                    <div className="insights-drawer-backdrop" onClick={() => setShowInsights(false)} />
-                    <div className="insights-drawer-panel">
-                        <button className="insights-drawer-close" onClick={() => setShowInsights(false)}>✕</button>
-                        <InsightsTab stats={gameStats} players={players} />
-                    </div>
-                </div>
-            )}
-            <div id="server">
-                <main>
-                    <div
-                        className="upper"
-                        onClick={() => {
-                            const root = document.body.querySelector("#root") as HTMLDivElement;
+                            }}
+                            callServer={() => {
+                                const root = document.body.querySelector("#root") as HTMLDivElement;
 
-                            root.style.transform = "";
-                        }}
-                    >
-                        Server.exe
-                    </div>
-                    <div className="middle"></div>
-                    <div className="lower">
-                        <input type="text" />
-                    </div>
-                </main>
-                <footer
-                    onClick={() => {
-                        const root = document.body.querySelector("#root") as HTMLDivElement;
+                                root.style.transform = "translateX(100%)";
+                            }}
+                            history={histories}
+                            stats={gameStats}
+                            showInsights={showInsights}
+                            onToggleInsights={() => setShowInsights((prev) => !prev)}
+                            time={startTIme}
+                            selectedMode={selectedMode}
+                            hostId={hostId}
+                            bankHouses={bankHouses}
+                            bankHotels={bankHotels}
+                        />
 
-                        root.style.transform = "";
-                    }}
-                >
-                    <img src="icon.png" alt="" />
-                </footer>
-            </div>
+                        <MonopolyGame
+                            isSpectator={isSpectator}
+                            clickedOnBoard={(a) => {
+                                navRef.current?.clickedOnBoard(a);
+                            }}
+                            ref={engineRef}
+                            socket={socket}
+                            players={Array.from(clients.values())}
+                            myTurn={currentId === socket.id && !isSpectator}
+                            tradeObj={currentTrade}
+                            tradeApi={{
+                                onSelectPlayer(pId) {
+                                    const xplayer = clients.get(pId);
+                                    const localPlayer = clients.get(socket.id);
+                                    if (xplayer === undefined || localPlayer === undefined) return;
+                                    const x = {
+                                        turnPlayer: {
+                                            id: localPlayer.id,
+                                            balance: 0,
+                                            prop: [],
+                                            accepted: false,
+                                        },
+                                        againstPlayer: {
+                                            id: xplayer.id,
+                                            balance: 0,
+                                            prop: [],
+                                            accepted: false,
+                                        },
+                                    };
+                                    socket.emit("trade-update", x);
+                                },
+                            }}
+                            selectedMode={selectedMode}
+                            hasRolled={hasRolled}
+                            allowRollAgain={allowRollAgain}
+                            isDebtState={isDebtState}
+                            mortgageTransferPending={mortgageTransferPending}
+                            mortgageBankruptName={mortgageBankruptName}
+                            currentAuction={currentAuction}
+                            onMortgageTransferResolve={(choices) => {
+                                socket.emit("mortgage-transfer-resolve", { choices });
+                                setMortgageTransferPending(null);
+                            }}
+                            onDeclaredBankruptcy={() => {
+                                setHasRolled(false);
+                                setAllowRollAgain(false);
+                            }}
+                        />
+                    </main>
+                    <NotifyElement ref={notifyRef} />
+                    {showInsights && (
+                        <div className="insights-bottom-drawer">
+                            <div className="insights-drawer-backdrop" onClick={() => setShowInsights(false)} />
+                            <div className="insights-drawer-panel">
+                                <button className="insights-drawer-close" onClick={() => setShowInsights(false)}>
+                                    ✕
+                                </button>
+                                <InsightsTab stats={gameStats} players={players} />
+                            </div>
+                        </div>
+                    )}
+                    <div id="server">
+                        <main>
+                            <div
+                                className="upper"
+                                onClick={() => {
+                                    const root = document.body.querySelector("#root") as HTMLDivElement;
 
-            {isDebugMode && (
-                <>
-                    <style>{`
+                                    root.style.transform = "";
+                                }}
+                            >
+                                Server.exe
+                            </div>
+                            <div className="middle"></div>
+                            <div className="lower">
+                                <input type="text" />
+                            </div>
+                        </main>
+                        <footer
+                            onClick={() => {
+                                const root = document.body.querySelector("#root") as HTMLDivElement;
+
+                                root.style.transform = "";
+                            }}
+                        >
+                            <img src="icon.png" alt="" />
+                        </footer>
+                    </div>
+
+                    {isDebugMode && (
+                        <>
+                            <style>{`
                         .debug-panel {
                             position: fixed;
                             bottom: 20px;
@@ -1684,767 +1828,1196 @@ function App({ socket, name, server, isSpectator = false }: { socket: Socket; na
                             color: #ffffff;
                         }
                     `}</style>
-                    {debugCollapsed ? (
-                        <div className="debug-panel collapsed" onClick={() => setDebugCollapsed(false)} title="Open Debug Panel">
-                            <Icons.Wrench width={20} height={20} />
-                        </div>
-                    ) : (
-                        <div className="debug-panel" style={{ width: "260px" }}>
-                            <h4>
-                                <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}><Icons.Wrench width={14} height={14}/>Game Debugger</span>
-                                <button className="debug-close-btn" onClick={() => setDebugCollapsed(true)}>×</button>
-                            </h4>
-                            <div className="debug-panel-content">
-                                <div style={{ marginBottom: "6px" }}>
-                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "4px", fontWeight: "600", textTransform: "uppercase" }}>
-                                        Target Player
-                                    </div>
-                                    <select
-                                        value={targetPlayerId}
-                                        onChange={(e) => setTargetPlayerId(e.target.value)}
-                                        style={{ width: "100%", background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "6px", padding: "6px", fontSize: "12px", outline: "none" }}
-                                    >
-                                        {Array.from(clients.values()).map(p => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.username} {p.id === socket.id ? "(You)" : ""}
-                                            </option>
-                                        ))}
-                                    </select>
+                            {debugCollapsed ? (
+                                <div
+                                    className="debug-panel collapsed"
+                                    onClick={() => setDebugCollapsed(false)}
+                                    title="Open Debug Panel"
+                                >
+                                    <Icons.Wrench width={20} height={20} />
                                 </div>
+                            ) : (
+                                <div className="debug-panel" style={{ width: "260px" }}>
+                                    <h4>
+                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                            <Icons.Wrench width={14} height={14} />
+                                            Game Debugger
+                                        </span>
+                                        <button className="debug-close-btn" onClick={() => setDebugCollapsed(true)}>
+                                            ×
+                                        </button>
+                                    </h4>
+                                    <div className="debug-panel-content">
+                                        <div style={{ marginBottom: "6px" }}>
+                                            <div
+                                                style={{
+                                                    fontSize: "11px",
+                                                    color: "#a78bfa",
+                                                    marginBottom: "4px",
+                                                    fontWeight: "600",
+                                                    textTransform: "uppercase",
+                                                }}
+                                            >
+                                                Target Player
+                                            </div>
+                                            <select
+                                                value={targetPlayerId}
+                                                onChange={(e) => setTargetPlayerId(e.target.value)}
+                                                style={{
+                                                    width: "100%",
+                                                    background: "rgba(30, 41, 59, 0.6)",
+                                                    color: "white",
+                                                    border: "1px solid rgba(255,255,255,0.2)",
+                                                    borderRadius: "6px",
+                                                    padding: "6px",
+                                                    fontSize: "12px",
+                                                    outline: "none",
+                                                }}
+                                            >
+                                                {Array.from(clients.values()).map((p) => (
+                                                    <option key={p.id} value={p.id}>
+                                                        {p.username} {p.id === socket.id ? "(You)" : ""}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
 
-                                <button className="debug-btn debug-btn-primary" onClick={handleTriggerInsolvency}>
-                                    <Icons.DebtTrigger width={13} height={13} /> Trigger Debt (-$1)
-                                </button>
-                                <button className="debug-btn" onClick={handlePreviewMortgageModal}>
-                                    <Icons.Scale width={13} height={13} /> Preview Mortgage Modal
-                                </button>
-                                <button className="debug-btn" onClick={handleTakeTurn}>
-                                    <Icons.ForceTurn width={13} height={13} /> Force Turn
-                                </button>
-                                {/* Balance adjustment section */}
-                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
-                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "6px", fontWeight: "600", textTransform: "uppercase" }}>
-                                        Adjust Balance
-                                    </div>
-                                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginBottom: "6px" }}>
-                                        <input
-                                            type="number"
-                                            value={adjustAmount}
-                                            onChange={(e) => setAdjustAmount(Math.max(0, Number(e.target.value)))}
-                                            style={{ flex: 1, background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px", padding: "6px", fontSize: "12px", outline: "none", minWidth: "60px" }}
-                                            placeholder="Amount"
-                                        />
-                                        <button 
-                                            onClick={() => handleAdjustBalance(adjustAmount)}
-                                            style={{ background: "rgba(34, 197, 94, 0.15)", border: "1px solid rgba(34, 197, 94, 0.3)", borderRadius: "4px", color: "#a7f3d0", padding: "6px 10px", fontSize: "11px", cursor: "pointer", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px", height: "30px" }}
-                                            title="Gain"
+                                        <button
+                                            className="debug-btn debug-btn-primary"
+                                            onClick={handleTriggerInsolvency}
                                         >
-                                            <Icons.ArrowUp width={12} height={12} /> Gain
+                                            <Icons.DebtTrigger width={13} height={13} /> Trigger Debt (-$1)
                                         </button>
-                                        <button 
-                                            onClick={() => handleAdjustBalance(-adjustAmount)}
-                                            style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "4px", color: "#fca5a5", padding: "6px 10px", fontSize: "11px", cursor: "pointer", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px", height: "30px" }}
-                                            title="Lose"
+                                        <button className="debug-btn" onClick={handlePreviewMortgageModal}>
+                                            <Icons.Scale width={13} height={13} /> Preview Mortgage Modal
+                                        </button>
+                                        <button className="debug-btn" onClick={handleTakeTurn}>
+                                            <Icons.ForceTurn width={13} height={13} /> Force Turn
+                                        </button>
+                                        {/* Balance adjustment section */}
+                                        <div
+                                            style={{
+                                                borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                                                marginTop: "6px",
+                                                paddingTop: "6px",
+                                            }}
                                         >
-                                            <Icons.ArrowDown width={12} height={12} /> Lose
-                                        </button>
-                                    </div>
-                                    <button className="debug-btn" style={{ width: "100%", justifyContent: "center" }} onClick={handleClearBalance}>
-                                        <Icons.Scale width={13} height={13} /> Set Balance $0
-                                    </button>
-                                </div>
+                                            <div
+                                                style={{
+                                                    fontSize: "11px",
+                                                    color: "#a78bfa",
+                                                    marginBottom: "6px",
+                                                    fontWeight: "600",
+                                                    textTransform: "uppercase",
+                                                }}
+                                            >
+                                                Adjust Balance
+                                            </div>
+                                            <div
+                                                style={{
+                                                    display: "flex",
+                                                    gap: "6px",
+                                                    alignItems: "center",
+                                                    marginBottom: "6px",
+                                                }}
+                                            >
+                                                <input
+                                                    type="number"
+                                                    value={adjustAmount}
+                                                    onChange={(e) =>
+                                                        setAdjustAmount(Math.max(0, Number(e.target.value)))
+                                                    }
+                                                    style={{
+                                                        flex: 1,
+                                                        background: "rgba(30, 41, 59, 0.6)",
+                                                        color: "white",
+                                                        border: "1px solid rgba(255,255,255,0.2)",
+                                                        borderRadius: "4px",
+                                                        padding: "6px",
+                                                        fontSize: "12px",
+                                                        outline: "none",
+                                                        minWidth: "60px",
+                                                    }}
+                                                    placeholder="Amount"
+                                                />
+                                                <button
+                                                    onClick={() => handleAdjustBalance(adjustAmount)}
+                                                    style={{
+                                                        background: "rgba(34, 197, 94, 0.15)",
+                                                        border: "1px solid rgba(34, 197, 94, 0.3)",
+                                                        borderRadius: "4px",
+                                                        color: "#a7f3d0",
+                                                        padding: "6px 10px",
+                                                        fontSize: "11px",
+                                                        cursor: "pointer",
+                                                        fontWeight: "600",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: "4px",
+                                                        height: "30px",
+                                                    }}
+                                                    title="Gain"
+                                                >
+                                                    <Icons.ArrowUp width={12} height={12} /> Gain
+                                                </button>
+                                                <button
+                                                    onClick={() => handleAdjustBalance(-adjustAmount)}
+                                                    style={{
+                                                        background: "rgba(239, 68, 68, 0.15)",
+                                                        border: "1px solid rgba(239, 68, 68, 0.3)",
+                                                        borderRadius: "4px",
+                                                        color: "#fca5a5",
+                                                        padding: "6px 10px",
+                                                        fontSize: "11px",
+                                                        cursor: "pointer",
+                                                        fontWeight: "600",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: "4px",
+                                                        height: "30px",
+                                                    }}
+                                                    title="Lose"
+                                                >
+                                                    <Icons.ArrowDown width={12} height={12} /> Lose
+                                                </button>
+                                            </div>
+                                            <button
+                                                className="debug-btn"
+                                                style={{ width: "100%", justifyContent: "center" }}
+                                                onClick={handleClearBalance}
+                                            >
+                                                <Icons.Scale width={13} height={13} /> Set Balance $0
+                                            </button>
+                                        </div>
 
-                                {/* Jail section */}
-                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
-                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "4px", fontWeight: "600", textTransform: "uppercase" }}>
-                                        Jail Actions
-                                    </div>
-                                    <div style={{ display: "flex", gap: "6px" }}>
-                                        <button 
-                                            className="debug-btn" 
-                                            style={{ flex: 1, justifyContent: "center" }}
-                                            onClick={() => handleToggleJail(true)}
+                                        {/* Jail section */}
+                                        <div
+                                            style={{
+                                                borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                                                marginTop: "6px",
+                                                paddingTop: "6px",
+                                            }}
                                         >
-                                            <Icons.Jail width={13} height={13} /> Send
-                                        </button>
-                                        <button 
-                                            className="debug-btn" 
-                                            style={{ flex: 1, justifyContent: "center" }}
-                                            onClick={() => handleToggleJail(false)}
-                                        >
-                                            <Icons.Police width={13} height={13} /> Release
-                                        </button>
-                                    </div>
-                                </div>
+                                            <div
+                                                style={{
+                                                    fontSize: "11px",
+                                                    color: "#a78bfa",
+                                                    marginBottom: "4px",
+                                                    fontWeight: "600",
+                                                    textTransform: "uppercase",
+                                                }}
+                                            >
+                                                Jail Actions
+                                            </div>
+                                            <div style={{ display: "flex", gap: "6px" }}>
+                                                <button
+                                                    className="debug-btn"
+                                                    style={{ flex: 1, justifyContent: "center" }}
+                                                    onClick={() => handleToggleJail(true)}
+                                                >
+                                                    <Icons.Jail width={13} height={13} /> Send
+                                                </button>
+                                                <button
+                                                    className="debug-btn"
+                                                    style={{ flex: 1, justifyContent: "center" }}
+                                                    onClick={() => handleToggleJail(false)}
+                                                >
+                                                    <Icons.Police width={13} height={13} /> Release
+                                                </button>
+                                            </div>
+                                        </div>
 
-                                {/* Teleport section */}
-                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
-                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "4px", fontWeight: "600", textTransform: "uppercase" }}>
-                                        Teleport to Tile
-                                    </div>
-                                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                                        <select 
-                                            value={teleportPos} 
-                                            onChange={(e) => setTeleportPos(Number(e.target.value))}
-                                            style={{ flex: 1, background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px", padding: "4px", fontSize: "12px", width: "140px" }}
+                                        {/* Teleport section */}
+                                        <div
+                                            style={{
+                                                borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                                                marginTop: "6px",
+                                                paddingTop: "6px",
+                                            }}
                                         >
-                                            {monopolyJSON.properties.map(p => (
-                                                <option key={p.posistion} value={p.posistion}>
-                                                    {p.posistion}: {p.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <button 
-                                            onClick={handleTeleport}
-                                            style={{ background: "rgba(167, 139, 250, 0.2)", border: "1px solid rgba(167, 139, 250, 0.4)", borderRadius: "4px", color: "white", padding: "4px 8px", fontSize: "11px", cursor: "pointer", fontWeight: "600", height: "26px" }}
-                                        >
-                                            <Icons.MapPin width={12} height={12} style={{ verticalAlign: "middle" }} />
-                                        </button>
-                                    </div>
-                                </div>
+                                            <div
+                                                style={{
+                                                    fontSize: "11px",
+                                                    color: "#a78bfa",
+                                                    marginBottom: "4px",
+                                                    fontWeight: "600",
+                                                    textTransform: "uppercase",
+                                                }}
+                                            >
+                                                Teleport to Tile
+                                            </div>
+                                            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                                <select
+                                                    value={teleportPos}
+                                                    onChange={(e) => setTeleportPos(Number(e.target.value))}
+                                                    style={{
+                                                        flex: 1,
+                                                        background: "rgba(30, 41, 59, 0.6)",
+                                                        color: "white",
+                                                        border: "1px solid rgba(255,255,255,0.2)",
+                                                        borderRadius: "4px",
+                                                        padding: "4px",
+                                                        fontSize: "12px",
+                                                        width: "140px",
+                                                    }}
+                                                >
+                                                    {monopolyJSON.properties.map((p) => (
+                                                        <option key={p.posistion} value={p.posistion}>
+                                                            {p.posistion}: {p.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    onClick={handleTeleport}
+                                                    style={{
+                                                        background: "rgba(167, 139, 250, 0.2)",
+                                                        border: "1px solid rgba(167, 139, 250, 0.4)",
+                                                        borderRadius: "4px",
+                                                        color: "white",
+                                                        padding: "4px 8px",
+                                                        fontSize: "11px",
+                                                        cursor: "pointer",
+                                                        fontWeight: "600",
+                                                        height: "26px",
+                                                    }}
+                                                >
+                                                    <Icons.MapPin
+                                                        width={12}
+                                                        height={12}
+                                                        style={{ verticalAlign: "middle" }}
+                                                    />
+                                                </button>
+                                            </div>
+                                        </div>
 
-                                {/* Set Next Roll section */}
-                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
-                                    <div style={{ fontSize: "11px", color: "#a78bfa", marginBottom: "4px", fontWeight: "600", textTransform: "uppercase" }}>
-                                        Set Next Roll
-                                    </div>
-                                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                                        <select 
-                                            value={overrideD1} 
-                                            onChange={(e) => setOverrideD1(Number(e.target.value))}
-                                            style={{ flex: 1, background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px", padding: "4px", fontSize: "12px" }}
+                                        {/* Set Next Roll section */}
+                                        <div
+                                            style={{
+                                                borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                                                marginTop: "6px",
+                                                paddingTop: "6px",
+                                            }}
                                         >
-                                            {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}</option>)}
-                                        </select>
-                                        <select 
-                                            value={overrideD2} 
-                                            onChange={(e) => setOverrideD2(Number(e.target.value))}
-                                            style={{ flex: 1, background: "rgba(30, 41, 59, 0.6)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px", padding: "4px", fontSize: "12px" }}
-                                        >
-                                            {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}</option>)}
-                                        </select>
-                                        <button 
-                                            onClick={handleSetDice}
-                                            style={{ background: "rgba(167, 139, 250, 0.2)", border: "1px solid rgba(167, 139, 250, 0.4)", borderRadius: "4px", color: "white", padding: "4px 8px", fontSize: "11px", cursor: "pointer", fontWeight: "600" }}
-                                        >
-                                            Set
-                                        </button>
-                                    </div>
-                                </div>
+                                            <div
+                                                style={{
+                                                    fontSize: "11px",
+                                                    color: "#a78bfa",
+                                                    marginBottom: "4px",
+                                                    fontWeight: "600",
+                                                    textTransform: "uppercase",
+                                                }}
+                                            >
+                                                Set Next Roll
+                                            </div>
+                                            <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                                <select
+                                                    value={overrideD1}
+                                                    onChange={(e) => setOverrideD1(Number(e.target.value))}
+                                                    style={{
+                                                        flex: 1,
+                                                        background: "rgba(30, 41, 59, 0.6)",
+                                                        color: "white",
+                                                        border: "1px solid rgba(255,255,255,0.2)",
+                                                        borderRadius: "4px",
+                                                        padding: "4px",
+                                                        fontSize: "12px",
+                                                    }}
+                                                >
+                                                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                                                        <option key={n} value={n}>
+                                                            {n}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <select
+                                                    value={overrideD2}
+                                                    onChange={(e) => setOverrideD2(Number(e.target.value))}
+                                                    style={{
+                                                        flex: 1,
+                                                        background: "rgba(30, 41, 59, 0.6)",
+                                                        color: "white",
+                                                        border: "1px solid rgba(255,255,255,0.2)",
+                                                        borderRadius: "4px",
+                                                        padding: "4px",
+                                                        fontSize: "12px",
+                                                    }}
+                                                >
+                                                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                                                        <option key={n} value={n}>
+                                                            {n}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    onClick={handleSetDice}
+                                                    style={{
+                                                        background: "rgba(167, 139, 250, 0.2)",
+                                                        border: "1px solid rgba(167, 139, 250, 0.4)",
+                                                        borderRadius: "4px",
+                                                        color: "white",
+                                                        padding: "4px 8px",
+                                                        fontSize: "11px",
+                                                        cursor: "pointer",
+                                                        fontWeight: "600",
+                                                    }}
+                                                >
+                                                    Set
+                                                </button>
+                                            </div>
+                                        </div>
 
-                                {/* Force Bankruptcy section */}
-                                <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.1)", marginTop: "6px", paddingTop: "6px" }}>
-                                    <button 
-                                        className="debug-btn" 
-                                        style={{ width: "100%", justifyContent: "center", background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.3)", color: "#fca5a5" }}
-                                        onClick={handleForceBankruptcy}
-                                    >
-                                        <Icons.Skull width={13} height={13} /> Force Bankruptcy
-                                    </button>
+                                        {/* Force Bankruptcy section */}
+                                        <div
+                                            style={{
+                                                borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                                                marginTop: "6px",
+                                                paddingTop: "6px",
+                                            }}
+                                        >
+                                            <button
+                                                className="debug-btn"
+                                                style={{
+                                                    width: "100%",
+                                                    justifyContent: "center",
+                                                    background: "rgba(239, 68, 68, 0.15)",
+                                                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                                                    color: "#fca5a5",
+                                                }}
+                                                onClick={handleForceBankruptcy}
+                                            >
+                                                <Icons.Skull width={13} height={13} /> Force Bankruptcy
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
+                            )}
+                        </>
                     )}
                 </>
-            )}
-        </>
-    ) : (
-        <>
-            <NotifyElement ref={notifyRef} />
-            <div className="lobby join-screen-container">
-                {/* Horizontal Header (same as homepage for visual continuity) */}
-                <header className="entry-header">
-                    <div className="logo-group" onClick={() => { document.location.reload(); }} style={{ cursor: "pointer" }}>
-                        <div className="logo-square">
-                            <img src="./icon.png" alt="" className="logo-icon" />
-                        </div>
-                        <span className="logo-title">MONOPOLY</span>
-                    </div>
-                    <div className="room-info-pill" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span className="pill-prefix">Room Code:</span>
-                        <span className="pill-code">{server?.code || sessionStorage.getItem("current_room") || "------"}</span>
-                        <button 
-                            onClick={() => {
-                                const code = server?.code || sessionStorage.getItem("current_room") || "";
-                                if (code) {
-                                    navigator.clipboard.writeText(code);
-                                    setCopiedCode(true);
-                                    setTimeout(() => setCopiedCode(false), 2000);
-                                    notifyRef.current?.message("Room code copied to clipboard!", "info", 1.5);
-                                }
-                            }}
-                            className="copy-room-code-btn"
-                            title="Copy Code"
-                            style={{
-                                background: 'rgba(255, 255, 255, 0.08)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                borderRadius: '6px',
-                                color: 'var(--text-main)',
-                                fontSize: '11px',
-                                fontFamily: 'var(--font-outfit)',
-                                fontWeight: 600,
-                                padding: '2px 8px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                marginLeft: '4px'
-                            }}
-                        >
-                            {copiedCode ? "Copied!" : "Copy"}
-                        </button>
-                    </div>
-                <div className="user-profile">
-                    <div className="profile-avatar" style={{ backgroundColor: '#ffc107', color: '#111', fontWeight: 'bold', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                        <Icons.Crown width={18} height={18} />
-                    </div>
-                    <div className="profile-info">
-                        <span className="profile-name">Game Lobby</span>
-                        <span className="profile-handle">Ready to launch</span>
-                    </div>
-                </div>
-            </header>
-
-            <div className="two-column-layout">
-                {/* LEFT COLUMN: Lobby Players List */}
-                <div className="left-column">
-                    <div className="lobbies-board-card">
-                        <div className="board-header">
-                            <div style={{ textAlign: "left" }}>
-                                <h3 className="section-title">Hello there, {name} {isSpectator && <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '6px' }}>(Spectating)</span>}</h3>
-                                <p className="section-subtitle">Players currently connected to this multiplayer session.</p>
+            ) : (
+                <>
+                    <NotifyElement ref={notifyRef} />
+                    <div className="lobby join-screen-container">
+                        {/* Horizontal Header (same as homepage for visual continuity) */}
+                        <header className="entry-header">
+                            <div
+                                className="logo-group"
+                                onClick={() => {
+                                    document.location.reload();
+                                }}
+                                style={{ cursor: "pointer" }}
+                            >
+                                <div className="logo-square">
+                                    <img src="./icon.png" alt="" className="logo-icon" />
+                                </div>
+                                <span className="logo-title">MONOPOLY</span>
                             </div>
-                        </div>
+                            <div
+                                className="room-info-pill"
+                                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                            >
+                                <span className="pill-prefix">Room Code:</span>
+                                <span className="pill-code">
+                                    {server?.code || sessionStorage.getItem("current_room") || "------"}
+                                </span>
+                                <button
+                                    onClick={() => {
+                                        const code = server?.code || sessionStorage.getItem("current_room") || "";
+                                        if (code) {
+                                            navigator.clipboard.writeText(code);
+                                            setCopiedCode(true);
+                                            setTimeout(() => setCopiedCode(false), 2000);
+                                            notifyRef.current?.message("Room code copied to clipboard!", "info", 1.5);
+                                        }
+                                    }}
+                                    className="copy-room-code-btn"
+                                    title="Copy Code"
+                                    style={{
+                                        background: "rgba(255, 255, 255, 0.08)",
+                                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                                        borderRadius: "6px",
+                                        color: "var(--text-main)",
+                                        fontSize: "11px",
+                                        fontFamily: "var(--font-outfit)",
+                                        fontWeight: 600,
+                                        padding: "2px 8px",
+                                        cursor: "pointer",
+                                        transition: "all 0.2s",
+                                        marginLeft: "4px",
+                                    }}
+                                >
+                                    {copiedCode ? "Copied!" : "Copy"}
+                                </button>
+                            </div>
+                            <div className="user-profile">
+                                <div
+                                    className="profile-avatar"
+                                    style={{
+                                        backgroundColor: "#ffc107",
+                                        color: "#111",
+                                        fontWeight: "bold",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                    }}
+                                >
+                                    <Icons.Crown width={18} height={18} />
+                                </div>
+                                <div className="profile-info">
+                                    <span className="profile-name">Game Lobby</span>
+                                    <span className="profile-handle">Ready to launch</span>
+                                </div>
+                            </div>
+                        </header>
 
-                        <div className="lobbies-scroll-list" style={{ minHeight: "220px" }}>
-                            {Array.from(clients.values()).map((v, i) => {
-                                const isHost = v.id === hostId;
-                                const isLocal = v.id === socket.id;
-                                const avatarColor = v.color || "#64748b";
-
-                                return (
-                                    <div 
-                                        key={i}
-                                        className={`lobby-row-item lobby-player-row ${v.ready ? 'ready-row' : 'pending-row'}`}
-                                    >
-                                        <div className="lobby-row-left">
-                                            <div className="player-avatar-circle" style={{ backgroundColor: avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px' }}>
-                                                <img src={`./p${v.icon + 1}.png`} alt="" style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
-                                            </div>
-                                            <span className="player-name-label">
-                                                {v.username} {isLocal && <span className="local-user-indicator">(You)</span>}
-                                            </span>
-                                            {isHost && <span className="host-badge"><Icons.Crown width={10} height={10} style={{verticalAlign:'middle', marginRight:2}} />Host</span>}
-                                            {!v.connected && <span className="offline-badge">Offline</span>}
+                        <div className="two-column-layout">
+                            {/* LEFT COLUMN: Lobby Players List */}
+                            <div className="left-column">
+                                <div className="lobbies-board-card">
+                                    <div className="board-header">
+                                        <div style={{ textAlign: "left" }}>
+                                            <h3 className="section-title">
+                                                Hello there, {name}{" "}
+                                                {isSpectator && (
+                                                    <span
+                                                        style={{
+                                                            fontSize: "0.8em",
+                                                            color: "#94a3b8",
+                                                            marginLeft: "6px",
+                                                        }}
+                                                    >
+                                                        (Spectating)
+                                                    </span>
+                                                )}
+                                            </h3>
+                                            <p className="section-subtitle">
+                                                Players currently connected to this multiplayer session.
+                                            </p>
                                         </div>
-                                        <div className="lobby-row-right">
-                                            <span className={`player-ready-pill ${v.ready ? 'is-ready' : 'is-pending'}`}>
-                                                {v.ready ? "READY" : "WAITING"}
-                                            </span>
-                                            {hostId === socket.id && !isLocal && (
-                                                <button 
-                                                    onClick={() => socket.emit("kick-player", v.id)}
-                                                    className="kick-player-btn"
-                                                    title="Kick Player"
+                                    </div>
+
+                                    <div className="lobbies-scroll-list" style={{ minHeight: "220px" }}>
+                                        {Array.from(clients.values()).map((v, i) => {
+                                            const isHost = v.id === hostId;
+                                            const isLocal = v.id === socket.id;
+                                            const avatarColor = v.color || "#64748b";
+
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    className={`lobby-row-item lobby-player-row ${v.ready ? "ready-row" : "pending-row"}`}
                                                 >
-                                                    &times;
+                                                    <div className="lobby-row-left">
+                                                        <div
+                                                            className="player-avatar-circle"
+                                                            style={{
+                                                                backgroundColor: avatarColor,
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                padding: "2px",
+                                                            }}
+                                                        >
+                                                            <img
+                                                                src={`./p${v.icon + 1}.png`}
+                                                                alt=""
+                                                                style={{
+                                                                    width: "80%",
+                                                                    height: "80%",
+                                                                    objectFit: "contain",
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <span className="player-name-label">
+                                                            {v.username}{" "}
+                                                            {isLocal && (
+                                                                <span className="local-user-indicator">(You)</span>
+                                                            )}
+                                                        </span>
+                                                        {isHost && (
+                                                            <span className="host-badge">
+                                                                <Icons.Crown
+                                                                    width={10}
+                                                                    height={10}
+                                                                    style={{ verticalAlign: "middle", marginRight: 2 }}
+                                                                />
+                                                                Host
+                                                            </span>
+                                                        )}
+                                                        {!v.connected && <span className="offline-badge">Offline</span>}
+                                                    </div>
+                                                    <div className="lobby-row-right">
+                                                        <span
+                                                            className={`player-ready-pill ${v.ready ? "is-ready" : "is-pending"}`}
+                                                        >
+                                                            {v.ready ? "READY" : "WAITING"}
+                                                        </span>
+                                                        {hostId === socket.id && !isLocal && (
+                                                            <button
+                                                                onClick={() => socket.emit("kick-player", v.id)}
+                                                                className="kick-player-btn"
+                                                                title="Kick Player"
+                                                            >
+                                                                &times;
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Bottom action bars for ready/leave */}
+                                    <div className="search-bar-horizontal lobby-actions-row">
+                                        {isSpectator ? (
+                                            <button className="lobby-ready-toggle-btn is-ready" disabled={true}>
+                                                Spectating Lobby
+                                            </button>
+                                        ) : (
+                                            <button
+                                                disabled={gameStarted}
+                                                onClick={() => {
+                                                    socket.emit("ready", {
+                                                        ready: !imReady,
+                                                    });
+                                                    SetReady(!imReady);
+                                                }}
+                                                className={`lobby-ready-toggle-btn ${imReady ? "is-ready" : "is-pending"}`}
+                                            >
+                                                {imReady ? "Toggle Unready" : "Toggle Ready"}
+                                            </button>
+                                        )}
+
+                                        <button
+                                            onClick={() => {
+                                                sessionStorage.removeItem("current_room");
+                                                socket.emit("leave-room");
+                                                socket.disconnect();
+                                                document.location.reload();
+                                            }}
+                                            className="lobby-leave-btn"
+                                        >
+                                            Leave Lobby
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* RIGHT COLUMN: Mode settings & configs (styled like Create reminder in screenshot) */}
+                            <div className="right-column">
+                                <div className="profile-details-card">
+                                    <div className="card-header-bar">
+                                        <h3 className="card-title">Match Settings</h3>
+                                    </div>
+
+                                    {/* Game Mode Pill Selection */}
+                                    <div className="reminder-type-section">
+                                        <label className="section-label">SELECT GAME MODE</label>
+                                        <div className="color-pills-row game-modes-pills">
+                                            {MonopolyModes.map((v, k) => {
+                                                const isSelected = JSON.stringify(v) === JSON.stringify(selectedMode);
+                                                // Map color indices to give different styles matching the picture
+                                                const colors = ["orange", "yellow", "green", "blue"];
+                                                const colorClass = colors[k % colors.length] + "-pill";
+                                                return (
+                                                    <button
+                                                        key={k}
+                                                        type="button"
+                                                        className={`color-pill ${colorClass} ${isSelected ? "active" : ""}`}
+                                                        onClick={() => {
+                                                            if (server !== undefined)
+                                                                socket.emit("ready", {
+                                                                    mode: v,
+                                                                });
+                                                        }}
+                                                        disabled={server === undefined}
+                                                    >
+                                                        <span
+                                                            className={`pill-dot ${colors[k % colors.length]}-dot`}
+                                                        ></span>{" "}
+                                                        {v.Name}
+                                                    </button>
+                                                );
+                                            })}
+                                            <button
+                                                type="button"
+                                                className={`color-pill red-pill ${selectedMode.Name === "Custom Mode" ? "active" : ""}`}
+                                                onClick={() => {
+                                                    if (server !== undefined)
+                                                        socket.emit("ready", {
+                                                            mode: customConfig,
+                                                        });
+                                                }}
+                                                disabled={server === undefined}
+                                            >
+                                                <span className="pill-dot red-dot"></span> Custom Mode
+                                            </button>
+                                            {selectedMode.Name === "Custom Mode" && server !== undefined && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowCustomModal(true)}
+                                                    style={{
+                                                        padding: "8px 12px",
+                                                        borderRadius: "16px",
+                                                        backgroundColor: "rgba(255, 255, 255, 0.07)",
+                                                        border: "1px solid var(--border-color)",
+                                                        color: "#fff",
+                                                        display: "inline-flex",
+                                                        alignItems: "center",
+                                                        gap: "6px",
+                                                        cursor: "pointer",
+                                                        fontSize: "12px",
+                                                        fontWeight: "500",
+                                                        transition: "all 0.2s",
+                                                    }}
+                                                    title="Configure Custom Mode"
+                                                >
+                                                    <Icons.Wrench width={12} height={12} /> Configure
                                                 </button>
                                             )}
                                         </div>
                                     </div>
-                                );
-                            })}
-                        </div>
 
-                        {/* Bottom action bars for ready/leave */}
-                        <div className="search-bar-horizontal lobby-actions-row">
-                            {isSpectator ? (
-                                <button className="lobby-ready-toggle-btn is-ready" disabled={true}>
-                                    Spectating Lobby
-                                </button>
-                            ) : (
-                                <button
-                                    disabled={gameStarted}
-                                    onClick={() => {
-                                        socket.emit("ready", {
-                                            ready: !imReady,
-                                        });
-                                        SetReady(!imReady);
-                                    }}
-                                    className={`lobby-ready-toggle-btn ${imReady ? 'is-ready' : 'is-pending'}`}
-                                >
-                                    {imReady ? "Toggle Unready" : "Toggle Ready"}
-                                </button>
-                            )}
-                            
-                            <button
-                                onClick={() => {
-                                    sessionStorage.removeItem("current_room");
-                                    socket.emit("leave-room");
-                                    socket.disconnect();
-                                    document.location.reload();
-                                }}
-                                className="lobby-leave-btn"
-                            >
-                                Leave Lobby
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* RIGHT COLUMN: Mode settings & configs (styled like Create reminder in screenshot) */}
-                <div className="right-column">
-                    <div className="profile-details-card">
-                        <div className="card-header-bar">
-                            <h3 className="card-title">Match Settings</h3>
-                        </div>
-
-                        {/* Game Mode Pill Selection */}
-                        <div className="reminder-type-section">
-                            <label className="section-label">SELECT GAME MODE</label>
-                            <div className="color-pills-row game-modes-pills">
-                                {MonopolyModes.map((v, k) => {
-                                    const isSelected = JSON.stringify(v) === JSON.stringify(selectedMode);
-                                    // Map color indices to give different styles matching the picture
-                                    const colors = ["orange", "yellow", "green", "blue"];
-                                    const colorClass = colors[k % colors.length] + "-pill";
-                                    return (
-                                        <button
-                                            key={k}
-                                            type="button"
-                                            className={`color-pill ${colorClass} ${isSelected ? "active" : ""}`}
-                                            onClick={() => {
-                                                if (server !== undefined)
-                                                    socket.emit("ready", {
-                                                        mode: v,
-                                                    });
-                                            }}
-                                            disabled={server === undefined}
+                                    {/* Player Color and Avatar Selection */}
+                                    {!isSpectator && (
+                                        <div
+                                            className="reminder-type-section"
+                                            style={{ borderTop: "1px solid var(--border-color)", paddingTop: "16px" }}
                                         >
-                                            <span className={`pill-dot ${colors[k % colors.length]}-dot`}></span> {v.Name}
-                                        </button>
-                                    );
-                                })}
-                                <button
-                                    type="button"
-                                    className={`color-pill red-pill ${selectedMode.Name === "Custom Mode" ? "active" : ""}`}
-                                    onClick={() => {
-                                        if (server !== undefined)
-                                            socket.emit("ready", {
-                                                mode: customConfig,
-                                            });
-                                    }}
-                                    disabled={server === undefined}
-                                >
-                                    <span className="pill-dot red-dot"></span> Custom Mode
-                                </button>
-                                {selectedMode.Name === "Custom Mode" && server !== undefined && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCustomModal(true)}
-                                        style={{
-                                            padding: "8px 12px",
-                                            borderRadius: "16px",
-                                            backgroundColor: "rgba(255, 255, 255, 0.07)",
-                                            border: "1px solid var(--border-color)",
-                                            color: "#fff",
-                                            display: "inline-flex",
-                                            alignItems: "center",
-                                            gap: "6px",
-                                            cursor: "pointer",
-                                            fontSize: "12px",
-                                            fontWeight: "500",
-                                            transition: "all 0.2s"
-                                        }}
-                                        title="Configure Custom Mode"
-                                    >
-                                        <Icons.Wrench width={12} height={12} /> Configure
-                                    </button>
-                                )}
-                            </div>
-                        </div>
+                                            <label className="section-label">SELECT YOUR AVATAR & COLOR</label>
+                                            <div className="avatar-selection-grid">
+                                                {(() => {
+                                                    const myPlayer = clients.get(socket.id);
+                                                    const myIconIndex = myPlayer ? myPlayer.icon : 0;
+                                                    const colors = [
+                                                        "#E0115F",
+                                                        "#4169e1",
+                                                        "#50C878",
+                                                        "#FFC000",
+                                                        "#a855f7",
+                                                        "#FF7F50",
+                                                    ];
 
-                        {/* Player Color and Avatar Selection */}
-                        {!isSpectator && (
-                            <div className="reminder-type-section" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                                <label className="section-label">SELECT YOUR AVATAR & COLOR</label>
-                                <div className="avatar-selection-grid">
-                                    {(() => {
-                                        const myPlayer = clients.get(socket.id);
-                                        const myIconIndex = myPlayer ? myPlayer.icon : 0;
-                                        const colors = ["#E0115F", "#4169e1", "#50C878", "#FFC000", "#a855f7", "#FF7F50"];
-                                        
-                                        return colors.map((col, idx) => {
-                                            const takenBy = Array.from(clients.values()).find(
-                                                (p) => p.id !== socket.id && p.icon === idx
-                                            );
-                                            const isSelected = myIconIndex === idx;
-                                            
-                                            return (
-                                                <button
-                                                    key={idx}
-                                                    type="button"
-                                                    className={`avatar-choice-btn ${isSelected ? "active" : ""} ${takenBy ? "taken" : ""}`}
-                                                    style={{ 
-                                                        backgroundColor: col, 
-                                                    }}
-                                                    disabled={!!takenBy}
-                                                    onClick={() => {
-                                                        socket.emit("select_icon", idx);
-                                                    }}
-                                                    title={takenBy ? `Taken by ${takenBy.username}` : `Select Color`}
-                                                >
-                                                    <img src={`./p${idx + 1}.png`} alt="" className="avatar-choice-img" />
-                                                    {takenBy && (
-                                                         <span className="avatar-taken-badge">
-                                                             {takenBy.username.charAt(0).toUpperCase()}
-                                                         </span>
-                                                    )}
-                                                </button>
-                                            );
-                                        });
-                                    })()}
+                                                    return colors.map((col, idx) => {
+                                                        const takenBy = Array.from(clients.values()).find(
+                                                            (p) => p.id !== socket.id && p.icon === idx,
+                                                        );
+                                                        const isSelected = myIconIndex === idx;
+
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                type="button"
+                                                                className={`avatar-choice-btn ${isSelected ? "active" : ""} ${takenBy ? "taken" : ""}`}
+                                                                style={{
+                                                                    backgroundColor: col,
+                                                                }}
+                                                                disabled={!!takenBy}
+                                                                onClick={() => {
+                                                                    socket.emit("select_icon", idx);
+                                                                }}
+                                                                title={
+                                                                    takenBy
+                                                                        ? `Taken by ${takenBy.username}`
+                                                                        : `Select Color`
+                                                                }
+                                                            >
+                                                                <img
+                                                                    src={`./p${idx + 1}.png`}
+                                                                    alt=""
+                                                                    className="avatar-choice-img"
+                                                                />
+                                                                {takenBy && (
+                                                                    <span className="avatar-taken-badge">
+                                                                        {takenBy.username.charAt(0).toUpperCase()}
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    });
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Match details list */}
+                                    <div className="event-details-section">
+                                        <label className="section-label">MATCH SETUP SUMMARY</label>
+
+                                        <div className="details-info-row">
+                                            <span className="details-icon">
+                                                <Icons.Trophy width={13} height={13} />
+                                            </span>
+                                            <span className="details-text">
+                                                Winning Mode:{" "}
+                                                <strong className="highlight-text">
+                                                    {selectedMode.WinningMode.toUpperCase()}
+                                                </strong>
+                                            </span>
+                                        </div>
+
+                                        <div className="details-info-row">
+                                            <span className="details-icon">
+                                                <Icons.Handshake width={13} height={13} />
+                                            </span>
+                                            <span className="details-text">
+                                                Trades:{" "}
+                                                <strong className="highlight-text">
+                                                    {selectedMode.AllowDeals ? "ALLOWED" : "DISABLED"}
+                                                </strong>
+                                            </span>
+                                        </div>
+
+                                        <div className="details-info-row">
+                                            <span className="details-icon">
+                                                <Icons.Building width={13} height={13} />
+                                            </span>
+                                            <span className="details-text">
+                                                Mortgages:{" "}
+                                                <strong className="highlight-text">
+                                                    {selectedMode.mortageAllowed ? "ALLOWED" : "DISABLED"}
+                                                </strong>
+                                            </span>
+                                        </div>
+
+                                        <div className="details-info-row">
+                                            <span className="details-icon">
+                                                <Icons.Scale width={13} height={13} />
+                                            </span>
+                                            <span className="details-text">
+                                                Auctions:{" "}
+                                                <strong className="highlight-text">
+                                                    {selectedMode.allowAuctions !== false ? "ALLOWED" : "DISABLED"}
+                                                </strong>
+                                            </span>
+                                        </div>
+
+                                        <div className="details-info-row">
+                                            <span className="details-icon">
+                                                <Icons.Coin width={13} height={13} />
+                                            </span>
+                                            <span className="details-text">
+                                                Starting Cash:{" "}
+                                                <strong className="highlight-text">{selectedMode.startingCash}M</strong>
+                                            </span>
+                                        </div>
+
+                                        <div className="details-info-row">
+                                            <span className="details-icon">
+                                                <Icons.Timer width={13} height={13} />
+                                            </span>
+                                            <span className="details-text">
+                                                Turn Timer:{" "}
+                                                <strong className="highlight-text">
+                                                    {selectedMode.turnTimer === undefined ||
+                                                    (typeof selectedMode.turnTimer === "number" &&
+                                                        selectedMode.turnTimer === 0)
+                                                        ? "NO TIMER"
+                                                        : JSON.stringify(selectedMode.turnTimer) + " SEC"}
+                                                </strong>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Large Primary Action Button */}
+                                    <div className="action-button-container">
+                                        {server === undefined ? (
+                                            <button className="primary-action-btn lobby-client-status" disabled={true}>
+                                                Waiting for Host to Start...
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => {
+                                                    socket.emit("ready", { ready: !imReady });
+                                                    SetReady(!imReady);
+                                                }}
+                                                className={`primary-action-btn ${imReady ? "host-ready-active" : ""}`}
+                                            >
+                                                {imReady ? "Toggle Unready" : "Toggle Ready (Host)"}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        )}
-
-                        {/* Match details list */}
-                        <div className="event-details-section">
-                            <label className="section-label">MATCH SETUP SUMMARY</label>
-                            
-                            <div className="details-info-row">
-                                <span className="details-icon"><Icons.Trophy width={13} height={13} /></span>
-                                <span className="details-text">Winning Mode: <strong className="highlight-text">{selectedMode.WinningMode.toUpperCase()}</strong></span>
-                            </div>
-                            
-                            <div className="details-info-row">
-                                <span className="details-icon"><Icons.Handshake width={13} height={13} /></span>
-                                <span className="details-text">Trades: <strong className="highlight-text">{selectedMode.AllowDeals ? "ALLOWED" : "DISABLED"}</strong></span>
-                            </div>
-
-                            <div className="details-info-row">
-                                <span className="details-icon"><Icons.Building width={13} height={13} /></span>
-                                <span className="details-text">Mortgages: <strong className="highlight-text">{selectedMode.mortageAllowed ? "ALLOWED" : "DISABLED"}</strong></span>
-                            </div>
-
-                            <div className="details-info-row">
-                                <span className="details-icon"><Icons.Scale width={13} height={13} /></span>
-                                <span className="details-text">Auctions: <strong className="highlight-text">{selectedMode.allowAuctions !== false ? "ALLOWED" : "DISABLED"}</strong></span>
-                            </div>
-
-                            <div className="details-info-row">
-                                <span className="details-icon"><Icons.Coin width={13} height={13} /></span>
-                                <span className="details-text">Starting Cash: <strong className="highlight-text">{selectedMode.startingCash}M</strong></span>
-                            </div>
-
-                            <div className="details-info-row">
-                                <span className="details-icon"><Icons.Timer width={13} height={13} /></span>
-                                <span className="details-text">
-                                    Turn Timer: <strong className="highlight-text">
-                                        {selectedMode.turnTimer === undefined ||
-                                        (typeof selectedMode.turnTimer === "number" && selectedMode.turnTimer === 0)
-                                            ? "NO TIMER"
-                                            : JSON.stringify(selectedMode.turnTimer) + " SEC"}
-                                    </strong>
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Large Primary Action Button */}
-                        <div className="action-button-container">
-                            {server === undefined ? (
-                                <button className="primary-action-btn lobby-client-status" disabled={true}>
-                                    Waiting for Host to Start...
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={() => {
-                                        socket.emit("ready", { ready: !imReady });
-                                        SetReady(!imReady);
-                                    }}
-                                    className={`primary-action-btn ${imReady ? 'host-ready-active' : ''}`}
-                                >
-                                    {imReady ? "Toggle Unready" : "Toggle Ready (Host)"}
-                                </button>
-                            )}
                         </div>
                     </div>
-                </div>
-            </div>
+                </>
+            )}
 
-        </div>
-        </>
-    )}
-
-    {/* Floating countdown clock — must always be in the DOM so socket_StartGame
+            {/* Floating countdown clock — must always be in the DOM so socket_StartGame
         can query it via getElementById before gameStartedDisplay becomes true. */}
-    <p id="floating-clock"></p>
+            <p id="floating-clock"></p>
 
-    {reconnectAttempt !== null && (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            backdropFilter: 'blur(10px)',
-            zIndex: 9999999999,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            color: 'white',
-            fontFamily: 'system-ui, sans-serif'
-        }}>
-            <div style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '16px',
-                padding: '40px',
-                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '20px'
-            }}>
-                <div className="spinner" style={{
-                    width: '50px',
-                    height: '50px',
-                    border: '5px solid rgba(255, 255, 255, 0.1)',
-                    borderTop: '5px solid #0075ff',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite'
-                }}></div>
-                <style>{`
+            {reconnectAttempt !== null && (
+                <div
+                    style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100vw",
+                        height: "100vh",
+                        backgroundColor: "rgba(0, 0, 0, 0.7)",
+                        backdropFilter: "blur(10px)",
+                        zIndex: 9999999999,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        color: "white",
+                        fontFamily: "system-ui, sans-serif",
+                    }}
+                >
+                    <div
+                        style={{
+                            background: "rgba(255, 255, 255, 0.05)",
+                            border: "1px solid rgba(255, 255, 255, 0.1)",
+                            borderRadius: "16px",
+                            padding: "40px",
+                            boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.37)",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: "20px",
+                        }}
+                    >
+                        <div
+                            className="spinner"
+                            style={{
+                                width: "50px",
+                                height: "50px",
+                                border: "5px solid rgba(255, 255, 255, 0.1)",
+                                borderTop: "5px solid #0075ff",
+                                borderRadius: "50%",
+                                animation: "spin 1s linear infinite",
+                            }}
+                        ></div>
+                        <style>{`
                     @keyframes spin {
                         0% { transform: rotate(0deg); }
                         100% { transform: rotate(360deg); }
                     }
                 `}</style>
-                <h3 style={{ margin: 0, fontSize: '24px', fontWeight: '600' }}>Lost Connection</h3>
-                <p style={{ margin: 0, opacity: 0.8 }}>Attempting to reconnect... [Attempt {reconnectAttempt}/5]</p>
-            </div>
-        </div>
-    )}
+                        <h3 style={{ margin: 0, fontSize: "24px", fontWeight: "600" }}>Lost Connection</h3>
+                        <p style={{ margin: 0, opacity: 0.8 }}>
+                            Attempting to reconnect... [Attempt {reconnectAttempt}/5]
+                        </p>
+                    </div>
+                </div>
+            )}
 
-    {showCustomModal && (
-        <div style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.75)",
-            backdropFilter: "blur(4px)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-            fontFamily: "var(--font-family, inherit)"
-        }}>
-            <div style={{
-                width: "100%",
-                maxWidth: "480px",
-                backgroundColor: "#1c1c1e",
-                border: "1px solid var(--border-color)",
-                borderRadius: "16px",
-                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden"
-            }}>
-                {/* Header */}
-                <div style={{
-                    padding: "16px 20px",
-                    borderBottom: "1px solid var(--border-color)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    backgroundColor: "rgba(255,255,255,0.02)"
-                }}>
-                    <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "bold", color: "#fff" }}>Custom Match Settings</h3>
-                    <button 
-                        onClick={() => setShowCustomModal(false)}
+            {showCustomModal && (
+                <div
+                    style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: "rgba(0, 0, 0, 0.75)",
+                        backdropFilter: "blur(4px)",
+                        zIndex: 9999,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "20px",
+                        fontFamily: "var(--font-family, inherit)",
+                    }}
+                >
+                    <div
                         style={{
-                            border: "none",
-                            background: "none",
-                            color: "#aaa",
-                            fontSize: "20px",
-                            cursor: "pointer",
-                            lineHeight: 1
+                            width: "100%",
+                            maxWidth: "480px",
+                            backgroundColor: "#1c1c1e",
+                            border: "1px solid var(--border-color)",
+                            borderRadius: "16px",
+                            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+                            display: "flex",
+                            flexDirection: "column",
+                            overflow: "hidden",
                         }}
                     >
-                        &times;
-                    </button>
-                </div>
-
-                {/* Body */}
-                <div style={{
-                    padding: "20px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                    overflowY: "auto",
-                    maxHeight: "70vh"
-                }}>
-                    {/* Winning Mode */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <label style={{ fontSize: "11px", letterSpacing: "1px", color: "#aaa", fontWeight: "bold" }}>WINNING CONDITION</label>
-                        <select 
-                            value={customConfig.WinningMode}
-                            onChange={(e) => {
-                                const val = e.target.value as MonopolyMode["WinningMode"];
-                                const updated = { ...customConfig, WinningMode: val };
-                                setCustomConfig(updated);
-                                socket.emit("ready", { mode: updated });
-                            }}
+                        {/* Header */}
+                        <div
                             style={{
-                                padding: "10px 12px",
-                                borderRadius: "8px",
-                                backgroundColor: "rgba(0,0,0,0.3)",
-                                color: "#fff",
-                                border: "1px solid var(--border-color)",
-                                outline: "none",
-                                cursor: "pointer",
-                                fontSize: "13px"
+                                padding: "16px 20px",
+                                borderBottom: "1px solid var(--border-color)",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                backgroundColor: "rgba(255,255,255,0.02)",
                             }}
                         >
-                            <option value="last-standing">Last Standing (Classic)</option>
-                            <option value="monopols">Monopols (3 sets)</option>
-                            <option value="monopols & trains">Monopols & Trains (3 sets or 4 railroads)</option>
-                        </select>
-                    </div>
-
-                    {/* Starting Cash */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <label style={{ fontSize: "11px", letterSpacing: "1px", color: "#aaa", fontWeight: "bold" }}>STARTING CASH</label>
-                            <span style={{ fontSize: "13px", fontWeight: "bold", color: "#E0115F" }}>{customConfig.startingCash}M</span>
+                            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "bold", color: "#fff" }}>
+                                Custom Match Settings
+                            </h3>
+                            <button
+                                onClick={() => setShowCustomModal(false)}
+                                style={{
+                                    border: "none",
+                                    background: "none",
+                                    color: "#aaa",
+                                    fontSize: "20px",
+                                    cursor: "pointer",
+                                    lineHeight: 1,
+                                }}
+                            >
+                                &times;
+                            </button>
                         </div>
-                        <input 
-                            type="range"
-                            min="500"
-                            max="5000"
-                            step="100"
-                            value={customConfig.startingCash}
-                            onChange={(e) => {
-                                const val = parseInt(e.target.value) || 1500;
-                                const updated = { ...customConfig, startingCash: val };
-                                setCustomConfig(updated);
-                                socket.emit("ready", { mode: updated });
-                            }}
-                            style={{
-                                cursor: "pointer",
-                                accentColor: "#E0115F",
-                                width: "100%"
-                            }}
-                        />
-                    </div>
 
-                    {/* Turn Timer */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <label style={{ fontSize: "11px", letterSpacing: "1px", color: "#aaa", fontWeight: "bold" }}>TURN TIMER</label>
-                            <span style={{ fontSize: "13px", fontWeight: "bold", color: "#E0115F" }}>
-                                {customConfig.turnTimer === undefined || customConfig.turnTimer === 0 ? "No Timer" : `${customConfig.turnTimer}s`}
-                            </span>
+                        {/* Body */}
+                        <div
+                            style={{
+                                padding: "20px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "16px",
+                                overflowY: "auto",
+                                maxHeight: "70vh",
+                            }}
+                        >
+                            {/* Winning Mode */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <label
+                                    style={{
+                                        fontSize: "11px",
+                                        letterSpacing: "1px",
+                                        color: "#aaa",
+                                        fontWeight: "bold",
+                                    }}
+                                >
+                                    WINNING CONDITION
+                                </label>
+                                <select
+                                    value={customConfig.WinningMode}
+                                    onChange={(e) => {
+                                        const val = e.target.value as MonopolyMode["WinningMode"];
+                                        const updated = { ...customConfig, WinningMode: val };
+                                        setCustomConfig(updated);
+                                        socket.emit("ready", { mode: updated });
+                                    }}
+                                    style={{
+                                        padding: "10px 12px",
+                                        borderRadius: "8px",
+                                        backgroundColor: "rgba(0,0,0,0.3)",
+                                        color: "#fff",
+                                        border: "1px solid var(--border-color)",
+                                        outline: "none",
+                                        cursor: "pointer",
+                                        fontSize: "13px",
+                                    }}
+                                >
+                                    <option value="last-standing">Last Standing (Classic)</option>
+                                    <option value="monopols">Monopols (3 sets)</option>
+                                    <option value="monopols & trains">Monopols & Trains (3 sets or 4 railroads)</option>
+                                </select>
+                            </div>
+
+                            {/* Starting Cash */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <label
+                                        style={{
+                                            fontSize: "11px",
+                                            letterSpacing: "1px",
+                                            color: "#aaa",
+                                            fontWeight: "bold",
+                                        }}
+                                    >
+                                        STARTING CASH
+                                    </label>
+                                    <span style={{ fontSize: "13px", fontWeight: "bold", color: "#E0115F" }}>
+                                        {customConfig.startingCash}M
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="500"
+                                    max="5000"
+                                    step="100"
+                                    value={customConfig.startingCash}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value) || 1500;
+                                        const updated = { ...customConfig, startingCash: val };
+                                        setCustomConfig(updated);
+                                        socket.emit("ready", { mode: updated });
+                                    }}
+                                    style={{
+                                        cursor: "pointer",
+                                        accentColor: "#E0115F",
+                                        width: "100%",
+                                    }}
+                                />
+                            </div>
+
+                            {/* Turn Timer */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <label
+                                        style={{
+                                            fontSize: "11px",
+                                            letterSpacing: "1px",
+                                            color: "#aaa",
+                                            fontWeight: "bold",
+                                        }}
+                                    >
+                                        TURN TIMER
+                                    </label>
+                                    <span style={{ fontSize: "13px", fontWeight: "bold", color: "#E0115F" }}>
+                                        {customConfig.turnTimer === undefined || customConfig.turnTimer === 0
+                                            ? "No Timer"
+                                            : `${customConfig.turnTimer}s`}
+                                    </span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="120"
+                                    step="5"
+                                    value={customConfig.turnTimer ?? 0}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value);
+                                        const turnTimer = val === 0 ? undefined : val;
+                                        const updated = { ...customConfig, turnTimer };
+                                        setCustomConfig(updated);
+                                        socket.emit("ready", { mode: updated });
+                                    }}
+                                    style={{
+                                        cursor: "pointer",
+                                        accentColor: "#E0115F",
+                                        width: "100%",
+                                    }}
+                                />
+                            </div>
+
+                            {/* Toggles */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
+                                <label
+                                    style={{
+                                        fontSize: "11px",
+                                        letterSpacing: "1px",
+                                        color: "#aaa",
+                                        fontWeight: "bold",
+                                    }}
+                                >
+                                    RULE TOGGLES
+                                </label>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    <label
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "10px",
+                                            cursor: "pointer",
+                                            fontSize: "13px",
+                                            color: "#fff",
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={customConfig.AllowDeals}
+                                            onChange={(e) => {
+                                                const updated = { ...customConfig, AllowDeals: e.target.checked };
+                                                setCustomConfig(updated);
+                                                socket.emit("ready", { mode: updated });
+                                            }}
+                                            style={{
+                                                cursor: "pointer",
+                                                accentColor: "#E0115F",
+                                                width: "16px",
+                                                height: "16px",
+                                            }}
+                                        />
+                                        Allow Trades
+                                    </label>
+                                    <label
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "10px",
+                                            cursor: "pointer",
+                                            fontSize: "13px",
+                                            color: "#fff",
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={customConfig.mortageAllowed}
+                                            onChange={(e) => {
+                                                const updated = { ...customConfig, mortageAllowed: e.target.checked };
+                                                setCustomConfig(updated);
+                                                socket.emit("ready", { mode: updated });
+                                            }}
+                                            style={{
+                                                cursor: "pointer",
+                                                accentColor: "#E0115F",
+                                                width: "16px",
+                                                height: "16px",
+                                            }}
+                                        />
+                                        Allow Mortgages
+                                    </label>
+                                    <label
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "10px",
+                                            cursor: "pointer",
+                                            fontSize: "13px",
+                                            color: "#fff",
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={customConfig.allowAuctions}
+                                            onChange={(e) => {
+                                                const updated = { ...customConfig, allowAuctions: e.target.checked };
+                                                setCustomConfig(updated);
+                                                socket.emit("ready", { mode: updated });
+                                            }}
+                                            style={{
+                                                cursor: "pointer",
+                                                accentColor: "#E0115F",
+                                                width: "16px",
+                                                height: "16px",
+                                            }}
+                                        />
+                                        Allow Auctions
+                                    </label>
+                                </div>
+                            </div>
                         </div>
-                        <input 
-                            type="range"
-                            min="0"
-                            max="120"
-                            step="5"
-                            value={customConfig.turnTimer ?? 0}
-                            onChange={(e) => {
-                                const val = parseInt(e.target.value);
-                                const turnTimer = val === 0 ? undefined : val;
-                                const updated = { ...customConfig, turnTimer };
-                                setCustomConfig(updated);
-                                socket.emit("ready", { mode: updated });
-                            }}
-                            style={{
-                                cursor: "pointer",
-                                accentColor: "#E0115F",
-                                width: "100%"
-                            }}
-                        />
-                    </div>
 
-                    {/* Toggles */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
-                        <label style={{ fontSize: "11px", letterSpacing: "1px", color: "#aaa", fontWeight: "bold" }}>RULE TOGGLES</label>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                            <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px", color: "#fff" }}>
-                                <input 
-                                    type="checkbox"
-                                    checked={customConfig.AllowDeals}
-                                    onChange={(e) => {
-                                        const updated = { ...customConfig, AllowDeals: e.target.checked };
-                                        setCustomConfig(updated);
-                                        socket.emit("ready", { mode: updated });
-                                    }}
-                                    style={{ cursor: "pointer", accentColor: "#E0115F", width: "16px", height: "16px" }}
-                                />
-                                Allow Trades
-                            </label>
-                            <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px", color: "#fff" }}>
-                                <input 
-                                    type="checkbox"
-                                    checked={customConfig.mortageAllowed}
-                                    onChange={(e) => {
-                                        const updated = { ...customConfig, mortageAllowed: e.target.checked };
-                                        setCustomConfig(updated);
-                                        socket.emit("ready", { mode: updated });
-                                    }}
-                                    style={{ cursor: "pointer", accentColor: "#E0115F", width: "16px", height: "16px" }}
-                                />
-                                Allow Mortgages
-                            </label>
-                            <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "13px", color: "#fff" }}>
-                                <input 
-                                    type="checkbox"
-                                    checked={customConfig.allowAuctions}
-                                    onChange={(e) => {
-                                        const updated = { ...customConfig, allowAuctions: e.target.checked };
-                                        setCustomConfig(updated);
-                                        socket.emit("ready", { mode: updated });
-                                    }}
-                                    style={{ cursor: "pointer", accentColor: "#E0115F", width: "16px", height: "16px" }}
-                                />
-                                Allow Auctions
-                            </label>
+                        {/* Footer */}
+                        <div
+                            style={{
+                                padding: "14px 20px",
+                                borderTop: "1px solid var(--border-color)",
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                backgroundColor: "rgba(255,255,255,0.02)",
+                            }}
+                        >
+                            <button
+                                onClick={() => setShowCustomModal(false)}
+                                style={{
+                                    padding: "8px 18px",
+                                    borderRadius: "8px",
+                                    backgroundColor: "#E0115F",
+                                    color: "#fff",
+                                    border: "none",
+                                    fontSize: "13px",
+                                    fontWeight: "bold",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Done
+                            </button>
                         </div>
                     </div>
                 </div>
-
-                {/* Footer */}
-                <div style={{
-                    padding: "14px 20px",
-                    borderTop: "1px solid var(--border-color)",
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    backgroundColor: "rgba(255,255,255,0.02)"
-                }}>
-                    <button 
-                        onClick={() => setShowCustomModal(false)}
-                        style={{
-                            padding: "8px 18px",
-                            borderRadius: "8px",
-                            backgroundColor: "#E0115F",
-                            color: "#fff",
-                            border: "none",
-                            fontSize: "13px",
-                            fontWeight: "bold",
-                            cursor: "pointer"
-                        }}
-                    >
-                        Done
-                    </button>
-                </div>
-            </div>
-        </div>
-    )}
-    </>
+            )}
+        </>
     );
 }
 

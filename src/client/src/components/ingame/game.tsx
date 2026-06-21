@@ -5,7 +5,12 @@ import HouseIcon from "/h.png";
 import HotelIcon from "/ho.png";
 import { Player } from "../../utils/player";
 import { Socket } from "../../utils/sockets";
-import StreetCard, { StreetDisplayInfo, UtilitiesDisplayInfo, RailroadDisplayInfo, translateGroup } from "./streetCard.tsx";
+import StreetCard, {
+    StreetDisplayInfo,
+    UtilitiesDisplayInfo,
+    RailroadDisplayInfo,
+    translateGroup,
+} from "./streetCard.tsx";
 import monopolyJSON from "../../../../shared/data/monopoly.json";
 import ChacneCard, { ChanceDisplayInfo } from "./specialCards.tsx";
 import { MonopolyCookie, MonopolySettings, GameTrading, MonopolyMode } from "../../../../shared/types/game";
@@ -28,13 +33,15 @@ interface MonopolyGameProps {
     isDebtState?: boolean;
     onDeclaredBankruptcy?: () => void;
     // Fix 5b â€” mortgage transfer choice
-    mortgageTransferPending?: {
-        position: number;
-        name: string;
-        mortgageValue: number;
-        interestFee: number;
-        unmortgageCost: number;
-    }[] | null;
+    mortgageTransferPending?:
+        | {
+              position: number;
+              name: string;
+              mortgageValue: number;
+              interestFee: number;
+              unmortgageCost: number;
+          }[]
+        | null;
     mortgageBankruptName?: string;
     onMortgageTransferResolve?: (choices: { position: number; action: "unmortgage" | "keep" }[]) => void;
     // Phase 2 — Property Auction state
@@ -72,13 +79,12 @@ export interface MonopolyGameRef {
             hotels?: undefined;
         },
         is_chance: boolean,
-        time: number
+        time: number,
     ) => void;
     applyAnimation: (type: number) => void;
     showJailsButtons: (is_card: boolean) => void;
 }
 
-export interface g_SpecialAction {}
 export type g_Buy = 0 | 1 | 2 | 3 | 4 | "h";
 
 // Create the component with forwardRef
@@ -86,7 +92,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
             return [obj.posistion ?? 0, obj];
-        })
+        }),
     );
 
     const [showDice, SetShowDice] = useState<boolean>(false);
@@ -111,7 +117,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
             gameEngine: "2d",
             accessibility: [45, 5, false, false, true],
             audio: [100, 100, 5],
-            notifications: true
+            notifications: true,
         };
     });
     const [timer, SetTimer] = useState<number>(0);
@@ -173,7 +179,9 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         };
     }, [document.cookie]);
 
-    const [streetDisplay, SetStreetDisplay] = useState<{}>({
+    const [streetDisplay, SetStreetDisplay] = useState<
+        StreetDisplayInfo | UtilitiesDisplayInfo | RailroadDisplayInfo | ChanceDisplayInfo
+    >({
         cardCost: -1,
         hotelsCost: -1,
         housesCost: -1,
@@ -184,16 +192,17 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         type: "electricity",
     } as UtilitiesDisplayInfo);
 
-    const [streetType, SetStreetType] = useState<"Street" | "Utilities" | "Railroad" | "Chance" | "CommunityChest">("Street");
+    const [streetType, SetStreetType] = useState<"Street" | "Utilities" | "Railroad" | "Chance" | "CommunityChest">(
+        "Street",
+    );
 
     function diceAnimation(a: number, b: number) {
         const element = document.getElementById("dice-panel") as HTMLDivElement;
 
-        var bb = true;
-        var t = -1;
+        let bb = true;
 
         function randomCube() {
-            var l = "./c";
+            const l = "./c";
             const numA = Math.floor(Math.random() * 6) + 1;
             const numB = Math.floor(Math.random() * 6) + 1;
             element.innerHTML = `
@@ -205,10 +214,10 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         function anim() {
             if (bb) {
                 randomCube();
-                t += 1;
+
                 requestAnimationFrame(anim);
             } else {
-                var l = "./c";
+                const l = "./c";
                 element.innerHTML = `
                 <img src="${l}${a}.png" />
                 <img src="${l}${b}.png" />
@@ -235,7 +244,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
     }
     function swipeSound() {
         const _settings = settings;
-        let audio = new Audio("./card.mp3");
+        const audio = new Audio("./card.mp3");
         audio.volume = ((_settings?.audio[1] ?? 100) / 100) * ((_settings?.audio[0] ?? 100) / 100);
         audio.loop = false;
         audio.play();
@@ -272,11 +281,11 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                     location: number,
                     fartherInfo?: {
                         rolls: number;
-                    }
+                    },
                 ) {
                     function clickSound() {
                         const _settings = settings;
-                        let audio = new Audio("./click.mp3");
+                        const audio = new Audio("./click.mp3");
                         audio.volume = ((_settings?.audio[1] ?? 100) / 100) * ((_settings?.audio[0] ?? 100) / 100);
                         audio.loop = false;
                         audio.play();
@@ -292,9 +301,9 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 while (divB.firstChild) {
                                     divB.removeChild(divB.firstChild);
                                 }
-                                const propId = Array.from(new Map(localPlayer.properties.map((v, i) => [i, v])).entries()).filter(
-                                    (v) => v[1].posistion === args.location
-                                )[0][0];
+                                const propId = Array.from(
+                                    new Map(localPlayer.properties.map((v, i) => [i, v])).entries(),
+                                ).filter((v) => v[1].posistion === args.location)[0][0];
 
                                 function transformCount(v: 0 | 2 | 1 | 3 | 4 | "h") {
                                     switch (v) {
@@ -306,9 +315,13 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                     }
                                 }
                                 const count: number = transformCount(localPlayer.properties[propId].count);
-                                
-                                const propertyGroupCount = Array.from(propretyMap.values()).filter(p => p.group === _property.group).length;
-                                const playerGroupCount = localPlayer.properties.filter(p => p.group === _property.group).length;
+
+                                const propertyGroupCount = Array.from(propretyMap.values()).filter(
+                                    (p) => p.group === _property.group,
+                                ).length;
+                                const playerGroupCount = localPlayer.properties.filter(
+                                    (p) => p.group === _property.group,
+                                ).length;
                                 const ownsFullSet = propertyGroupCount > 0 && propertyGroupCount === playerGroupCount;
 
                                 for (let index = count + 1; index < 6; index++) {
@@ -319,7 +332,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                         myButton.disabled =
                                             !ownsFullSet ||
                                             index !== count + 1 ||
-                                            (_property.ohousecost ?? 0) > (prop.players.filter((v) => v.id === prop.socket.id)[0].balance ?? 0);
+                                            (_property.ohousecost ?? 0) >
+                                                (prop.players.filter((v) => v.id === prop.socket.id)[0].balance ?? 0);
                                         myButton.onclick = () => {
                                             args.onResponse("advance-buy", {
                                                 state: index,
@@ -339,7 +353,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                         myButton.disabled =
                                             !ownsFullSet ||
                                             (index - count) * (_property.housecost ?? 0) >
-                                            (prop.players.filter((v) => v.id === prop.socket.id)[0].balance ?? 0);
+                                                (prop.players.filter((v) => v.id === prop.socket.id)[0].balance ?? 0);
                                     }
                                     divB.appendChild(myButton);
                                 }
@@ -367,11 +381,12 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                     else args.onResponse("buy", {});
                                     ShowStreet(false);
                                 };
-                                (document.querySelector("button#card-response-no") as HTMLButtonElement).onclick = () => {
-                                    clickSound();
-                                    args.onResponse("nothing", {});
-                                    ShowStreet(false);
-                                };
+                                (document.querySelector("button#card-response-no") as HTMLButtonElement).onclick =
+                                    () => {
+                                        clickSound();
+                                        args.onResponse("nothing", {});
+                                        ShowStreet(false);
+                                    };
                             } else {
                                 requestAnimationFrame(func);
                             }
@@ -380,9 +395,9 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                     return func;
                 }
 
-                var belong_to_me = false;
-                var belong_to_others = false;
-                var count: 0 | 1 | 2 | 3 | 4 | "h" = 0;
+                let belong_to_me = false;
+                let belong_to_others = false;
+                let count: 0 | 1 | 2 | 3 | 4 | "h" = 0;
                 // check states
                 for (const _prp of localPlayer.properties) {
                     if (!belong_to_me && _prp.posistion === args.location) {
@@ -425,7 +440,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 requestAnimationFrame(
                                     searchForButtons(false, args.location, {
                                         rolls: args.rolls,
-                                    })
+                                    }),
                                 );
                             }
                         }
@@ -466,13 +481,10 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                         return;
                     }
 
-                    if (belong_to_me) {
-                    } else {
-                        if (belong_to_others) {
-                            args.onResponse("someones", {});
-                            ShowStreet(false);
-                            return;
-                        }
+                    if (!belong_to_me && belong_to_others) {
+                        args.onResponse("someones", {});
+                        ShowStreet(false);
+                        return;
                     }
                     if (belong_to_me && count === "h") {
                         ShowStreet(false);
@@ -527,7 +539,6 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
             const payElement = document.querySelector(`button[data-button-type="pay"]`) as HTMLButtonElement;
             const cardElement = document.querySelector(`button[data-button-type="card"]`) as HTMLButtonElement;
 
-
             function returnToNormal() {
                 SetTimer(0);
                 SetSended(true);
@@ -577,14 +588,16 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
             if (e.shiftKey) {
                 SetScale((old) => old + (e.deltaY * (settings !== undefined ? settings.accessibility[1] : 5)) / 5000);
             } else {
-                SetRotation((old) => old + (e.deltaY * (settings !== undefined ? settings.accessibility[0] : 45)) / 100);
+                SetRotation(
+                    (old) => old + (e.deltaY * (settings !== undefined ? settings.accessibility[0] : 45)) / 100,
+                );
             }
         };
         // Clicking Street
         const safe = Array.from(propretyMap.values()).filter((v) => v.group != "Special");
         for (const x of safe) {
             const element = (document.getElementById("locations") as HTMLDivElement).querySelector(
-                `div.street[data-position="${x.posistion}"]`
+                `div.street[data-position="${x.posistion}"]`,
             ) as HTMLDivElement;
 
             element.onclick = () => {
@@ -604,8 +617,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
     }, [settings]);
 
     useEffect(() => {
-        var continue_to_animate = true;
-        var animate = () => {
+        let continue_to_animate = true;
+        const animate = () => {
             for (const x of prop.players.filter((v) => !v.isBankrupt)) {
                 const location = x.position;
                 const icon = x.icon + 1;
@@ -706,7 +719,9 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                         const state = _prp.count;
 
                         if (streetsFolder) {
-                            const streetElement = streetsFolder.querySelector(`div.street[data-position="${location}"]`) as HTMLDivElement;
+                            const streetElement = streetsFolder.querySelector(
+                                `div.street[data-position="${location}"]`,
+                            ) as HTMLDivElement;
                             if (streetElement && (_prp.morgage === true || (_prp.morgage as any) === "true")) {
                                 streetElement.classList.add("is-mortgaged");
                             }
@@ -719,7 +734,9 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             st.setAttribute("data-tooltip-hover", _player.username);
 
                             st.onclick = () => {
-                                const element = document.querySelector(`div.player[player-id="${_player.id}"]`) as HTMLDivElement;
+                                const element = document.querySelector(
+                                    `div.player[player-id="${_player.id}"]`,
+                                ) as HTMLDivElement;
                                 element.style.animation = "spin2 1s cubic-bezier(.21, 1.57, .55, 1) infinite";
                                 setTimeout(() => {
                                     element.style.animation = "";
@@ -736,15 +753,22 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                         st.style.backgroundColor = _player.color;
                                         st.style.boxShadow = "0px 0px 5px black";
                                     }
-                                    var payment_ammount = 0;
+                                    let payment_ammount = 0;
                                     if (_prp.group === "Railroad") {
                                         const count = _player.properties
                                             .filter((v) => v.group === "Railroad")
-                                            .filter((v) => v.morgage === undefined || (v.morgage !== undefined && v.morgage === false)).length;
+                                            .filter(
+                                                (v) =>
+                                                    v.morgage === undefined ||
+                                                    (v.morgage !== undefined && v.morgage === false),
+                                            ).length;
                                         const rents = [0, 25, 50, 100, 200];
-                                        var payment_ammount = rents[count];
+                                        payment_ammount = rents[count];
                                     } else if (_prp.group === "Utilities" && _prp.rent) {
-                                        const multy_ = _player.properties.filter((v) => v.group === "Utilities").length === 2 ? 10 : 4;
+                                        const multy_ =
+                                            _player.properties.filter((v) => v.group === "Utilities").length === 2
+                                                ? 10
+                                                : 4;
                                         payment_ammount = _prp.rent * multy_;
                                     }
 
@@ -793,21 +817,26 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
     }, [prop.players, rotation]);
 
     useEffect(() => {
+        let l: NodeJS.Timeout | undefined = undefined;
         if (prop.myTurn && !sended) {
-            var l: NodeJS.Timeout | undefined = undefined;
             if (prop.selectedMode.turnTimer !== undefined && prop.selectedMode.turnTimer > 0) {
-                var x = 0;
+                let x = 0;
                 l = setInterval(() => {
                     x += 1;
                     SetTimer(x);
                     if (prop.selectedMode.turnTimer !== undefined && prop.selectedMode.turnTimer > 0) {
                         if (x >= prop.selectedMode.turnTimer) {
                             if (prop.myTurn && !sended) {
-                                const rollElement = document.querySelector(`button[data-button-type="roll"]`) as HTMLButtonElement;
+                                const rollElement = document.querySelector(
+                                    `button[data-button-type="roll"]`,
+                                ) as HTMLButtonElement;
                                 const endTurnElement = document.getElementById("btn-end-turn") as HTMLButtonElement;
-                                const cardNoElement = document.querySelector("button#card-response-no") as HTMLButtonElement;
-                                const continueElement = Array.from(document.querySelectorAll("div#advanced-responses button"))
-                                    .find(btn => btn.textContent?.includes("CONTINUE")) as HTMLButtonElement;
+                                const cardNoElement = document.querySelector(
+                                    "button#card-response-no",
+                                ) as HTMLButtonElement;
+                                const continueElement = Array.from(
+                                    document.querySelectorAll("div#advanced-responses button"),
+                                ).find((btn) => btn.textContent?.includes("CONTINUE")) as HTMLButtonElement;
 
                                 if (rollElement) {
                                     rollElement.click();
@@ -1586,10 +1615,24 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             ></div>
                         </div>
                     </div>
-                    <div className="action-bar" style={prop.myTurn && !sended && !(prop.players.find(v => v.id === prop.socket.id)?.isBankrupt) ? {} : { translate: "-50% 20vh" }}>
+                    <div
+                        className="action-bar"
+                        style={
+                            prop.myTurn && !sended && !prop.players.find((v) => v.id === prop.socket.id)?.isBankrupt
+                                ? {}
+                                : { translate: "-50% 20vh" }
+                        }
+                    >
                         {prop.selectedMode.turnTimer !== undefined && prop.selectedMode.turnTimer > 0 ? (
                             <>
-                                <p style={{ display: "inline-block", opacity: 1, color: "rgb(0, 114, 187)", marginRight: 5 }}>
+                                <p
+                                    style={{
+                                        display: "inline-block",
+                                        opacity: 1,
+                                        color: "rgb(0, 114, 187)",
+                                        marginRight: 5,
+                                    }}
+                                >
                                     {prop.selectedMode.turnTimer - timer}{" "}
                                 </p>
                                 <hr style={{ display: "inline", opacity: 0.5 }} />
@@ -1603,9 +1646,13 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 id="btn-declare-bankruptcy"
                                 className="action-btn bankruptcy-btn"
                                 onClick={() => {
-                                    const firstConfirm = window.confirm("Are you sure you want to declare bankruptcy? This will eliminate you from the game.");
+                                    const firstConfirm = window.confirm(
+                                        "Are you sure you want to declare bankruptcy? This will eliminate you from the game.",
+                                    );
                                     if (firstConfirm) {
-                                        const secondConfirm = window.confirm("This action is irreversible. Are you absolutely sure you want to declare bankruptcy?");
+                                        const secondConfirm = window.confirm(
+                                            "This action is irreversible. Are you absolutely sure you want to declare bankruptcy?",
+                                        );
                                         if (secondConfirm) {
                                             prop.socket.emit("declare-bankruptcy");
                                             prop.onDeclaredBankruptcy?.();
@@ -1657,7 +1704,11 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                         )}
                     </div>
                     <div
-                        className={streetType === "Chance" || streetType === "CommunityChest" ? "chance-display-actions" : "card-display-actions"}
+                        className={
+                            streetType === "Chance" || streetType === "CommunityChest"
+                                ? "chance-display-actions"
+                                : "card-display-actions"
+                        }
                         style={
                             !showStreet
                                 ? {
@@ -1678,7 +1729,11 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             </>
                         ) : (
                             <>
-                                <h3>{advnacedStreet ? "would you like to buy this card?" : "you can buy houses and hotels"}</h3>
+                                <h3>
+                                    {advnacedStreet
+                                        ? "would you like to buy this card?"
+                                        : "you can buy houses and hotels"}
+                                </h3>
                                 {streetType === "Railroad" ? (
                                     <StreetCard railroad={streetDisplay as RailroadDisplayInfo} />
                                 ) : streetType === "Utilities" ? (
@@ -1715,7 +1770,9 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                             .filter((v) => v.id !== prop.socket.id && !v.isBankrupt)
                                             .map((v, i) => (
                                                 <button
-                                                    style={{ animation: "tradepopout .3s cubic-bezier(0.21, 1.57, 0.55, 1)" }}
+                                                    style={{
+                                                        animation: "tradepopout .3s cubic-bezier(0.21, 1.57, 0.55, 1)",
+                                                    }}
                                                     data-selectable={prop.myTurn}
                                                     key={i}
                                                     onClick={() => {
@@ -1745,23 +1802,31 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                         ) : (
                             <>
                                 {(() => {
-                                    const hasMortgagedTransfers = (
-                                        (prop.tradeObj as GameTrading).turnPlayer.prop.some((p: any) => p.morgage === true || p.morgage === "true") ||
-                                        (prop.tradeObj as GameTrading).againstPlayer.prop.some((p: any) => p.morgage === true || p.morgage === "true")
-                                    );
+                                    const hasMortgagedTransfers =
+                                        (prop.tradeObj as GameTrading).turnPlayer.prop.some(
+                                            (p: any) => p.morgage === true || p.morgage === "true",
+                                        ) ||
+                                        (prop.tradeObj as GameTrading).againstPlayer.prop.some(
+                                            (p: any) => p.morgage === true || p.morgage === "true",
+                                        );
                                     if (hasMortgagedTransfers) {
                                         return (
-                                            <div className="trade-mortgage-warning" style={{
-                                                backgroundColor: "rgba(245, 158, 11, 0.15)",
-                                                border: "1px solid #f59e0b",
-                                                color: "#f59e0b",
-                                                padding: "8px 12px",
-                                                borderRadius: "6px",
-                                                marginBottom: "12px",
-                                                fontSize: "0.85rem",
-                                                textAlign: "center"
-                                            }}>
-                                                ⚠️ Warning: One or more traded properties are mortgaged. The receiver will immediately be prompted to pay 10% interest to keep them mortgaged or unmortgage them now.
+                                            <div
+                                                className="trade-mortgage-warning"
+                                                style={{
+                                                    backgroundColor: "rgba(245, 158, 11, 0.15)",
+                                                    border: "1px solid #f59e0b",
+                                                    color: "#f59e0b",
+                                                    padding: "8px 12px",
+                                                    borderRadius: "6px",
+                                                    marginBottom: "12px",
+                                                    fontSize: "0.85rem",
+                                                    textAlign: "center",
+                                                }}
+                                            >
+                                                ⚠️ Warning: One or more traded properties are mortgaged. The receiver
+                                                will immediately be prompted to pay 10% interest to keep them mortgaged
+                                                or unmortgage them now.
                                             </div>
                                         );
                                     }
@@ -1769,7 +1834,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 })()}
                                 <div className="trade-mission">
                                     <div className="flexchild">
-                                        {prop.socket.id === prop.tradeObj.againstPlayer.id || prop.socket.id === prop.tradeObj.turnPlayer.id ? (
+                                        {prop.socket.id === prop.tradeObj.againstPlayer.id ||
+                                        prop.socket.id === prop.tradeObj.turnPlayer.id ? (
                                             <div className="trade-craft">
                                                 <p>
                                                     {" "}
@@ -1778,19 +1844,31 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                         : "You are the Current Player"}
                                                 </p>
                                                 <Slider
-                                                    max={
-                                                        Math.max(0, prop.socket.id === prop.tradeObj.againstPlayer.id
-                                                            ? prop.players.filter((v) => v.id === (prop.tradeObj as GameTrading).againstPlayer.id)[0]
-                                                                  .balance
-                                                            : prop.players.filter((v) => v.id === (prop.tradeObj as GameTrading).turnPlayer.id)[0]
-                                                                  .balance)
-                                                    }
+                                                    max={Math.max(
+                                                        0,
+                                                        prop.socket.id === prop.tradeObj.againstPlayer.id
+                                                            ? prop.players.filter(
+                                                                  (v) =>
+                                                                      v.id ===
+                                                                      (prop.tradeObj as GameTrading).againstPlayer.id,
+                                                              )[0].balance
+                                                            : prop.players.filter(
+                                                                  (v) =>
+                                                                      v.id ===
+                                                                      (prop.tradeObj as GameTrading).turnPlayer.id,
+                                                              )[0].balance,
+                                                    )}
                                                     min={0}
                                                     step={25}
                                                     onChange={(e) => {
                                                         const v = parseInt(e.currentTarget.value);
-                                                        const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
-                                                        if (prop.socket.id === (prop.tradeObj as GameTrading).againstPlayer.id) {
+                                                        const b = JSON.parse(
+                                                            JSON.stringify(prop.tradeObj),
+                                                        ) as GameTrading;
+                                                        if (
+                                                            prop.socket.id ===
+                                                            (prop.tradeObj as GameTrading).againstPlayer.id
+                                                        ) {
                                                             b.againstPlayer.balance = v;
                                                         } else {
                                                             b.turnPlayer.balance = v;
@@ -1805,25 +1883,43 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
 
                                                 {prop.socket.id === prop.tradeObj.againstPlayer.id ? (
                                                     prop.players
-                                                        .filter((v) => v.id === (prop.tradeObj as GameTrading).againstPlayer.id)[0]
+                                                        .filter(
+                                                            (v) =>
+                                                                v.id ===
+                                                                (prop.tradeObj as GameTrading).againstPlayer.id,
+                                                        )[0]
                                                         .properties.filter(
                                                             (v) =>
                                                                 !(prop.tradeObj as GameTrading).againstPlayer.prop
                                                                     .map((v) => JSON.stringify(v))
-                                                                    .includes(JSON.stringify(v))
+                                                                    .includes(JSON.stringify(v)),
                                                         )
                                                         .filter((v) => {
                                                             // Fix 7: block properties whose color group has any buildings on any property
-                                                            if (!v.group || v.group === "Railroad" || v.group === "Utilities") return true;
-                                                            const ownerProps = prop.players.find(p => p.id === (prop.tradeObj as GameTrading).againstPlayer.id)?.properties ?? [];
-                                                            return !ownerProps.filter(p => p.group === v.group).some(p => p.count !== 0 && p.count !== undefined);
+                                                            if (
+                                                                !v.group ||
+                                                                v.group === "Railroad" ||
+                                                                v.group === "Utilities"
+                                                            )
+                                                                return true;
+                                                            const ownerProps =
+                                                                prop.players.find(
+                                                                    (p) =>
+                                                                        p.id ===
+                                                                        (prop.tradeObj as GameTrading).againstPlayer.id,
+                                                                )?.properties ?? [];
+                                                            return !ownerProps
+                                                                .filter((p) => p.group === v.group)
+                                                                .some((p) => p.count !== 0 && p.count !== undefined);
                                                         })
                                                         .map((v, i) => (
                                                             <div
                                                                 key={i}
                                                                 className="proprety-nav"
                                                                 onClick={() => {
-                                                                    const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
+                                                                    const b = JSON.parse(
+                                                                        JSON.stringify(prop.tradeObj),
+                                                                    ) as GameTrading;
                                                                     b.againstPlayer.prop.push(v);
                                                                     b.turnPlayer.accepted = false;
                                                                     b.againstPlayer.accepted = false;
@@ -1847,11 +1943,17 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                 </h3>
                                                                 <div>
                                                                     {v.count == "h" ? (
-                                                                        <img src={HotelIcon.replace("public/", "")} alt="" />
+                                                                        <img
+                                                                            src={HotelIcon.replace("public/", "")}
+                                                                            alt=""
+                                                                        />
                                                                     ) : typeof v.count === "number" && v.count > 0 ? (
                                                                         <>
                                                                             <p>{v.count}</p>
-                                                                            <img src={HouseIcon.replace("public/", "")} alt="" />
+                                                                            <img
+                                                                                src={HouseIcon.replace("public/", "")}
+                                                                                alt=""
+                                                                            />
                                                                         </>
                                                                     ) : (
                                                                         <></>
@@ -1861,25 +1963,42 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                         ))
                                                 ) : prop.socket.id === prop.tradeObj.turnPlayer.id ? (
                                                     prop.players
-                                                        .filter((v) => v.id === (prop.tradeObj as GameTrading).turnPlayer.id)[0]
+                                                        .filter(
+                                                            (v) =>
+                                                                v.id === (prop.tradeObj as GameTrading).turnPlayer.id,
+                                                        )[0]
                                                         .properties.filter(
                                                             (v) =>
                                                                 !(prop.tradeObj as GameTrading).turnPlayer.prop
                                                                     .map((v) => JSON.stringify(v))
-                                                                    .includes(JSON.stringify(v))
+                                                                    .includes(JSON.stringify(v)),
                                                         )
                                                         .filter((v) => {
                                                             // Fix 7: block properties whose color group has any buildings on any property
-                                                            if (!v.group || v.group === "Railroad" || v.group === "Utilities") return true;
-                                                            const ownerProps = prop.players.find(p => p.id === (prop.tradeObj as GameTrading).turnPlayer.id)?.properties ?? [];
-                                                            return !ownerProps.filter(p => p.group === v.group).some(p => p.count !== 0 && p.count !== undefined);
+                                                            if (
+                                                                !v.group ||
+                                                                v.group === "Railroad" ||
+                                                                v.group === "Utilities"
+                                                            )
+                                                                return true;
+                                                            const ownerProps =
+                                                                prop.players.find(
+                                                                    (p) =>
+                                                                        p.id ===
+                                                                        (prop.tradeObj as GameTrading).turnPlayer.id,
+                                                                )?.properties ?? [];
+                                                            return !ownerProps
+                                                                .filter((p) => p.group === v.group)
+                                                                .some((p) => p.count !== 0 && p.count !== undefined);
                                                         })
                                                         .map((v, i) => (
                                                             <div
                                                                 key={i}
                                                                 className="proprety-nav"
                                                                 onClick={() => {
-                                                                    const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
+                                                                    const b = JSON.parse(
+                                                                        JSON.stringify(prop.tradeObj),
+                                                                    ) as GameTrading;
                                                                     b.turnPlayer.prop.push(v);
                                                                     b.turnPlayer.accepted = false;
                                                                     b.againstPlayer.accepted = false;
@@ -1903,11 +2022,17 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                 </h3>
                                                                 <div>
                                                                     {v.count == "h" ? (
-                                                                        <img src={HotelIcon.replace("public/", "")} alt="" />
+                                                                        <img
+                                                                            src={HotelIcon.replace("public/", "")}
+                                                                            alt=""
+                                                                        />
                                                                     ) : typeof v.count === "number" && v.count > 0 ? (
                                                                         <>
                                                                             <p>{v.count}</p>
-                                                                            <img src={HouseIcon.replace("public/", "")} alt="" />
+                                                                            <img
+                                                                                src={HouseIcon.replace("public/", "")}
+                                                                                alt=""
+                                                                            />
                                                                         </>
                                                                     ) : (
                                                                         <></>
@@ -1929,21 +2054,28 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                             <h5>
                                                 current player{" "}
                                                 {(prop.tradeObj as GameTrading).turnPlayer.accepted && (
-                                                    <span style={{
-                                                        backgroundColor: "#10b981",
-                                                        color: "white",
-                                                        fontSize: "0.75rem",
-                                                        padding: "2px 6px",
-                                                        borderRadius: "4px",
-                                                        marginLeft: "8px",
-                                                        display: "inline-block",
-                                                        verticalAlign: "middle"
-                                                    }}>
+                                                    <span
+                                                        style={{
+                                                            backgroundColor: "#10b981",
+                                                            color: "white",
+                                                            fontSize: "0.75rem",
+                                                            padding: "2px 6px",
+                                                            borderRadius: "4px",
+                                                            marginLeft: "8px",
+                                                            display: "inline-block",
+                                                            verticalAlign: "middle",
+                                                        }}
+                                                    >
                                                         ✓ ACCEPTED
                                                     </span>
                                                 )}
                                                 <h2>
-                                                    {prop.players.filter((v) => v.id === (prop.tradeObj as GameTrading).turnPlayer.id)[0].username}
+                                                    {
+                                                        prop.players.filter(
+                                                            (v) =>
+                                                                v.id === (prop.tradeObj as GameTrading).turnPlayer.id,
+                                                        )[0].username
+                                                    }
                                                 </h2>
                                             </h5>
                                             <table>
@@ -1959,10 +2091,18 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                 <div
                                                                     key={i}
                                                                     className="proprety-nav"
-                                                                    data-actionable={prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id}
+                                                                    data-actionable={
+                                                                        prop.socket.id ===
+                                                                        (prop.tradeObj as GameTrading).turnPlayer.id
+                                                                    }
                                                                     onClick={() => {
-                                                                        if (prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id) {
-                                                                            const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
+                                                                        if (
+                                                                            prop.socket.id ===
+                                                                            (prop.tradeObj as GameTrading).turnPlayer.id
+                                                                        ) {
+                                                                            const b = JSON.parse(
+                                                                                JSON.stringify(prop.tradeObj),
+                                                                            ) as GameTrading;
                                                                             b.turnPlayer.prop.splice(i, 1);
                                                                             b.turnPlayer.accepted = false;
                                                                             b.againstPlayer.accepted = false;
@@ -1978,31 +2118,48 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                     ></i>
                                                                     <h3
                                                                         style={
-                                                                            v.morgage !== undefined && v.morgage === true
-                                                                                ? { textDecoration: "line-through white" }
+                                                                            v.morgage !== undefined &&
+                                                                            v.morgage === true
+                                                                                ? {
+                                                                                      textDecoration:
+                                                                                          "line-through white",
+                                                                                  }
                                                                                 : {}
                                                                         }
                                                                     >
                                                                         {propretyMap.get(v.posistion)?.name ?? ""}
-                                                                        {v.morgage !== undefined && v.morgage === true && (
-                                                                            <span style={{
-                                                                                color: "#f59e0b",
-                                                                                fontSize: "0.65rem",
-                                                                                marginLeft: "6px",
-                                                                                display: "inline-block",
-                                                                                verticalAlign: "middle"
-                                                                            }}>
-                                                                                (Mortgaged)
-                                                                            </span>
-                                                                        )}
+                                                                        {v.morgage !== undefined &&
+                                                                            v.morgage === true && (
+                                                                                <span
+                                                                                    style={{
+                                                                                        color: "#f59e0b",
+                                                                                        fontSize: "0.65rem",
+                                                                                        marginLeft: "6px",
+                                                                                        display: "inline-block",
+                                                                                        verticalAlign: "middle",
+                                                                                    }}
+                                                                                >
+                                                                                    (Mortgaged)
+                                                                                </span>
+                                                                            )}
                                                                     </h3>
                                                                     <div>
                                                                         {v.count == "h" ? (
-                                                                            <img src={HotelIcon.replace("public/", "")} alt="" />
-                                                                        ) : typeof v.count === "number" && v.count > 0 ? (
+                                                                            <img
+                                                                                src={HotelIcon.replace("public/", "")}
+                                                                                alt=""
+                                                                            />
+                                                                        ) : typeof v.count === "number" &&
+                                                                          v.count > 0 ? (
                                                                             <>
                                                                                 <p>{v.count}</p>
-                                                                                <img src={HouseIcon.replace("public/", "")} alt="" />
+                                                                                <img
+                                                                                    src={HouseIcon.replace(
+                                                                                        "public/",
+                                                                                        "",
+                                                                                    )}
+                                                                                    alt=""
+                                                                                />
                                                                             </>
                                                                         ) : (
                                                                             <></>
@@ -2021,21 +2178,29 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                             <h5>
                                                 opponent player{" "}
                                                 {(prop.tradeObj as GameTrading).againstPlayer.accepted && (
-                                                    <span style={{
-                                                        backgroundColor: "#10b981",
-                                                        color: "white",
-                                                        fontSize: "0.75rem",
-                                                        padding: "2px 6px",
-                                                        borderRadius: "4px",
-                                                        marginLeft: "8px",
-                                                        display: "inline-block",
-                                                        verticalAlign: "middle"
-                                                     }}>
-                                                         ✓ ACCEPTED
-                                                     </span>
-                                                 )}
+                                                    <span
+                                                        style={{
+                                                            backgroundColor: "#10b981",
+                                                            color: "white",
+                                                            fontSize: "0.75rem",
+                                                            padding: "2px 6px",
+                                                            borderRadius: "4px",
+                                                            marginLeft: "8px",
+                                                            display: "inline-block",
+                                                            verticalAlign: "middle",
+                                                        }}
+                                                    >
+                                                        ✓ ACCEPTED
+                                                    </span>
+                                                )}
                                                 <h2>
-                                                    {prop.players.filter((v) => v.id === (prop.tradeObj as GameTrading).againstPlayer.id)[0].username}
+                                                    {
+                                                        prop.players.filter(
+                                                            (v) =>
+                                                                v.id ===
+                                                                (prop.tradeObj as GameTrading).againstPlayer.id,
+                                                        )[0].username
+                                                    }
                                                 </h2>
                                             </h5>
                                             <table>
@@ -2051,12 +2216,19 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                 <div
                                                                     key={i}
                                                                     data-actionable={
-                                                                        prop.socket.id === (prop.tradeObj as GameTrading).againstPlayer.id
+                                                                        prop.socket.id ===
+                                                                        (prop.tradeObj as GameTrading).againstPlayer.id
                                                                     }
                                                                     className="proprety-nav"
                                                                     onClick={() => {
-                                                                        if (prop.socket.id === (prop.tradeObj as GameTrading).againstPlayer.id) {
-                                                                            const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
+                                                                        if (
+                                                                            prop.socket.id ===
+                                                                            (prop.tradeObj as GameTrading).againstPlayer
+                                                                                .id
+                                                                        ) {
+                                                                            const b = JSON.parse(
+                                                                                JSON.stringify(prop.tradeObj),
+                                                                            ) as GameTrading;
                                                                             b.againstPlayer.prop.splice(i, 1);
                                                                             b.turnPlayer.accepted = false;
                                                                             b.againstPlayer.accepted = false;
@@ -2072,31 +2244,48 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                     ></i>
                                                                     <h3
                                                                         style={
-                                                                            v.morgage !== undefined && v.morgage === true
-                                                                                ? { textDecoration: "line-through white" }
+                                                                            v.morgage !== undefined &&
+                                                                            v.morgage === true
+                                                                                ? {
+                                                                                      textDecoration:
+                                                                                          "line-through white",
+                                                                                  }
                                                                                 : {}
                                                                         }
                                                                     >
                                                                         {propretyMap.get(v.posistion)?.name ?? ""}
-                                                                        {v.morgage !== undefined && v.morgage === true && (
-                                                                            <span style={{
-                                                                                color: "#f59e0b",
-                                                                                fontSize: "0.65rem",
-                                                                                marginLeft: "6px",
-                                                                                display: "inline-block",
-                                                                                verticalAlign: "middle"
-                                                                            }}>
-                                                                                (Mortgaged)
-                                                                            </span>
-                                                                        )}
+                                                                        {v.morgage !== undefined &&
+                                                                            v.morgage === true && (
+                                                                                <span
+                                                                                    style={{
+                                                                                        color: "#f59e0b",
+                                                                                        fontSize: "0.65rem",
+                                                                                        marginLeft: "6px",
+                                                                                        display: "inline-block",
+                                                                                        verticalAlign: "middle",
+                                                                                    }}
+                                                                                >
+                                                                                    (Mortgaged)
+                                                                                </span>
+                                                                            )}
                                                                     </h3>
                                                                     <div>
                                                                         {v.count == "h" ? (
-                                                                            <img src={HotelIcon.replace("public/", "")} alt="" />
-                                                                        ) : typeof v.count === "number" && v.count > 0 ? (
+                                                                            <img
+                                                                                src={HotelIcon.replace("public/", "")}
+                                                                                alt=""
+                                                                            />
+                                                                        ) : typeof v.count === "number" &&
+                                                                          v.count > 0 ? (
                                                                             <>
                                                                                 <p>{v.count}</p>
-                                                                                <img src={HouseIcon.replace("public/", "")} alt="" />
+                                                                                <img
+                                                                                    src={HouseIcon.replace(
+                                                                                        "public/",
+                                                                                        "",
+                                                                                    )}
+                                                                                    alt=""
+                                                                                />
                                                                             </>
                                                                         ) : (
                                                                             <></>
@@ -2114,54 +2303,62 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                     </div>
                                     <div className="flexchild"></div>
                                 </div>
-                                {prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id || prop.socket.id === (prop.tradeObj as GameTrading).againstPlayer.id ? (
-                                     <center>
-                                         <div className="trade-craft-buttons">
-                                             <button
-                                                 onClick={() => {
-                                                     prop.socket.emit("cancel-trade");
-                                                     SetSended(false);
-                                                 }}
-                                             >
-                                                 {prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id ? "CANCEL" : "DECLINE"}
-                                             </button>
-                                             {prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id && (
-                                                 <button
-                                                     onClick={() => {
-                                                         prop.socket.emit("trade");
-                                                     }}
-                                                 >
-                                                     BACK
-                                                 </button>
-                                             )}
-                                             <button
-                                                 className={(prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
-                                                     ? (prop.tradeObj as GameTrading).turnPlayer.accepted
-                                                     : (prop.tradeObj as GameTrading).againstPlayer.accepted)
-                                                     ? "trade-accept-btn active"
-                                                     : "trade-accept-btn"
-                                                 }
-                                                 onClick={() => {
-                                                     const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
-                                                     if (prop.socket.id === b.turnPlayer.id) {
-                                                         b.turnPlayer.accepted = !b.turnPlayer.accepted;
-                                                     } else {
-                                                         b.againstPlayer.accepted = !b.againstPlayer.accepted;
-                                                     }
-                                                     prop.socket.emit("trade-update", b);
-                                                 }}
-                                             >
-                                                 {(prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
-                                                     ? (prop.tradeObj as GameTrading).turnPlayer.accepted
-                                                     : (prop.tradeObj as GameTrading).againstPlayer.accepted)
-                                                     ? "✓ Accepted"
-                                                     : "Accept Offer"}
-                                             </button>
-                                         </div>
-                                     </center>
-                                 ) : (
-                                     <></>
-                                 )}
+                                {prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id ||
+                                prop.socket.id === (prop.tradeObj as GameTrading).againstPlayer.id ? (
+                                    <center>
+                                        <div className="trade-craft-buttons">
+                                            <button
+                                                onClick={() => {
+                                                    prop.socket.emit("cancel-trade");
+                                                    SetSended(false);
+                                                }}
+                                            >
+                                                {prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
+                                                    ? "CANCEL"
+                                                    : "DECLINE"}
+                                            </button>
+                                            {prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id && (
+                                                <button
+                                                    onClick={() => {
+                                                        prop.socket.emit("trade");
+                                                    }}
+                                                >
+                                                    BACK
+                                                </button>
+                                            )}
+                                            <button
+                                                className={
+                                                    (
+                                                        prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
+                                                            ? (prop.tradeObj as GameTrading).turnPlayer.accepted
+                                                            : (prop.tradeObj as GameTrading).againstPlayer.accepted
+                                                    )
+                                                        ? "trade-accept-btn active"
+                                                        : "trade-accept-btn"
+                                                }
+                                                onClick={() => {
+                                                    const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
+                                                    if (prop.socket.id === b.turnPlayer.id) {
+                                                        b.turnPlayer.accepted = !b.turnPlayer.accepted;
+                                                    } else {
+                                                        b.againstPlayer.accepted = !b.againstPlayer.accepted;
+                                                    }
+                                                    prop.socket.emit("trade-update", b);
+                                                }}
+                                            >
+                                                {(
+                                                    prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
+                                                        ? (prop.tradeObj as GameTrading).turnPlayer.accepted
+                                                        : (prop.tradeObj as GameTrading).againstPlayer.accepted
+                                                )
+                                                    ? "✓ Accepted"
+                                                    : "Accept Offer"}
+                                            </button>
+                                        </div>
+                                    </center>
+                                ) : (
+                                    <></>
+                                )}
                             </>
                         )}
                     </div>
@@ -2169,245 +2366,380 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
             </div>
 
             {/* Fix 5b: Mortgage Transfer Choice Modal */}
-            {prop.mortgageTransferPending && prop.mortgageTransferPending.length > 0 && (() => {
-                const myPlayer = prop.players.find(v => v.id === prop.socket.id);
-                const myBalance = myPlayer?.balance ?? 0;
-                return (
-                    <div className="mortgage-modal-overlay">
-                        <div className="mortgage-modal-card">
+            {prop.mortgageTransferPending &&
+                prop.mortgageTransferPending.length > 0 &&
+                (() => {
+                    const myPlayer = prop.players.find((v) => v.id === prop.socket.id);
+                    const myBalance = myPlayer?.balance ?? 0;
+                    return (
+                        <div className="mortgage-modal-overlay">
+                            <div className="mortgage-modal-card">
+                                {/* Header */}
+                                <div className="mortgage-modal-header">
+                                    <div>
+                                        <h3 className="mortgage-modal-title">Mortgage Transfer</h3>
+                                        <p className="mortgage-modal-subtitle">
+                                            <strong>{prop.mortgageBankruptName ?? "A player"}</strong> went bankrupt.
+                                            Decide what to do with each mortgaged property you received. The game is
+                                            paused until you confirm.
+                                        </p>
+                                    </div>
+                                </div>
 
-                            {/* Header */}
-                            <div className="mortgage-modal-header">
-                                <div>
-                                    <h3 className="mortgage-modal-title">Mortgage Transfer</h3>
-                                    <p className="mortgage-modal-subtitle">
-                                        <strong>{prop.mortgageBankruptName ?? "A player"}</strong> went bankrupt.
-                                        Decide what to do with each mortgaged property you received.
-                                        The game is paused until you confirm.
+                                {/* Balances Section */}
+                                <div className="mortgage-modal-balances">
+                                    <div className="mortgage-balance-item you">
+                                        <span className="mortgage-balance-badge">YOU</span>
+                                        <span className="mortgage-balance-name">{myPlayer?.username}</span>
+                                        <span className="mortgage-balance-val">${myBalance}</span>
+                                    </div>
+                                    {prop.players
+                                        .filter((p) => p.id !== prop.socket.id && !p.isBankrupt)
+                                        .map((p) => (
+                                            <div key={p.id} className="mortgage-balance-item">
+                                                <span
+                                                    className="mortgage-balance-name"
+                                                    style={{ color: p.color || "var(--text-main)" }}
+                                                >
+                                                    {p.username}
+                                                </span>
+                                                <span className="mortgage-balance-val">${p.balance}</span>
+                                            </div>
+                                        ))}
+                                </div>
+
+                                {/* Rules box */}
+                                <div className="mortgage-modal-rules">
+                                    <span className="mortgage-modal-rules-label">How it works</span>
+                                    <p>
+                                        A mortgaged property earns no rent and cannot have houses built on it.
+                                        <strong> Unmortgage Now</strong> activates it immediately (you pay principal +
+                                        10% interest).
+                                        <strong> Keep Mortgaged</strong> means you pay only the 10% interest today and
+                                        can unmortgage it later for the same total cost.
                                     </p>
                                 </div>
-                            </div>
 
-                            {/* Balances Section */}
-                            <div className="mortgage-modal-balances">
-                                <div className="mortgage-balance-item you">
-                                    <span className="mortgage-balance-badge">YOU</span>
-                                    <span className="mortgage-balance-name">{myPlayer?.username}</span>
-                                    <span className="mortgage-balance-val">${myBalance}</span>
+                                {/* Property grid */}
+                                <div className="mortgage-modal-grid">
+                                    {prop.mortgageTransferPending.map((item) => {
+                                        const choice = mortgageChoices[item.position] ?? "keep";
+                                        const canAfford = myBalance >= item.unmortgageCost;
+                                        return (
+                                            <div key={item.position} className="mortgage-prop-row">
+                                                <div className="mortgage-prop-name">
+                                                    <span>{item.name}</span>
+                                                    <span className="mortgage-prop-value">
+                                                        Mortgaged for ${item.mortgageValue}
+                                                    </span>
+                                                </div>
+                                                <div className="mortgage-choices">
+                                                    <button
+                                                        id={`mortgage-choice-unmortgage-${item.position}`}
+                                                        className={
+                                                            "mortgage-choice-btn unmortgage-btn" +
+                                                            (choice === "unmortgage" ? " selected" : "") +
+                                                            (!canAfford ? " cant-afford" : "")
+                                                        }
+                                                        disabled={!canAfford}
+                                                        onClick={() =>
+                                                            setMortgageChoices((c) => ({
+                                                                ...c,
+                                                                [item.position]: "unmortgage",
+                                                            }))
+                                                        }
+                                                    >
+                                                        <div className="mortgage-choice-top">
+                                                            <span className="choice-icon">[+]</span>
+                                                            <span className="choice-title">Unmortgage Now</span>
+                                                            <span className="choice-price">${item.unmortgageCost}</span>
+                                                        </div>
+                                                        <div className="choice-desc">
+                                                            Pays off the debt. Property becomes active — collect rent,
+                                                            build houses right away.
+                                                            {!canAfford && (
+                                                                <span className="cant-afford-note">
+                                                                    {" "}
+                                                                    You need ${item.unmortgageCost} but only have $
+                                                                    {myBalance}.
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </button>
+                                                    <button
+                                                        id={`mortgage-choice-keep-${item.position}`}
+                                                        className={
+                                                            "mortgage-choice-btn keep-btn" +
+                                                            (choice !== "unmortgage" ? " selected" : "")
+                                                        }
+                                                        onClick={() =>
+                                                            setMortgageChoices((c) => ({
+                                                                ...c,
+                                                                [item.position]: "keep",
+                                                            }))
+                                                        }
+                                                    >
+                                                        <div className="mortgage-choice-top">
+                                                            <span className="choice-icon">[~]</span>
+                                                            <span className="choice-title">Keep Mortgaged</span>
+                                                            <span className="choice-price">
+                                                                ${item.interestFee} now
+                                                            </span>
+                                                        </div>
+                                                        <div className="choice-desc">
+                                                            Pays transfer interest only. Property stays inactive.
+                                                            Unmortgage later for ${item.unmortgageCost} total.
+                                                        </div>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                                {prop.players
-                                    .filter((p) => p.id !== prop.socket.id && !p.isBankrupt)
-                                    .map((p) => (
-                                        <div key={p.id} className="mortgage-balance-item">
-                                            <span className="mortgage-balance-name" style={{ color: p.color || "var(--text-main)" }}>
-                                                {p.username}
-                                            </span>
-                                            <span className="mortgage-balance-val">${p.balance}</span>
-                                        </div>
-                                    ))}
-                            </div>
 
-                            {/* Rules box */}
-                            <div className="mortgage-modal-rules">
-                                <span className="mortgage-modal-rules-label">How it works</span>
-                                <p>
-                                    A mortgaged property earns no rent and cannot have houses built on it.
-                                    <strong> Unmortgage Now</strong> activates it immediately (you pay principal + 10% interest).
-                                    <strong> Keep Mortgaged</strong> means you pay only the 10% interest today
-                                    and can unmortgage it later for the same total cost.
-                                </p>
+                                {/* Footer */}
+                                <div className="mortgage-modal-footer">
+                                    <p className="mortgage-modal-footer-note">
+                                        Once confirmed, the game resumes and the next player's turn begins.
+                                    </p>
+                                    <button
+                                        id="btn-confirm-mortgage-choices"
+                                        className="mortgage-confirm-btn"
+                                        onClick={() => {
+                                            const resolved = (prop.mortgageTransferPending ?? []).map((item) => ({
+                                                position: item.position,
+                                                action: (mortgageChoices[item.position] ?? "keep") as
+                                                    | "unmortgage"
+                                                    | "keep",
+                                            }));
+                                            prop.onMortgageTransferResolve?.(resolved);
+                                            setMortgageChoices({});
+                                        }}
+                                    >
+                                        Confirm All Decisions
+                                    </button>
+                                </div>
                             </div>
-
-                            {/* Property grid */}
-                            <div className="mortgage-modal-grid">
-                                {prop.mortgageTransferPending.map((item) => {
-                                    const choice = mortgageChoices[item.position] ?? "keep";
-                                    const canAfford = myBalance >= item.unmortgageCost;
-                                    return (
-                                        <div key={item.position} className="mortgage-prop-row">
-                                            <div className="mortgage-prop-name">
-                                                <span>{item.name}</span>
-                                                <span className="mortgage-prop-value">Mortgaged for ${item.mortgageValue}</span>
-                                            </div>
-                                            <div className="mortgage-choices">
-                                                <button
-                                                    id={`mortgage-choice-unmortgage-${item.position}`}
-                                                    className={"mortgage-choice-btn unmortgage-btn" + (choice === "unmortgage" ? " selected" : "") + (!canAfford ? " cant-afford" : "")}
-                                                    disabled={!canAfford}
-                                                    onClick={() => setMortgageChoices(c => ({ ...c, [item.position]: "unmortgage" }))}
-                                                >
-                                                    <div className="mortgage-choice-top">
-                                                        <span className="choice-icon">[+]</span>
-                                                        <span className="choice-title">Unmortgage Now</span>
-                                                        <span className="choice-price">${item.unmortgageCost}</span>
-                                                    </div>
-                                                    <div className="choice-desc">
-                                                        Pays off the debt. Property becomes active — collect rent, build houses right away.
-                                                        {!canAfford && <span className="cant-afford-note"> You need ${item.unmortgageCost} but only have ${myBalance}.</span>}
-                                                    </div>
-                                                </button>
-                                                <button
-                                                    id={`mortgage-choice-keep-${item.position}`}
-                                                    className={"mortgage-choice-btn keep-btn" + (choice !== "unmortgage" ? " selected" : "")}
-                                                    onClick={() => setMortgageChoices(c => ({ ...c, [item.position]: "keep" }))}
-                                                >
-                                                    <div className="mortgage-choice-top">
-                                                        <span className="choice-icon">[~]</span>
-                                                        <span className="choice-title">Keep Mortgaged</span>
-                                                        <span className="choice-price">${item.interestFee} now</span>
-                                                    </div>
-                                                    <div className="choice-desc">
-                                                        Pays transfer interest only. Property stays inactive.
-                                                        Unmortgage later for ${item.unmortgageCost} total.
-                                                    </div>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Footer */}
-                            <div className="mortgage-modal-footer">
-                                <p className="mortgage-modal-footer-note">
-                                    Once confirmed, the game resumes and the next player's turn begins.
-                                </p>
-                                <button
-                                    id="btn-confirm-mortgage-choices"
-                                    className="mortgage-confirm-btn"
-                                    onClick={() => {
-                                        const resolved = (prop.mortgageTransferPending ?? []).map(item => ({
-                                            position: item.position,
-                                            action: (mortgageChoices[item.position] ?? "keep") as "unmortgage" | "keep",
-                                        }));
-                                        prop.onMortgageTransferResolve?.(resolved);
-                                        setMortgageChoices({});
-                                    }}
-                                >
-                                    Confirm All Decisions
-                                </button>
-                            </div>
-
                         </div>
-                    </div>
-                );
-            })()}
+                    );
+                })()}
 
             {/* Phase 2: Property Auction Modal Overlay */}
-            {prop.currentAuction && (() => {
-                const myPlayer = prop.players.find(v => v.id === prop.socket.id);
-                const isSpectator = !myPlayer || prop.isSpectator;
-                const myBalance = myPlayer ? myPlayer.balance : 0;
-                const isBankrupt = myPlayer ? myPlayer.isBankrupt : false;
-                const auctionProp = propretyMap.get(prop.currentAuction.position);
-                if (!auctionProp) return null;
+            {prop.currentAuction &&
+                (() => {
+                    const myPlayer = prop.players.find((v) => v.id === prop.socket.id);
+                    const isSpectator = !myPlayer || prop.isSpectator;
+                    const myBalance = myPlayer ? myPlayer.balance : 0;
+                    const isBankrupt = myPlayer ? myPlayer.isBankrupt : false;
+                    const auctionProp = propretyMap.get(prop.currentAuction.position);
+                    if (!auctionProp) return null;
 
-                const isUtility = auctionProp.group === "Utilities";
-                const isRailroad = auctionProp.group === "Railroad";
+                    const isUtility = auctionProp.group === "Utilities";
+                    const isRailroad = auctionProp.group === "Railroad";
 
-                return (
-                    <div className="auction-modal-overlay">
-                        <div className="auction-modal-card animate-pop">
-                            <div className="auction-modal-header">
-                                <div>
-                                    <h3 className="auction-modal-title">🏛️ Property Auction</h3>
-                                    <p className="auction-modal-subtitle">
-                                        Active bidding for <strong>{auctionProp.name}</strong>. Listing price is ${auctionProp.price}.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Timer Bar */}
-                            <div className="auction-timer-container">
-                                <div 
-                                    className={`auction-timer-bar ${prop.currentAuction.timerSeconds <= 5 ? "pulse" : ""}`}
-                                    style={{ width: `${Math.min(100, Math.max(0, (prop.currentAuction.timerSeconds / 20) * 100))}%` }}
-                                />
-                                <span className="auction-timer-text">{prop.currentAuction.timerSeconds}s</span>
-                            </div>
-
-                            <div className="auction-modal-body">
-                                {/* Left side: Card Preview */}
-                                <div className="auction-prop-preview">
-                                    {isUtility ? (
-                                        <StreetCard utility={{ title: auctionProp.name ?? "", cardCost: auctionProp.price ?? 0, type: auctionProp.id?.includes("water") ? "water" : "electricity" }} />
-                                    ) : isRailroad ? (
-                                        <StreetCard railroad={{ title: auctionProp.name ?? "", cardCost: auctionProp.price ?? 0 }} />
-                                    ) : (
-                                        <StreetCard street={{ title: auctionProp.name ?? "", cardCost: auctionProp.price ?? 0, hotelsCost: auctionProp.ohousecost ?? 0, housesCost: auctionProp.housecost ?? 0, rent: auctionProp.rent ?? 0, multpliedrent: (auctionProp.multpliedrent as [number, number, number, number, number]) || [0, 0, 0, 0, 0], rentWithColorSet: (auctionProp.rent ?? 0) * 2, group: auctionProp.group ?? "" }} />
-                                    )}
+                    return (
+                        <div className="auction-modal-overlay">
+                            <div className="auction-modal-card animate-pop">
+                                <div className="auction-modal-header">
+                                    <div>
+                                        <h3 className="auction-modal-title">🏛️ Property Auction</h3>
+                                        <p className="auction-modal-subtitle">
+                                            Active bidding for <strong>{auctionProp.name}</strong>. Listing price is $
+                                            {auctionProp.price}.
+                                        </p>
+                                    </div>
                                 </div>
 
-                                {/* Right side: Bidding details and controls */}
-                                <div className="auction-controls-panel">
-                                    <div className="auction-bidding-status">
-                                        <div className="status-label">Current Bid</div>
-                                        <div className="status-value">${prop.currentAuction.currentBid === 0 ? "No bids yet" : prop.currentAuction.currentBid}</div>
-                                        {prop.currentAuction.bidderId ? (
-                                            <div className="status-bidder" style={{ color: prop.players.find(p => p.id === prop.currentAuction!.bidderId)?.color || "var(--text-main)" }}>
-                                                by {prop.currentAuction.bidderName}
-                                            </div>
+                                {/* Timer Bar */}
+                                <div className="auction-timer-container">
+                                    <div
+                                        className={`auction-timer-bar ${prop.currentAuction.timerSeconds <= 5 ? "pulse" : ""}`}
+                                        style={{
+                                            width: `${Math.min(100, Math.max(0, (prop.currentAuction.timerSeconds / 20) * 100))}%`,
+                                        }}
+                                    />
+                                    <span className="auction-timer-text">{prop.currentAuction.timerSeconds}s</span>
+                                </div>
+
+                                <div className="auction-modal-body">
+                                    {/* Left side: Card Preview */}
+                                    <div className="auction-prop-preview">
+                                        {isUtility ? (
+                                            <StreetCard
+                                                utility={{
+                                                    title: auctionProp.name ?? "",
+                                                    cardCost: auctionProp.price ?? 0,
+                                                    type: auctionProp.id?.includes("water") ? "water" : "electricity",
+                                                }}
+                                            />
+                                        ) : isRailroad ? (
+                                            <StreetCard
+                                                railroad={{
+                                                    title: auctionProp.name ?? "",
+                                                    cardCost: auctionProp.price ?? 0,
+                                                }}
+                                            />
                                         ) : (
-                                            <div className="status-bidder no-bids">Be the first to bid! Minimum bid is $1.</div>
+                                            <StreetCard
+                                                street={{
+                                                    title: auctionProp.name ?? "",
+                                                    cardCost: auctionProp.price ?? 0,
+                                                    hotelsCost: auctionProp.ohousecost ?? 0,
+                                                    housesCost: auctionProp.housecost ?? 0,
+                                                    rent: auctionProp.rent ?? 0,
+                                                    multpliedrent: (auctionProp.multpliedrent as [
+                                                        number,
+                                                        number,
+                                                        number,
+                                                        number,
+                                                        number,
+                                                    ]) || [0, 0, 0, 0, 0],
+                                                    rentWithColorSet: (auctionProp.rent ?? 0) * 2,
+                                                    group: auctionProp.group ?? "",
+                                                }}
+                                            />
                                         )}
                                     </div>
 
-                                    {/* Quick Bids */}
-                                    <div className="auction-quick-bids">
-                                        <button disabled={isSpectator || isBankrupt || myBalance <= prop.currentAuction.currentBid} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 1)}>+$1</button>
-                                        <button disabled={isSpectator || isBankrupt || myBalance <= prop.currentAuction.currentBid + 9} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 10)}>+$10</button>
-                                        <button disabled={isSpectator || isBankrupt || myBalance <= prop.currentAuction.currentBid + 49} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 50)}>+$50</button>
-                                        <button disabled={isSpectator || isBankrupt || myBalance <= prop.currentAuction.currentBid + 99} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 100)}>+$100</button>
-                                    </div>
-
-                                    {/* Custom Bid Input */}
-                                    <div className="auction-input-group">
-                                        <input
-                                            type="number"
-                                            id="auction-custom-bid"
-                                            min={prop.currentAuction.currentBid + 1}
-                                            max={myBalance}
-                                            value={customBidValue}
-                                            onChange={(e) => setCustomBidValue(parseInt(e.target.value) || 0)}
-                                            placeholder={isSpectator ? "Spectating" : `Min: $${prop.currentAuction.currentBid + 1}`}
-                                            disabled={isSpectator || isBankrupt}
-                                        />
-                                        <button
-                                            className="bid-btn"
-                                            disabled={isSpectator || isBankrupt || customBidValue <= prop.currentAuction.currentBid || customBidValue > myBalance}
-                                            onClick={() => handleBidSubmit(customBidValue)}
-                                        >
-                                            Place Bid
-                                        </button>
-                                    </div>
-                                    {isSpectator && (
-                                        <div className="spectator-bid-notice" style={{ color: "#94a3b8", fontSize: "0.8rem", textAlign: "center", marginTop: "10px", fontWeight: 500 }}>
-                                            👁️ Spectators cannot place bids
-                                        </div>
-                                    )}
-
-                                    {/* Bid History */}
-                                    <div className="auction-history-scroller">
-                                        <label className="history-label">Bid Log</label>
-                                        <div className="history-list">
-                                            {prop.currentAuction.bids.length === 0 ? (
-                                                <div className="no-bids-msg">No bids placed yet.</div>
+                                    {/* Right side: Bidding details and controls */}
+                                    <div className="auction-controls-panel">
+                                        <div className="auction-bidding-status">
+                                            <div className="status-label">Current Bid</div>
+                                            <div className="status-value">
+                                                $
+                                                {prop.currentAuction.currentBid === 0
+                                                    ? "No bids yet"
+                                                    : prop.currentAuction.currentBid}
+                                            </div>
+                                            {prop.currentAuction.bidderId ? (
+                                                <div
+                                                    className="status-bidder"
+                                                    style={{
+                                                        color:
+                                                            prop.players.find(
+                                                                (p) => p.id === prop.currentAuction!.bidderId,
+                                                            )?.color || "var(--text-main)",
+                                                    }}
+                                                >
+                                                    by {prop.currentAuction.bidderName}
+                                                </div>
                                             ) : (
-                                                [...prop.currentAuction.bids].reverse().map((bid, index) => (
-                                                    <div key={index} className="history-row animate-fade">
-                                                        <span className="history-bidder">{bid.bidderName}</span>
-                                                        <span className="history-amount">${bid.amount}</span>
-                                                    </div>
-                                                ))
+                                                <div className="status-bidder no-bids">
+                                                    Be the first to bid! Minimum bid is $1.
+                                                </div>
                                             )}
+                                        </div>
+
+                                        {/* Quick Bids */}
+                                        <div className="auction-quick-bids">
+                                            <button
+                                                disabled={
+                                                    isSpectator ||
+                                                    isBankrupt ||
+                                                    myBalance <= prop.currentAuction.currentBid
+                                                }
+                                                onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 1)}
+                                            >
+                                                +$1
+                                            </button>
+                                            <button
+                                                disabled={
+                                                    isSpectator ||
+                                                    isBankrupt ||
+                                                    myBalance <= prop.currentAuction.currentBid + 9
+                                                }
+                                                onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 10)}
+                                            >
+                                                +$10
+                                            </button>
+                                            <button
+                                                disabled={
+                                                    isSpectator ||
+                                                    isBankrupt ||
+                                                    myBalance <= prop.currentAuction.currentBid + 49
+                                                }
+                                                onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 50)}
+                                            >
+                                                +$50
+                                            </button>
+                                            <button
+                                                disabled={
+                                                    isSpectator ||
+                                                    isBankrupt ||
+                                                    myBalance <= prop.currentAuction.currentBid + 99
+                                                }
+                                                onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 100)}
+                                            >
+                                                +$100
+                                            </button>
+                                        </div>
+
+                                        {/* Custom Bid Input */}
+                                        <div className="auction-input-group">
+                                            <input
+                                                type="number"
+                                                id="auction-custom-bid"
+                                                min={prop.currentAuction.currentBid + 1}
+                                                max={myBalance}
+                                                value={customBidValue}
+                                                onChange={(e) => setCustomBidValue(parseInt(e.target.value) || 0)}
+                                                placeholder={
+                                                    isSpectator
+                                                        ? "Spectating"
+                                                        : `Min: $${prop.currentAuction.currentBid + 1}`
+                                                }
+                                                disabled={isSpectator || isBankrupt}
+                                            />
+                                            <button
+                                                className="bid-btn"
+                                                disabled={
+                                                    isSpectator ||
+                                                    isBankrupt ||
+                                                    customBidValue <= prop.currentAuction.currentBid ||
+                                                    customBidValue > myBalance
+                                                }
+                                                onClick={() => handleBidSubmit(customBidValue)}
+                                            >
+                                                Place Bid
+                                            </button>
+                                        </div>
+                                        {isSpectator && (
+                                            <div
+                                                className="spectator-bid-notice"
+                                                style={{
+                                                    color: "#94a3b8",
+                                                    fontSize: "0.8rem",
+                                                    textAlign: "center",
+                                                    marginTop: "10px",
+                                                    fontWeight: 500,
+                                                }}
+                                            >
+                                                👁️ Spectators cannot place bids
+                                            </div>
+                                        )}
+
+                                        {/* Bid History */}
+                                        <div className="auction-history-scroller">
+                                            <label className="history-label">Bid Log</label>
+                                            <div className="history-list">
+                                                {prop.currentAuction.bids.length === 0 ? (
+                                                    <div className="no-bids-msg">No bids placed yet.</div>
+                                                ) : (
+                                                    [...prop.currentAuction.bids].reverse().map((bid, index) => (
+                                                        <div key={index} className="history-row animate-fade">
+                                                            <span className="history-bidder">{bid.bidderName}</span>
+                                                            <span className="history-amount">${bid.amount}</span>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                );
-            })()}
+                    );
+                })()}
         </>
     );
 });
