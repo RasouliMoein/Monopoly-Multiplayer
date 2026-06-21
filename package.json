@@ -4,12 +4,12 @@
     "version": "0.0.0",
     "type": "module",
     "scripts": {
-        "dev": "vite",
-        "build": "tsc && vite build",
-        "build:backend": "tsc -p backend.tsconfig.json && node -e \"require('fs').writeFileSync('dist-backend/package.json', JSON.stringify({type: 'commonjs'}))\"",
-        "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-        "preview": "vite preview",
-        "start": "npm run build:backend && node dist-backend/index.js"
+        "dev": "vite src/client",
+        "build": "tsc -p src/client/tsconfig.json && vite build src/client",
+        "build:backend": "tsc -p src/server/tsconfig.json && node -e \"require('fs').writeFileSync('dist-backend/package.json', JSON.stringify({type: 'commonjs'}))\"",
+        "lint": "eslint src/client/src src/server/src src/shared --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+        "preview": "vite preview src/client",
+        "start": "npm run build:backend && node dist-backend/src/server/src/index.js"
     },
     "dependencies": {
         "@types/crypto-js": "^4.2.2",

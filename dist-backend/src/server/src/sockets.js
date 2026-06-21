@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Server = exports.activeServers = exports.Socket = void 0;
 const ws_1 = require("ws");
-const code_1 = require("./code");
+const code_1 = require("../../shared/utils/code");
 const logger_1 = require("./logger");
 class Socket {
     client;

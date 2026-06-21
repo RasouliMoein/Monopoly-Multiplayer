@@ -1,21 +1,18 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
-const http_1 = __importDefault(require("http"));
-const path_1 = __importDefault(require("path"));
-const ws_1 = require("ws");
-const sockets_js_1 = require("./sockets.js");
-const game_js_1 = require("./game.js");
-const logger_js_1 = require("./logger.js");
-const fs_1 = __importDefault(require("fs"));
+import express from "express";
+import http from "http";
+import path from "path";
+import { WebSocketServer, WebSocket } from "ws";
+import { activeServers } from "./sockets.js";
+import { main as startGame } from "./game.js";
+import { logger } from "./logger.js";
+
+import fs from "fs";
+
 // Load .env file manually if it exists
 try {
-    const envPath = path_1.default.join(process.cwd(), ".env");
-    if (fs_1.default.existsSync(envPath)) {
-        const envContent = fs_1.default.readFileSync(envPath, "utf-8");
+    const envPath = path.join(process.cwd(), ".env");
+    if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, "utf-8");
         for (const line of envContent.split("\n")) {
             const trimmed = line.trim();
             if (trimmed && !trimmed.startsWith("#")) {
@@ -26,17 +23,22 @@ try {
             }
         }
     }
-}
-catch (e) {
+} catch (e) {
     console.error("Failed to load .env file", e);
 }
-const app = (0, express_1.default)();
+
+const app = express();
 const PORT = process.env.PORT || 3064;
+
+
 // Serve the built React app
-app.use(express_1.default.static(path_1.default.join(__dirname, "..", "dist")));
-const server = http_1.default.createServer(app);
+app.use(express.static(path.join(__dirname, "..", "dist")));
+
+const server = http.createServer(app);
+
 // WebSocket for clients connecting to game rooms
-const wss = new ws_1.WebSocketServer({ server });
+const wss = new WebSocketServer({ server });
+
 wss.on("connection", (ws, req) => {
     // Expected URL format for joining: /room/:code?token=uuid
     const url = req.url || "/";
@@ -46,28 +48,29 @@ wss.on("connection", (ws, req) => {
         const queryPart = parts[1] || "";
         const urlParams = new URLSearchParams(queryPart);
         const roomCode = pathPart.split("/")[2];
-        const gameServer = sockets_js_1.activeServers.get(roomCode);
+        const gameServer = activeServers.get(roomCode);
+        
         if (gameServer) {
             let clientId = urlParams.get("token");
             if (!clientId || clientId === "null" || clientId === "undefined") {
                 clientId = Date.now().toString(36) + Math.random().toString(36).substring(2);
             }
-            logger_js_1.logger.info(`[WS] Connection accepted for room ${roomCode}`);
+            logger.info(`[WS] Connection accepted for room ${roomCode}`);
             gameServer.onConnection(ws, clientId);
-        }
-        else {
-            logger_js_1.logger.warn(`[WS] Room not found: ${roomCode}. Active rooms: ${Array.from(sockets_js_1.activeServers.keys()).join(", ")}`);
+        } else {
+            logger.warn(`[WS] Room not found: ${roomCode}. Active rooms: ${Array.from(activeServers.keys()).join(", ")}`);
             ws.close(1008, "Room not found");
         }
-    }
-    else {
+    } else {
         ws.close(1008, "Invalid endpoint");
     }
 });
-app.use(express_1.default.json());
+
+app.use(express.json());
+
 // API Endpoint to Get Active Rooms
 app.get("/api/rooms", (req, res) => {
-    const list = Array.from(sockets_js_1.activeServers.entries()).map(([translatedCode, gameServer]) => {
+    const list = Array.from(activeServers.entries()).map(([translatedCode, gameServer]) => {
         return {
             code: gameServer.code,
             translatedCode: translatedCode,
@@ -79,19 +82,23 @@ app.get("/api/rooms", (req, res) => {
     });
     res.json(list);
 });
+
 // API Endpoint to Create a Room
 // The front-end will call this instead of running main() locally
 app.post("/api/create-room", (req, res) => {
     const { playersCount } = req.body;
     const pCount = playersCount ? parseInt(playersCount) : 4;
+    
     // We start the game logic on the Node environment!
-    (0, game_js_1.main)(pCount, (hostCode, gameServerInstance) => {
+    startGame(pCount, (hostCode, gameServerInstance) => {
         res.json({ success: true, hostCode: hostCode, translatedCode: gameServerInstance.code });
     });
 });
+
 app.get("*", (req, res) => {
-    res.sendFile(path_1.default.join(__dirname, "..", "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
 });
-server.listen(PORT, "0.0.0.0", () => {
-    logger_js_1.logger.info(`Main Authoritative Server is running on port ${PORT}`);
+
+server.listen(PORT as number, "0.0.0.0", () => {
+    logger.info(`Main Authoritative Server is running on port ${PORT}`);
 });
