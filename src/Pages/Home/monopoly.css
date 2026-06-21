@@ -1021,6 +1021,36 @@ div.board div.street {
     transition: background-color 0.1s ease-out;
 }
 
+div.board div.street.is-mortgaged {
+    box-sizing: border-box !important;
+    box-shadow: inset 0 0 0 9999px rgba(15, 23, 42, 0.65) !important;
+    border: 2px dashed rgba(239, 68, 68, 0.8) !important;
+}
+
+div.board div.street.is-mortgaged::after {
+    content: "MORTGAGED";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-25deg);
+    font-family: 'Josefin Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    color: #ef4444;
+    border: 2px solid #ef4444;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    white-space: nowrap;
+    background-color: rgba(15, 23, 42, 0.95);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), inset 0 0 10px rgba(239, 68, 68, 0.15);
+    z-index: 10;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    transition: all 0.2s ease;
+}
+
 div.action-bar {
     position: absolute;
     bottom: 10%;

@@ -691,10 +691,24 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                     st.style.zIndex = "unset";
                     st.style.boxShadow = "";
                 }
+                const streetsFolder = document.getElementById("display-streets") as HTMLDivElement;
+                if (streetsFolder) {
+                    const allStreetEls = Array.from(streetsFolder.querySelectorAll("div.street"));
+                    for (const el of allStreetEls) {
+                        el.classList.remove("is-mortgaged");
+                    }
+                }
                 for (const _player of prop.players) {
                     for (const _prp of _player.properties) {
                         const location = _prp.posistion;
                         const state = _prp.count;
+
+                        if (streetsFolder) {
+                            const streetElement = streetsFolder.querySelector(`div.street[data-position="${location}"]`) as HTMLDivElement;
+                            if (streetElement && (_prp.morgage === true || (_prp.morgage as any) === "true")) {
+                                streetElement.classList.add("is-mortgaged");
+                            }
+                        }
 
                         const queryElement = folder.querySelector(`div.street-houses[data-position="${location}"`);
                         if (queryElement != null) {
