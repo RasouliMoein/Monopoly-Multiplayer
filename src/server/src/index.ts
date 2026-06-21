@@ -1,7 +1,7 @@
 import express from "express";
 import http from "http";
 import path from "path";
-import { WebSocketServer, WebSocket } from "ws";
+import { WebSocketServer } from "ws";
 import { activeServers } from "./sockets.js";
 import { main as startGame } from "./game.js";
 import { logger } from "./logger.js";
@@ -30,7 +30,6 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3064;
 
-
 // Serve the built React app
 app.use(express.static(path.join(__dirname, "..", "dist")));
 
@@ -49,7 +48,7 @@ wss.on("connection", (ws, req) => {
         const urlParams = new URLSearchParams(queryPart);
         const roomCode = pathPart.split("/")[2];
         const gameServer = activeServers.get(roomCode);
-        
+
         if (gameServer) {
             let clientId = urlParams.get("token");
             if (!clientId || clientId === "null" || clientId === "undefined") {
@@ -58,7 +57,9 @@ wss.on("connection", (ws, req) => {
             logger.info(`[WS] Connection accepted for room ${roomCode}`);
             gameServer.onConnection(ws, clientId);
         } else {
-            logger.warn(`[WS] Room not found: ${roomCode}. Active rooms: ${Array.from(activeServers.keys()).join(", ")}`);
+            logger.warn(
+                `[WS] Room not found: ${roomCode}. Active rooms: ${Array.from(activeServers.keys()).join(", ")}`,
+            );
             ws.close(1008, "Room not found");
         }
     } else {
@@ -69,7 +70,7 @@ wss.on("connection", (ws, req) => {
 app.use(express.json());
 
 // API Endpoint to Get Active Rooms
-app.get("/api/rooms", (req, res) => {
+app.get("/api/rooms", (_req, res) => {
     const list = Array.from(activeServers.entries()).map(([translatedCode, gameServer]) => {
         return {
             code: gameServer.code,
@@ -88,15 +89,15 @@ app.get("/api/rooms", (req, res) => {
 app.post("/api/create-room", (req, res) => {
     const { playersCount } = req.body;
     const pCount = playersCount ? parseInt(playersCount) : 4;
-    
+
     // We start the game logic on the Node environment!
     startGame(pCount, (hostCode, gameServerInstance) => {
         res.json({ success: true, hostCode: hostCode, translatedCode: gameServerInstance.code });
     });
 });
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
+app.get("*", (_req, res) => {
+    res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
 });
 
 server.listen(PORT as number, "0.0.0.0", () => {

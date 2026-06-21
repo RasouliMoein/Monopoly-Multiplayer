@@ -1,7 +1,7 @@
 import { Socket, Server } from "../sockets";
 import { GameState } from "../game/GameState";
 import { Player } from "../game/Player";
-import { propertyByPosition, propertyById, CARD_TILES } from "../game/Board";
+import { propertyByPosition, CARD_TILES } from "../game/Board";
 import { GameTrading, MonopolyMode, historyAction } from "../../../shared/types/game";
 import monopolyJSON from "../../../shared/data/monopoly.json";
 
@@ -12,19 +12,29 @@ function getCurrentTime() {
 
 function getPlayerColor(icon: number) {
     switch (icon) {
-        case 0: return "#E0115F";
-        case 1: return "#4169e1";
-        case 2: return "#50C878";
-        case 3: return "#FFC000";
-        case 4: return "#a855f7";
-        case 5: return "#FF7F50";
-        default: return "#64748b";
+        case 0:
+            return "#E0115F";
+        case 1:
+            return "#4169e1";
+        case 2:
+            return "#50C878";
+        case 3:
+            return "#FFC000";
+        case 4:
+            return "#a855f7";
+        case 5:
+            return "#FF7F50";
+        default:
+            return "#64748b";
     }
 }
 
 export function registerSocketHandlers(socket: Socket, server: Server, state: GameState, maxPlayers: number) {
     let isReconnecting = state.clients.has(socket.id) || state.spectators.has(socket.id);
-    socket.emit("state", isReconnecting ? 0 : (state.clients.size < maxPlayers && !state.gameStarted ? 0 : state.gameStarted ? 1 : 2));
+    socket.emit(
+        "state",
+        isReconnecting ? 0 : state.clients.size < maxPlayers && !state.gameStarted ? 0 : state.gameStarted ? 1 : 2,
+    );
 
     // Wires helpers up to GameState callbacks
     state.emitAll = (event: string, args: any) => {
@@ -43,13 +53,16 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
             hostId: state.hostId,
             bankHouses: state.bankHouses,
             bankHotels: state.bankHotels,
-            stats: state.gameStats
+            stats: state.gameStats,
         });
     };
 
     state.emitServerHistory = (actionText: string) => {
         const historyObj: historyAction = {
-            action: actionText.replace(/\s+/g, " ").replace(/\bpayed\b/gi, "paid").trim(),
+            action: actionText
+                .replace(/\s+/g, " ")
+                .replace(/\bpayed\b/gi, "paid")
+                .trim(),
             time: new Date().toJSON(),
             balances: Array.from(state.clients.values()).map((c) => ({
                 username: c.player.username,
@@ -68,7 +81,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
     // ── Spectator Handler ───────────────────────────────────────────────────
     socket.on("spectator", (name: string) => {
         try {
-            let isSpecReconnecting = state.spectators.has(socket.id);
+            const isSpecReconnecting = state.spectators.has(socket.id);
             if (isSpecReconnecting) {
                 const oldSocket = state.spectators.get(socket.id);
                 state.spectators.set(socket.id, socket);
@@ -91,7 +104,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 gameStarted: state.gameStarted,
                 hostId: state.hostId,
                 history: state.server_histories,
-                stats: state.gameStats
+                stats: state.gameStats,
             });
 
             if (!isSpecReconnecting) {
@@ -100,9 +113,13 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
 
             socket.on("message", (message: string) => {
                 try {
-                    server.logFunction(`{${getCurrentTime()}} [${socket.id}] Spectator "${name}" messaged "${message}".`);
+                    server.logFunction(
+                        `{${getCurrentTime()}} [${socket.id}] Spectator "${name}" messaged "${message}".`,
+                    );
                     state.emitAll("message", { from: `[Spectator] ${name}`, message });
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             socket.on("leave-room", () => {
@@ -116,11 +133,17 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 try {
                     if (state.spectators.get(socket.id) === socket) {
                         state.spectators.delete(socket.id);
-                        server.logFunction(`{${getCurrentTime()}} [${socket.id}] Spectator "${name}" has disconnected.`);
+                        server.logFunction(
+                            `{${getCurrentTime()}} [${socket.id}] Spectator "${name}" has disconnected.`,
+                        );
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
-        } catch (e) { server.logFunction(e); }
+        } catch (e) {
+            server.logFunction(e);
+        }
     });
 
     // ── Name Handler ────────────────────────────────────────────────────────
@@ -130,7 +153,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
             isReconnecting = client !== undefined;
 
             if (!isReconnecting) {
-                const usedIcons = Array.from(state.clients.values()).map(c => c.player.icon);
+                const usedIcons = Array.from(state.clients.values()).map((c) => c.player.icon);
                 let availableIcon = 0;
                 for (let i = 0; i < 6; i++) {
                     if (!usedIcons.includes(i)) {
@@ -140,7 +163,8 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 }
                 const player = new Player(socket.id, name, availableIcon, state.selectedMode.startingCash);
                 state.initPlayerStats(player);
-                if (state.currentId === "" || !Array.from(state.clients.keys()).includes(state.currentId)) state.currentId = socket.id;
+                if (state.currentId === "" || !Array.from(state.clients.keys()).includes(state.currentId))
+                    state.currentId = socket.id;
                 client = { player, socket, ready: false, positions: { x: 0, y: 0 }, connected: true };
                 state.clients.set(socket.id, client);
 
@@ -171,7 +195,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 gameStarted: state.gameStarted,
                 hostId: state.hostId,
                 history: state.server_histories,
-                stats: state.gameStats
+                stats: state.gameStats,
             });
 
             if (!isReconnecting) state.emitExcepts(socket.id, "new-player", player.to_json());
@@ -183,7 +207,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     if (state.gameStarted) return;
                     if (iconIndex < 0 || iconIndex > 5) return;
                     const isTaken = Array.from(state.clients.values()).some(
-                        (c) => c.player.id !== socket.id && c.player.icon === iconIndex
+                        (c) => c.player.id !== socket.id && c.player.icon === iconIndex,
                     );
                     if (isTaken) return;
                     const c = state.clients.get(socket.id);
@@ -192,7 +216,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         state.emitServerHistory(`${c.player.username} changed color/avatar.`);
                         state.emitStateUpdate();
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── Kick Player ──
@@ -205,14 +231,22 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         target.socket.disconnect();
                         state.clients.delete(targetId);
                         if (state.currentId === targetId) {
-                            const arr = Array.from(state.clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
+                            const arr = Array.from(state.clients.values())
+                                .filter((v) => v.player.balance > 0)
+                                .map((v) => v.player.id);
                             state.currentId = arr.length > 0 ? arr[0] : "";
                         }
-                        state.emitAll("disconnected-player", { id: targetId, turn: state.currentId, wasInGame: state.gameStarted });
+                        state.emitAll("disconnected-player", {
+                            id: targetId,
+                            turn: state.currentId,
+                            wasInGame: state.gameStarted,
+                        });
                         state.emitStateUpdate();
                         if (state.clients.size === 0) server.destroy();
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── Unjail ──
@@ -240,7 +274,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     player.jailTurnsRemaining = 0;
                     state.emitAll("unjail", { to: player.id, option });
                     state.emitStateUpdate();
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── Roll Dice ──
@@ -258,7 +294,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         rolledD1 = override.d1;
                         rolledD2 = override.d2;
                         state.debugDiceOverrideMap.delete(socket.id);
-                        server.logFunction(`[DEBUG] Applying dice override for ${player.username}: [${rolledD1}, ${rolledD2}]`);
+                        server.logFunction(
+                            `[DEBUG] Applying dice override for ${player.username}: [${rolledD1}, ${rolledD2}]`,
+                        );
                     }
                     const d1 = rolledD1;
                     const d2 = rolledD2;
@@ -286,7 +324,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                                 player.balance -= 50;
                                 forcedJailPayment = 50;
                                 player.isInJail = false;
-                                state.emitServerHistory(`${player.username} paid $50 (forced) and was released from Jail after 3 failed attempts`);
+                                state.emitServerHistory(
+                                    `${player.username} paid $50 (forced) and was released from Jail after 3 failed attempts`,
+                                );
                             } else {
                                 state.emitServerHistory(`${player.username} failed doubles roll and stayed in Jail`);
                                 const pStatsJail = state.gameStats.playerStats[player.id];
@@ -300,10 +340,16 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                                 state.emitAll("dice_roll_result", {
                                     listOfNums: [d1, d2, player.position],
                                     turnId: state.currentId,
-                                    passedGo: false, goPayment: 0,
-                                    goingToJail: false, jailStayed: true, jailEscape: false,
-                                    rolledPosition: player.position, finalPosition: player.position,
-                                    requiresPurchaseDecision: false, pendingCard: null, landingNote: "",
+                                    passedGo: false,
+                                    goPayment: 0,
+                                    goingToJail: false,
+                                    jailStayed: true,
+                                    jailEscape: false,
+                                    rolledPosition: player.position,
+                                    finalPosition: player.position,
+                                    requiresPurchaseDecision: false,
+                                    pendingCard: null,
+                                    landingNote: "",
                                     forcedJailPayment: 0,
                                 });
                                 state.emitStateUpdate();
@@ -317,7 +363,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                                 pStatsJail.cumulativeLuck += 0.8;
                                 pStatsJail.luckEventsCount += 1;
                             }
-                            state.emitServerHistory(`${player.username} rolled doubles [${d1}, ${d2}] and escaped Jail!`);
+                            state.emitServerHistory(
+                                `${player.username} rolled doubles [${d1}, ${d2}] and escaped Jail!`,
+                            );
                         }
                     }
 
@@ -340,16 +388,24 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                                     pStatsConsecJail.luckEventsCount += 1;
                                 }
 
-                                state.emitServerHistory(`${player.username} rolled doubles 3 times in a row and goes to Jail!`);
+                                state.emitServerHistory(
+                                    `${player.username} rolled doubles 3 times in a row and goes to Jail!`,
+                                );
                                 player.hasRolled = true;
                                 player.allowRollAgain = false;
                                 state.emitAll("dice_roll_result", {
                                     listOfNums: [d1, d2, 30],
                                     turnId: state.currentId,
-                                    passedGo: false, goPayment: 0,
-                                    goingToJail: true, jailStayed: false, jailEscape: false,
-                                    rolledPosition: 30, finalPosition: 10,
-                                    requiresPurchaseDecision: false, pendingCard: null, landingNote: "",
+                                    passedGo: false,
+                                    goPayment: 0,
+                                    goingToJail: true,
+                                    jailStayed: false,
+                                    jailEscape: false,
+                                    rolledPosition: 30,
+                                    finalPosition: 10,
+                                    requiresPurchaseDecision: false,
+                                    pendingCard: null,
+                                    landingNote: "",
                                     forcedJailPayment: 0,
                                     allowRollAgain: false,
                                 });
@@ -363,7 +419,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
 
                     const oldPos = player.position;
                     const rolledPosition = (oldPos + sum) % 40;
-                    const passedGo = (oldPos + sum) >= 40;
+                    const passedGo = oldPos + sum >= 40;
                     if (passedGo) {
                         player.balance += 200;
                         state.emitServerHistory(`${player.username} passed Go and collected $200`);
@@ -382,7 +438,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         player.jailTurnsRemaining = 3;
                         goingToJail = true;
                         state.emitServerHistory(`${player.username} goes to jail`);
-                        
+
                         state.gameStats.tileVisits[30] = (state.gameStats.tileVisits[30] || 0) + 1;
                         state.gameStats.tileVisits[10] = (state.gameStats.tileVisits[10] || 0) + 1;
                         const pStatsJailRoll = state.gameStats.playerStats[player.id];
@@ -394,17 +450,23 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         }
                     } else {
                         player.position = rolledPosition;
-                        state.gameStats.tileVisits[rolledPosition] = (state.gameStats.tileVisits[rolledPosition] || 0) + 1;
+                        state.gameStats.tileVisits[rolledPosition] =
+                            (state.gameStats.tileVisits[rolledPosition] || 0) + 1;
                         const prop = propertyByPosition.get(rolledPosition);
 
                         if (prop && CARD_TILES.has(prop.id ?? "")) {
-                            const deck = prop.id === "chance" ? monopolyJSON.chance : (monopolyJSON as any).communitychest;
+                            const deck =
+                                prop.id === "chance" ? monopolyJSON.chance : (monopolyJSON as any).communitychest;
                             let card = deck[Math.floor(Math.random() * deck.length)];
                             if (card.action === "jail" && card.subaction === "getout") {
                                 const isChance = prop.id === "chance";
-                                const alreadyHeld = isChance ? (state.chanceGetOutOwner !== null) : (state.chestGetOutOwner !== null);
+                                const alreadyHeld = isChance
+                                    ? state.chanceGetOutOwner !== null
+                                    : state.chestGetOutOwner !== null;
                                 if (alreadyHeld) {
-                                    const filtered = deck.filter((c: any) => !(c.action === "jail" && c.subaction === "getout"));
+                                    const filtered = deck.filter(
+                                        (c: any) => !(c.action === "jail" && c.subaction === "getout"),
+                                    );
                                     card = filtered[Math.floor(Math.random() * filtered.length)];
                                 }
                             }
@@ -441,9 +503,14 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                                 pendingCard: result.pendingCard ?? null,
                             };
                             requiresPurchaseDecision = result.requiresPurchaseDecision;
-                            state.emitServerHistory(`${player.username} drew ${prop.id === "chance" ? "Chance" : "Community Chest"}: "${card.title}"`);
+                            state.emitServerHistory(
+                                `${player.username} drew ${prop.id === "chance" ? "Chance" : "Community Chest"}: "${card.title}"`,
+                            );
 
-                            if (player.balance >= balanceBeforeCard + 200 && (card.action === "move" || card.action === "movenearest")) {
+                            if (
+                                player.balance >= balanceBeforeCard + 200 &&
+                                (card.action === "move" || card.action === "movenearest")
+                            ) {
                                 state.emitServerHistory(`${player.username} passed Go and collected $200`);
                             }
 
@@ -497,15 +564,23 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     state.emitAll("dice_roll_result", {
                         listOfNums: [d1, d2, rolledPosition],
                         turnId: state.currentId,
-                        passedGo, goPayment: passedGo ? 200 : 0,
-                        goingToJail, jailStayed: false, jailEscape: false,
-                        rolledPosition, finalPosition,
-                        requiresPurchaseDecision, pendingCard, landingNote,
+                        passedGo,
+                        goPayment: passedGo ? 200 : 0,
+                        goingToJail,
+                        jailStayed: false,
+                        jailEscape: false,
+                        rolledPosition,
+                        finalPosition,
+                        requiresPurchaseDecision,
+                        pendingCard,
+                        landingNote,
                         forcedJailPayment,
                         allowRollAgain: player.allowRollAgain,
                     });
                     state.emitStateUpdate();
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── Player Action (buy / upgrade / skip) ──
@@ -518,25 +593,40 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         if (!prop || prop.price === undefined) return;
                         player.balance -= prop.price;
                         player.properties.push({ posistion: player.position, count: 0, group: prop.group ?? "" });
-                        state.logs_strings.push(`{${getCurrentTime()}} [${socket.id}] Player "${player.username}" bought ${prop.name ?? player.position}.`);
-                        server.logFunction(`{${getCurrentTime()}} Player "${player.username}" bought ${prop.name ?? player.position}.`);
+                        state.logs_strings.push(
+                            `{${getCurrentTime()}} [${socket.id}] Player "${player.username}" bought ${prop.name ?? player.position}.`,
+                        );
+                        server.logFunction(
+                            `{${getCurrentTime()}} Player "${player.username}" bought ${prop.name ?? player.position}.`,
+                        );
                         state.emitServerHistory(`${player.username} bought ${prop.name ?? "a property"}`);
 
                         if (prop.group && prop.group !== "Special") {
                             const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prop.group);
                             const ownedGroup = player.properties.filter((p: any) => p.group === prop.group);
                             if (groupProps.length > 0 && ownedGroup.length === groupProps.length) {
-                                state.emitServerHistory(`${player.username} completed the ${prop.group} color group monopoly!`);
+                                state.emitServerHistory(
+                                    `${player.username} completed the ${prop.group} color group monopoly!`,
+                                );
                             }
                         }
                     } else if (args.action === "buy-advance") {
-                        const targetPosition = args.propertyPosition !== undefined ? args.propertyPosition : player.position;
+                        const targetPosition =
+                            args.propertyPosition !== undefined ? args.propertyPosition : player.position;
                         const targetProp = propertyByPosition.get(targetPosition) as any;
                         const idx = player.properties.findIndex((p: any) => p.posistion === targetPosition);
                         if (idx === -1) return;
 
-                        if (!targetProp || targetProp.group === "Railroad" || targetProp.group === "Utilities" || targetProp.group === "Special") return;
-                        const groupProps2 = (monopolyJSON as any).properties.filter((p: any) => p.group === targetProp.group);
+                        if (
+                            !targetProp ||
+                            targetProp.group === "Railroad" ||
+                            targetProp.group === "Utilities" ||
+                            targetProp.group === "Special"
+                        )
+                            return;
+                        const groupProps2 = (monopolyJSON as any).properties.filter(
+                            (p: any) => p.group === targetProp.group,
+                        );
                         const ownedInGroup2 = player.properties.filter((p: any) => p.group === targetProp.group);
                         if (ownedInGroup2.length !== groupProps2.length) return;
                         if (ownedInGroup2.some((p: any) => p.morgage === true)) return;
@@ -558,7 +648,10 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                             player.properties[idx].count = "h";
                         } else {
                             if (state.bankHouses < args.housesAdded) {
-                                socket.emit("pool-shortage", { type: "house", message: `Not enough houses left in the Bank! Only ${state.bankHouses} available.` });
+                                socket.emit("pool-shortage", {
+                                    type: "house",
+                                    message: `Not enough houses left in the Bank! Only ${state.bankHouses} available.`,
+                                });
                                 return;
                             }
                             state.bankHouses -= args.housesAdded;
@@ -567,7 +660,8 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         }
                         state.emitServerHistory(`${player.username} upgraded ${targetProp.name}`);
                     } else if (args.action === "sell-advance") {
-                        const targetPosition = args.propertyPosition !== undefined ? args.propertyPosition : player.position;
+                        const targetPosition =
+                            args.propertyPosition !== undefined ? args.propertyPosition : player.position;
                         const targetProp = propertyByPosition.get(targetPosition) as any;
                         const idx = player.properties.findIndex((p: any) => p.posistion === targetPosition);
                         if (idx === -1) return;
@@ -582,9 +676,13 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         if (currentCount === "h") {
                             if (state.bankHouses < 4) {
                                 state.bankHotels += 1;
-                                refund = Math.round((targetProp?.ohousecost ?? 0) * 0.5) + Math.round((targetProp?.housecost ?? 0) * 0.5) * 4;
+                                refund =
+                                    Math.round((targetProp?.ohousecost ?? 0) * 0.5) +
+                                    Math.round((targetProp?.housecost ?? 0) * 0.5) * 4;
                                 player.properties[idx].count = 0;
-                                state.emitServerHistory(`${player.username} sold hotel and houses on ${targetProp.name} due to Bank shortage`);
+                                state.emitServerHistory(
+                                    `${player.username} sold hotel and houses on ${targetProp.name} due to Bank shortage`,
+                                );
                             } else {
                                 state.bankHotels += 1;
                                 state.bankHouses -= 4;
@@ -605,7 +703,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         const landedProp = propertyByPosition.get(player.position) as any;
                         if (landedProp && landedProp.price !== undefined && landedProp.group !== "Special") {
                             const isUnowned = Array.from(state.clients.values()).every(
-                                (c) => !c.player.properties.some((p) => p.posistion === player.position)
+                                (c) => !c.player.properties.some((p) => p.posistion === player.position),
                             );
                             if (isUnowned) {
                                 state.startAuction(player.position);
@@ -613,14 +711,18 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         }
                     }
                     state.emitStateUpdate();
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── Mortgage Action ──
             socket.on("mortgage_action", (args: any) => {
                 try {
                     if (!state.selectedMode.mortageAllowed) {
-                        server.logFunction(`[SECURITY] Rejecting mortgage action from ${socket.id} because mortgages are disabled.`);
+                        server.logFunction(
+                            `[SECURITY] Rejecting mortgage action from ${socket.id} because mortgages are disabled.`,
+                        );
                         return;
                     }
                     const idx = player.properties.findIndex((p: any) => p.posistion === args.propertyPosition);
@@ -647,10 +749,14 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         if (player.balance < unmortgageCost) return;
                         player.balance -= unmortgageCost;
                         player.properties[idx].morgage = false;
-                        state.emitServerHistory(`${player.username} unmortgaged ${propData.name} for $${unmortgageCost}`);
+                        state.emitServerHistory(
+                            `${player.username} unmortgaged ${propData.name} for $${unmortgageCost}`,
+                        );
                     }
                     state.emitStateUpdate();
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── Auction Bid ──
@@ -671,10 +777,12 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         bidderId: socket.id,
                         bidderName: player.username,
                         timerSeconds: 15,
-                        bids: state.currentAuction.bids
+                        bids: state.currentAuction.bids,
                     });
                     state.emitServerHistory(`${player.username} bid $${args.bid} at auction`);
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── Finish Turn ──
@@ -688,7 +796,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         const creditorClient = state.clients.get(debt.creditorId);
                         if (creditorClient) {
                             creditorClient.player.balance += debt.amount;
-                            state.emitServerHistory(`${player.username} settled $${debt.amount} rent debt to ${creditorClient.player.username}`);
+                            state.emitServerHistory(
+                                `${player.username} settled $${debt.amount} rent debt to ${creditorClient.player.username}`,
+                            );
                         }
                         state.debtAmountMap.delete(socket.id);
                     }
@@ -713,7 +823,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                             const nextTurnNum = pStatsNet.netWorthHistory.length;
                             pStatsNet.netWorthHistory.push({
                                 turn: nextTurnNum,
-                                netWorth: state.calculateNetWorth(p)
+                                netWorth: state.calculateNetWorth(p),
                             });
                         }
                     }
@@ -725,7 +835,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         WinningMode: state.selectedMode.WinningMode,
                     });
                     state.emitStateUpdate();
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── DEBUG Authentication ──
@@ -744,7 +856,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                             server.logFunction(`[SECURITY] Failed debug auth attempt from socket ${socket.id}`);
                         }
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             const checkDebugAuth = (): boolean => {
@@ -763,11 +877,17 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     const targetClient = state.clients.get(targetId);
                     if (targetClient) {
                         targetClient.player.balance = args.balance ?? -1;
-                        state.emitServerHistory(`[DEBUG] Balance of ${targetClient.player.username} set to $${args.balance}`);
-                        state.emitAll("debug_notice", { message: `[DEBUG] ${player.username} set balance of ${targetClient.player.username} to $${args.balance}` });
+                        state.emitServerHistory(
+                            `[DEBUG] Balance of ${targetClient.player.username} set to $${args.balance}`,
+                        );
+                        state.emitAll("debug_notice", {
+                            message: `[DEBUG] ${player.username} set balance of ${targetClient.player.username} to $${args.balance}`,
+                        });
                         state.emitStateUpdate();
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             socket.on("debug_set_turn", (args: { targetPlayerId?: string }) => {
@@ -778,7 +898,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     if (targetClient && !targetClient.player.isBankrupt) {
                         state.currentId = targetId;
                         state.emitServerHistory(`[DEBUG] Turn forced to ${targetClient.player.username}`);
-                        state.emitAll("debug_notice", { message: `[DEBUG] ${player.username} forced turn to ${targetClient.player.username}` });
+                        state.emitAll("debug_notice", {
+                            message: `[DEBUG] ${player.username} forced turn to ${targetClient.player.username}`,
+                        });
                         state.emitAll("turn-finished", {
                             from: socket.id,
                             turnId: state.currentId,
@@ -787,7 +909,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         });
                         state.emitStateUpdate();
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             socket.on("debug_override_dice", (args: { targetPlayerId?: string; d1: number; d2: number }) => {
@@ -797,11 +921,19 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     const targetClient = state.clients.get(targetId);
                     if (targetClient) {
                         state.debugDiceOverrideMap.set(targetId, { d1: args.d1, d2: args.d2 });
-                        server.logFunction(`[DEBUG] Set dice override for socket ${targetId} to [${args.d1}, ${args.d2}]`);
-                        state.emitServerHistory(`[DEBUG] Next dice roll for ${targetClient.player.username} set to [${args.d1}, ${args.d2}]`);
-                        state.emitAll("debug_notice", { message: `[DEBUG] ${player.username} set next dice roll for ${targetClient.player.username} to [${args.d1}, ${args.d2}]` });
+                        server.logFunction(
+                            `[DEBUG] Set dice override for socket ${targetId} to [${args.d1}, ${args.d2}]`,
+                        );
+                        state.emitServerHistory(
+                            `[DEBUG] Next dice roll for ${targetClient.player.username} set to [${args.d1}, ${args.d2}]`,
+                        );
+                        state.emitAll("debug_notice", {
+                            message: `[DEBUG] ${player.username} set next dice roll for ${targetClient.player.username} to [${args.d1}, ${args.d2}]`,
+                        });
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             socket.on("debug_send_to_jail", (args: { targetPlayerId: string; inJail: boolean }) => {
@@ -815,15 +947,21 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                             p.position = 10;
                             p.jailTurnsRemaining = 3;
                             state.emitServerHistory(`[DEBUG] ${p.username} sent to Jail`);
-                            state.emitAll("debug_notice", { message: `[DEBUG] ${player.username} sent ${p.username} to Jail` });
+                            state.emitAll("debug_notice", {
+                                message: `[DEBUG] ${player.username} sent ${p.username} to Jail`,
+                            });
                         } else {
                             p.jailTurnsRemaining = 0;
                             state.emitServerHistory(`[DEBUG] ${p.username} released from Jail`);
-                            state.emitAll("debug_notice", { message: `[DEBUG] ${player.username} released ${p.username} from Jail` });
+                            state.emitAll("debug_notice", {
+                                message: `[DEBUG] ${player.username} released ${p.username} from Jail`,
+                            });
                         }
                         state.emitStateUpdate();
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             socket.on("debug_move_player", (args: { targetPlayerId: string; position: number }) => {
@@ -835,10 +973,14 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         p.position = args.position;
                         const propName = propertyByPosition.get(args.position)?.name ?? `Tile ${args.position}`;
                         state.emitServerHistory(`[DEBUG] ${p.username} moved to ${propName}`);
-                        state.emitAll("debug_notice", { message: `[DEBUG] ${player.username} teleported ${p.username} to ${propName}` });
+                        state.emitAll("debug_notice", {
+                            message: `[DEBUG] ${player.username} teleported ${p.username} to ${propName}`,
+                        });
                         state.emitStateUpdate();
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             socket.on("debug_force_bankruptcy", (args: { targetPlayerId: string }) => {
@@ -851,64 +993,83 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                             state.creditorMap.set(args.targetPlayerId, "bank");
                         }
                         state.emitServerHistory(`[DEBUG] Bankruptcy forced on ${targetClient.player.username}`);
-                        state.emitAll("debug_notice", { message: `[DEBUG] ${player.username} forced bankruptcy on ${targetClient.player.username}` });
+                        state.emitAll("debug_notice", {
+                            message: `[DEBUG] ${player.username} forced bankruptcy on ${targetClient.player.username}`,
+                        });
                         state.declareBankruptcyForPlayer(args.targetPlayerId);
                     }
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── Bankruptcy ──
             socket.on("declare-bankruptcy", () => {
                 try {
                     state.declareBankruptcyForPlayer(socket.id);
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
-            socket.on("mortgage-transfer-resolve", (args: { choices: { position: number; action: "unmortgage" | "keep" }[] }) => {
-                try {
-                    const isTradeResolve = state.pendingTradeMortgages.has(socket.id);
-                    const bankruptSocketId = state.pendingBankruptMap.get(socket.id);
-                    if (!isTradeResolve && !bankruptSocketId) return;
+            socket.on(
+                "mortgage-transfer-resolve",
+                (args: { choices: { position: number; action: "unmortgage" | "keep" }[] }) => {
+                    try {
+                        const isTradeResolve = state.pendingTradeMortgages.has(socket.id);
+                        const bankruptSocketId = state.pendingBankruptMap.get(socket.id);
+                        if (!isTradeResolve && !bankruptSocketId) return;
 
-                    if (isTradeResolve) {
-                        state.pendingTradeMortgages.delete(socket.id);
-                    } else {
-                        state.pendingBankruptMap.delete(socket.id);
-                    }
-
-                    for (const choice of args.choices) {
-                        const idx = player.properties.findIndex((p: any) => p.posistion === choice.position);
-                        if (idx === -1) continue;
-                        const propData = propertyByPosition.get(choice.position) as any;
-                        if (!propData) continue;
-
-                        const interestFee = Math.round((propData.price ?? 0) * 0.05);
-                        const unmortgageCost = Math.round((propData.price ?? 0) * 0.55);
-
-                        if (choice.action === "unmortgage" && player.balance >= unmortgageCost) {
-                            player.balance -= unmortgageCost;
-                            player.properties[idx].morgage = false;
-                            state.emitServerHistory(`${player.username} unmortgaged ${propData.name} for $${unmortgageCost}`);
+                        if (isTradeResolve) {
+                            state.pendingTradeMortgages.delete(socket.id);
                         } else {
-                            player.balance -= interestFee;
-                            state.emitServerHistory(`${player.username} kept ${propData.name} mortgaged, paid $${interestFee} interest`);
+                            state.pendingBankruptMap.delete(socket.id);
                         }
-                    }
 
-                    if (!isTradeResolve && bankruptSocketId) {
-                        state.finalizeBankruptcy(bankruptSocketId);
-                    } else {
-                        state.emitStateUpdate();
+                        for (const choice of args.choices) {
+                            const idx = player.properties.findIndex((p: any) => p.posistion === choice.position);
+                            if (idx === -1) continue;
+                            const propData = propertyByPosition.get(choice.position) as any;
+                            if (!propData) continue;
+
+                            const interestFee = Math.round((propData.price ?? 0) * 0.05);
+                            const unmortgageCost = Math.round((propData.price ?? 0) * 0.55);
+
+                            if (choice.action === "unmortgage" && player.balance >= unmortgageCost) {
+                                player.balance -= unmortgageCost;
+                                player.properties[idx].morgage = false;
+                                state.emitServerHistory(
+                                    `${player.username} unmortgaged ${propData.name} for $${unmortgageCost}`,
+                                );
+                            } else {
+                                player.balance -= interestFee;
+                                state.emitServerHistory(
+                                    `${player.username} kept ${propData.name} mortgaged, paid $${interestFee} interest`,
+                                );
+                            }
+                        }
+
+                        if (!isTradeResolve && bankruptSocketId) {
+                            state.finalizeBankruptcy(bankruptSocketId);
+                        } else {
+                            state.emitStateUpdate();
+                        }
+                    } catch (e) {
+                        server.logFunction(e);
                     }
-                } catch (e) { server.logFunction(e); }
-            });
+                },
+            );
 
             // ── Message ──
             socket.on("message", (message: string) => {
                 try {
-                    server.logFunction(`{${getCurrentTime()}} [${socket.id}] "${state.clients.get(socket.id)?.player.username}" messaged "${message}".`);
+                    server.logFunction(
+                        `{${getCurrentTime()}} [${socket.id}] "${state.clients.get(socket.id)?.player.username}" messaged "${message}".`,
+                    );
                     state.emitAll("message", { from: player.username, message });
-                } catch (e) { server.logFunction(e); }
+                } catch (e) {
+                    server.logFunction(e);
+                }
             });
 
             // ── Mouse ──
@@ -926,8 +1087,14 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
             });
 
             // ── Trade ──
-            socket.on("trade", () => { if (!state.selectedMode.AllowDeals) return; state.emitAll("trade", {}); });
-            socket.on("cancel-trade", () => { if (!state.selectedMode.AllowDeals) return; state.emitAll("cancel-trade", {}); });
+            socket.on("trade", () => {
+                if (!state.selectedMode.AllowDeals) return;
+                state.emitAll("trade", {});
+            });
+            socket.on("cancel-trade", () => {
+                if (!state.selectedMode.AllowDeals) return;
+                state.emitAll("cancel-trade", {});
+            });
             socket.on("trade-update", (x: GameTrading) => {
                 if (!state.selectedMode.AllowDeals) return;
                 if (x.turnPlayer.accepted && x.againstPlayer.accepted) {
@@ -955,18 +1122,25 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 }
 
                 if (state.currentId === socket.id) {
-                    const arr = Array.from(state.clients.values()).filter((v) => v.player.balance > 0).map((v) => v.player.id);
+                    const arr = Array.from(state.clients.values())
+                        .filter((v) => v.player.balance > 0)
+                        .map((v) => v.player.id);
                     state.currentId = arr.length > 0 ? arr[0] : "";
                 }
-                state.emitAll("disconnected-player", { id: socket.id, turn: state.currentId, wasInGame: state.gameStarted });
+                state.emitAll("disconnected-player", {
+                    id: socket.id,
+                    turn: state.currentId,
+                    wasInGame: state.gameStarted,
+                });
                 state.emitStateUpdate();
                 if (state.clients.size === 0) {
                     state.gameStarted = false;
                     server.destroy();
                 }
             });
-
-        } catch (e) { server.logFunction(e); }
+        } catch (e) {
+            server.logFunction(e);
+        }
     });
 
     // ── Disconnect ──
@@ -1012,7 +1186,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
 
                 if (state.hostId === socket.id) {
                     const nextHost = Array.from(state.clients.values()).find(
-                        (c) => c.connected && c.player.id !== socket.id
+                        (c) => c.connected && c.player.id !== socket.id,
                     );
                     if (nextHost) {
                         state.hostId = nextHost.player.id;
@@ -1048,7 +1222,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     server.resetCleanupTimer(2 * 60 * 1000);
                 }
             }
-        } catch (e) { server.logFunction(e); }
+        } catch (e) {
+            server.logFunction(e);
+        }
     });
 
     // ── Ready ──
@@ -1060,7 +1236,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
             if (args.mode !== undefined && socket.id === state.hostId) state.selectedMode = args.mode;
             state.clients.set(socket.id, client);
             state.emitAll("ready", { id: socket.id, state: client.ready, selectedMode: state.selectedMode });
-            
+
             const readys = Array.from(state.clients.values()).map((v) => v.ready);
             if (!readys.includes(false) && state.clients.size >= 2) {
                 for (const c of Array.from(state.clients.values())) {
@@ -1102,6 +1278,8 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 state.emitAll("start-game", {});
                 state.emitStateUpdate();
             }
-        } catch (e) { server.logFunction(e); }
+        } catch (e) {
+            server.logFunction(e);
+        }
     });
 }

@@ -1,11 +1,20 @@
 import { Player } from "./Player";
 import { computeRent, propertyByPosition, propertyById, CARD_TILES, INERT_TILES } from "./Board";
-import { drawChanceCard, drawCommunityChestCard, Card } from "./Cards";
 import monopolyJSON from "../../../shared/data/monopoly.json";
-import { GameTrading, MonopolyMode, MonopolyModes, historyAction, PlayerStats, GameStats } from "../../../shared/types/game";
+import { GameTrading, MonopolyMode, MonopolyModes, historyAction, GameStats } from "../../../shared/types/game";
 
 export class GameState {
-    public clients = new Map<string, { player: Player; socket: any; ready: boolean; positions: { x: number; y: number }; connected?: boolean; isDebugAuthenticated?: boolean }>();
+    public clients = new Map<
+        string,
+        {
+            player: Player;
+            socket: any;
+            ready: boolean;
+            positions: { x: number; y: number };
+            connected?: boolean;
+            isDebugAuthenticated?: boolean;
+        }
+    >();
     public spectators = new Map<string, any>();
     public logs_strings: Array<string> = [];
     public currentId = "";
@@ -18,7 +27,7 @@ export class GameState {
     public gameStats: GameStats = {
         diceRolls: {},
         tileVisits: {},
-        playerStats: {}
+        playerStats: {},
     };
 
     // Tracking maps
@@ -61,8 +70,8 @@ export class GameState {
             if (prop.morgage === true || (prop.morgage as any) === "true") {
                 nw += Math.round((propData.price ?? 0) * 0.5);
             } else {
-                nw += (propData.price ?? 0);
-                const housesCount = typeof prop.count === "number" ? prop.count : (prop.count === "h" ? 5 : 0);
+                nw += propData.price ?? 0;
+                const housesCount = typeof prop.count === "number" ? prop.count : prop.count === "h" ? 5 : 0;
                 const houseCost = propData.housecost ?? 0;
                 nw += housesCount * houseCost;
             }
@@ -86,7 +95,7 @@ export class GameState {
                 luckyEvents: 0,
                 unluckyEvents: 0,
                 cumulativeLuck: 0,
-                luckEventsCount: 0
+                luckEventsCount: 0,
             };
         }
         player.onBalanceChange = (prev: number, val: number) => {
@@ -156,12 +165,17 @@ export class GameState {
 
     public getExpectedRentExposure(player: Player, oldPos: number): { expectedRent: number; maxRent: number } {
         const probs: Record<number, number> = {
-            2: 1/36, 12: 1/36,
-            3: 2/36, 11: 2/36,
-            4: 3/36, 10: 3/36,
-            5: 4/36, 9: 4/36,
-            6: 5/36, 8: 5/36,
-            7: 6/36
+            2: 1 / 36,
+            12: 1 / 36,
+            3: 2 / 36,
+            11: 2 / 36,
+            4: 3 / 36,
+            10: 3 / 36,
+            5: 4 / 36,
+            9: 4 / 36,
+            6: 5 / 36,
+            8: 5 / 36,
+            7: 6 / 36,
         };
 
         let expectedRent = 0;
@@ -180,7 +194,7 @@ export class GameState {
                 rentOrTax = 100;
             } else if (prop.group && prop.group !== "Special") {
                 const clientOwner = Array.from(this.clients.values()).find(
-                    (c) => c.player.properties.some((p) => p.posistion === targetPos) && !c.player.isBankrupt
+                    (c) => c.player.properties.some((p) => p.posistion === targetPos) && !c.player.isBankrupt,
                 );
                 if (clientOwner && clientOwner.player.id !== player.id) {
                     const owner = clientOwner.player;
@@ -188,23 +202,25 @@ export class GameState {
                     if (prp && prp.morgage !== true && (prp.morgage as any) !== "true") {
                         if (prop.group === "Utilities") {
                             const ownedCount = owner.properties.filter(
-                                (op) => propertyByPosition.get(op.posistion)?.group === "Utilities"
+                                (op) => propertyByPosition.get(op.posistion)?.group === "Utilities",
                             ).length;
                             rentOrTax = 7 * (ownedCount === 2 ? 10 : 4);
                         } else if (prop.group === "Railroad") {
                             const ownedCount = owner.properties.filter(
-                                (op) => propertyByPosition.get(op.posistion)?.group === "Railroad"
+                                (op) => propertyByPosition.get(op.posistion)?.group === "Railroad",
                             ).length;
                             rentOrTax = [0, 25, 50, 100, 200][Math.min(ownedCount, 4)];
                         } else {
                             const prpCount = prp.count;
-                            const houseCount = typeof prpCount === "number" ? prpCount : (prpCount === "h" ? 5 : 0);
+                            const houseCount = typeof prpCount === "number" ? prpCount : prpCount === "h" ? 5 : 0;
                             if (houseCount === 0) {
                                 const groupProps = monopolyJSON.properties.filter((p: any) => p.group === prop.group);
                                 const ownedGroup = owner.properties.filter((p: any) => p.group === prop.group);
                                 const hasMonopoly = groupProps.length > 0 && ownedGroup.length === groupProps.length;
                                 const allUnimproved = ownedGroup.every((p: any) => p.count === 0);
-                                const noneMortgaged = ownedGroup.every((p: any) => p.morgage !== true && (p.morgage as any) !== "true");
+                                const noneMortgaged = ownedGroup.every(
+                                    (p: any) => p.morgage !== true && (p.morgage as any) !== "true",
+                                );
                                 rentOrTax = (prop.rent ?? 0) * (hasMonopoly && allUnimproved && noneMortgaged ? 2 : 1);
                             } else {
                                 rentOrTax = (prop.multpliedrent ?? [])[houseCount - 1] ?? prop.rent ?? 0;
@@ -228,7 +244,7 @@ export class GameState {
         position: number,
         rolls: number,
         multiplier = 1,
-        isCardMove = false
+        isCardMove = false,
     ): { requiresPurchaseDecision: boolean; landingNote: string } {
         const prop = propertyByPosition.get(position);
         if (!prop) return { requiresPurchaseDecision: false, landingNote: "" };
@@ -237,7 +253,7 @@ export class GameState {
         if (prop.id === "gotojail") return { requiresPurchaseDecision: false, landingNote: "" };
 
         const getRentLuckWeight = (pOwner: Player, pos: number) => {
-            const prp = pOwner.properties.find(p => p.posistion === pos);
+            const prp = pOwner.properties.find((p) => p.posistion === pos);
             if (!prp) return 1;
             if (prp.count === "h") return 3;
             if (typeof prp.count === "number" && prp.count > 0) return 2;
@@ -247,14 +263,17 @@ export class GameState {
         let expectedRent = 0;
         let maxRent = 0;
         if (!isCardMove) {
-            const oldPos = ((position - rolls) % 40 + 40) % 40;
+            const oldPos = (((position - rolls) % 40) + 40) % 40;
             const exposure = this.getExpectedRentExposure(player, oldPos);
             expectedRent = exposure.expectedRent;
             maxRent = exposure.maxRent;
         }
 
         let actualPaid = 0;
-        let result: { requiresPurchaseDecision: boolean; landingNote: string } = { requiresPurchaseDecision: false, landingNote: "" };
+        let result: { requiresPurchaseDecision: boolean; landingNote: string } = {
+            requiresPurchaseDecision: false,
+            landingNote: "",
+        };
 
         if (prop.id === "incometax") {
             player.balance -= 200;
@@ -275,7 +294,7 @@ export class GameState {
             }
             result = { requiresPurchaseDecision: false, landingNote: "luxerytax:100" };
         } else {
-            const playersList = Array.from(this.clients.values()).map(c => c.player);
+            const playersList = Array.from(this.clients.values()).map((c) => c.player);
             const { owner, amount } = computeRent(position, rolls, playersList, multiplier);
             if (owner !== null) {
                 if (owner.id === player.id) {
@@ -310,12 +329,12 @@ export class GameState {
                 const ownedGroup = player.properties.filter((op: any) => op.group === prop.group);
                 const isCompletingMonopoly = groupProps.length > 0 && ownedGroup.length === groupProps.length - 1;
 
-                let opportunityLuck = 0.20;
+                let opportunityLuck = 0.2;
                 if (isCompletingMonopoly) {
                     if (prop.group === "Railroad" || prop.group === "Utilities") {
-                        opportunityLuck = 0.40;
+                        opportunityLuck = 0.4;
                     } else {
-                        opportunityLuck = 0.50;
+                        opportunityLuck = 0.5;
                     }
                 }
 
@@ -347,8 +366,14 @@ export class GameState {
     public resolveCard(
         player: Player,
         card: any,
-        rolls: number
-    ): { requiresPurchaseDecision: boolean; newPosition?: number; extraRoll?: [number, number]; landingNote?: string; pendingCard?: any } {
+        rolls: number,
+    ): {
+        requiresPurchaseDecision: boolean;
+        newPosition?: number;
+        extraRoll?: [number, number];
+        landingNote?: string;
+        pendingCard?: any;
+    } {
         switch (card.action) {
             case "addfunds":
                 player.balance += card.amount ?? 0;
@@ -357,11 +382,13 @@ export class GameState {
             case "removefunds":
                 player.balance -= card.amount ?? 0;
                 const pStatsRemove = this.gameStats.playerStats[player.id];
-                if (pStatsRemove) pStatsRemove.taxesPaid += (card.amount ?? 0);
+                if (pStatsRemove) pStatsRemove.taxesPaid += card.amount ?? 0;
                 return { requiresPurchaseDecision: false };
 
             case "addfundsfromplayers": {
-                for (const { player: p } of Array.from(this.clients.values()).filter((c) => c.player.id !== player.id && !c.player.isBankrupt)) {
+                for (const { player: p } of Array.from(this.clients.values()).filter(
+                    (c) => c.player.id !== player.id && !c.player.isBankrupt,
+                )) {
                     p.balance -= card.amount ?? 0;
                     player.balance += card.amount ?? 0;
                     const otherStats = this.gameStats.playerStats[p.id];
@@ -375,7 +402,9 @@ export class GameState {
             }
 
             case "removefundstoplayers": {
-                for (const { player: p } of Array.from(this.clients.values()).filter((c) => c.player.id !== player.id && !c.player.isBankrupt)) {
+                for (const { player: p } of Array.from(this.clients.values()).filter(
+                    (c) => c.player.id !== player.id && !c.player.isBankrupt,
+                )) {
                     p.balance += card.amount ?? 0;
                     player.balance -= card.amount ?? 0;
                     const otherStats = this.gameStats.playerStats[p.id];
@@ -430,13 +459,17 @@ export class GameState {
                     let nextCard = deck[Math.floor(Math.random() * deck.length)];
                     if (nextCard.action === "jail" && nextCard.subaction === "getout") {
                         const isChance = prop.id === "chance";
-                        const alreadyHeld = isChance ? (this.chanceGetOutOwner !== null) : (this.chestGetOutOwner !== null);
+                        const alreadyHeld = isChance ? this.chanceGetOutOwner !== null : this.chestGetOutOwner !== null;
                         if (alreadyHeld) {
-                            const filtered = deck.filter((c: any) => !(c.action === "jail" && c.subaction === "getout"));
+                            const filtered = deck.filter(
+                                (c: any) => !(c.action === "jail" && c.subaction === "getout"),
+                            );
                             nextCard = filtered[Math.floor(Math.random() * filtered.length)];
                         }
                     }
-                    this.emitServerHistory(`${player.username} landed on ${prop.id === "chance" ? "Chance" : "Community Chest"} space and drew card: "${nextCard.title}"`);
+                    this.emitServerHistory(
+                        `${player.username} landed on ${prop.id === "chance" ? "Chance" : "Community Chest"} space and drew card: "${nextCard.title}"`,
+                    );
                     const result = this.resolveCard(player, nextCard, rolls);
                     return {
                         requiresPurchaseDecision: result.requiresPurchaseDecision,
@@ -448,12 +481,16 @@ export class GameState {
                             requiresPurchaseDecision: result.requiresPurchaseDecision,
                             newPosition: result.newPosition ?? targetPos,
                             extraRoll: result.extraRoll ?? null,
-                        }
+                        },
                     };
                 }
 
                 const landing = this.processLanding(player, targetPos, rolls, 1, true);
-                return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: targetPos, landingNote: landing.landingNote };
+                return {
+                    requiresPurchaseDecision: landing.requiresPurchaseDecision,
+                    newPosition: targetPos,
+                    landingNote: landing.landingNote,
+                };
             }
 
             case "movenearest": {
@@ -464,7 +501,12 @@ export class GameState {
                     .sort((a, b) => a - b);
 
                 let nearest = positions[0];
-                for (const pos of positions) { if (pos > player.position) { nearest = pos; break; } }
+                for (const pos of positions) {
+                    if (pos > player.position) {
+                        nearest = pos;
+                        break;
+                    }
+                }
                 if (nearest <= player.position) player.balance += 200;
 
                 player.position = nearest;
@@ -474,10 +516,19 @@ export class GameState {
                     const d1 = Math.floor(Math.random() * 6) + 1;
                     const d2 = Math.floor(Math.random() * 6) + 1;
                     const landing = this.processLanding(player, nearest, d1 + d2, card.rentmultiplier ?? 1, true);
-                    return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest, extraRoll: [d1, d2], landingNote: landing.landingNote };
+                    return {
+                        requiresPurchaseDecision: landing.requiresPurchaseDecision,
+                        newPosition: nearest,
+                        extraRoll: [d1, d2],
+                        landingNote: landing.landingNote,
+                    };
                 }
                 const landing = this.processLanding(player, nearest, rolls, card.rentmultiplier ?? 1, true);
-                return { requiresPurchaseDecision: landing.requiresPurchaseDecision, newPosition: nearest, landingNote: landing.landingNote };
+                return {
+                    requiresPurchaseDecision: landing.requiresPurchaseDecision,
+                    newPosition: nearest,
+                    landingNote: landing.landingNote,
+                };
             }
 
             case "propertycharges": {
@@ -508,7 +559,7 @@ export class GameState {
             currentBid: 0,
             currentBidderId: "",
             timerSeconds: 20,
-            bids: []
+            bids: [],
         };
 
         this.emitAll("auction-start", {
@@ -517,7 +568,7 @@ export class GameState {
             price: prop.price,
             startingBid: 1,
             timerSeconds: 20,
-            bids: []
+            bids: [],
         });
         this.emitServerHistory(`Auction started for ${prop.name} (list price: $${prop.price})`);
 
@@ -583,7 +634,9 @@ export class GameState {
         const clientItem = this.clients.get(targetId);
         if (!clientItem) return;
         const bpPlayer = clientItem.player;
-        this.logFunction(`[BANKRUPTCY] Player ${bpPlayer.username} is declaring bankruptcy. Balance: ${bpPlayer.balance}`);
+        this.logFunction(
+            `[BANKRUPTCY] Player ${bpPlayer.username} is declaring bankruptcy. Balance: ${bpPlayer.balance}`,
+        );
         if (bpPlayer.isBankrupt) {
             this.logFunction(`[BANKRUPTCY] Player is already bankrupt.`);
             return;
@@ -622,13 +675,15 @@ export class GameState {
                     if (this.chestGetOutOwner === bpPlayer.id) {
                         this.chestGetOutOwner = cp.id;
                     }
-                    this.emitServerHistory(`${cp.username} received ${bpPlayer.getoutCards} Get Out of Jail Free card(s) from ${bpPlayer.username}`);
+                    this.emitServerHistory(
+                        `${cp.username} received ${bpPlayer.getoutCards} Get Out of Jail Free card(s) from ${bpPlayer.username}`,
+                    );
                     bpPlayer.getoutCards = 0;
                 }
 
                 for (const prp of bpPlayer.properties) {
-                    const propData = propertyById.get(prp.posistion?.toString()) ??
-                        propertyByPosition.get(prp.posistion);
+                    const propData =
+                        propertyById.get(prp.posistion?.toString()) ?? propertyByPosition.get(prp.posistion);
                     const propName = propData?.name ?? "a property";
 
                     // Liquidate buildings → 50% refund to creditor and return to bank pool
@@ -641,7 +696,9 @@ export class GameState {
                         const refund = Math.round(((propData as any)?.housecost ?? 0) * 0.5) * prp.count;
                         cp.balance += refund;
                         this.bankHouses += prp.count;
-                        this.emitServerHistory(`${cp.username} received $${refund} from ${prp.count} house(s) sold on ${propName}`);
+                        this.emitServerHistory(
+                            `${cp.username} received $${refund} from ${prp.count} house(s) sold on ${propName}`,
+                        );
                     }
                     prp.count = 0;
 
@@ -694,8 +751,7 @@ export class GameState {
                 bpPlayer.getoutCards = 0;
             }
             for (const prp of bpPlayer.properties) {
-                const propData = propertyById.get(prp.posistion?.toString()) ??
-                    propertyByPosition.get(prp.posistion);
+                const propData = propertyById.get(prp.posistion?.toString()) ?? propertyByPosition.get(prp.posistion);
                 const propName = propData?.name ?? "a property";
 
                 if (prp.count === "h") {
@@ -777,14 +833,16 @@ export class GameState {
         }
 
         const tGets = ap.properties.filter((v1: any) =>
-            x.againstPlayer.prop.some((v2) => v2.posistion === v1.posistion));
-        ap.properties = ap.properties.filter((v1: any) =>
-            !x.againstPlayer.prop.some((v2) => v2.posistion === v1.posistion));
+            x.againstPlayer.prop.some((v2) => v2.posistion === v1.posistion),
+        );
+        ap.properties = ap.properties.filter(
+            (v1: any) => !x.againstPlayer.prop.some((v2) => v2.posistion === v1.posistion),
+        );
 
-        const aGets = tp.properties.filter((v1: any) =>
-            x.turnPlayer.prop.some((v2) => v2.posistion === v1.posistion));
-        tp.properties = tp.properties.filter((v1: any) =>
-            !x.turnPlayer.prop.some((v2) => v2.posistion === v1.posistion));
+        const aGets = tp.properties.filter((v1: any) => x.turnPlayer.prop.some((v2) => v2.posistion === v1.posistion));
+        tp.properties = tp.properties.filter(
+            (v1: any) => !x.turnPlayer.prop.some((v2) => v2.posistion === v1.posistion),
+        );
 
         ap.balance -= x.againstPlayer.balance;
         tp.balance -= x.turnPlayer.balance;

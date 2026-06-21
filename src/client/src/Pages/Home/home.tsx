@@ -11,7 +11,7 @@ import { CookieManager } from "../../utils/cookieManager";
 import { logger } from "../../utils/logger";
 
 export default function Home() {
-    var cookie: MonopolyCookie;
+    let cookie: MonopolyCookie;
     try {
         const getCookieString = CookieManager.get("monopolySettings");
         if (getCookieString === null) throw new Error("no cookie");
@@ -22,7 +22,7 @@ export default function Home() {
                 gameEngine: "2d",
                 accessibility: [45, 5, false, false, true],
                 audio: [100, 100, 5],
-                notifications: true
+                notifications: true,
             };
             CookieManager.set("monopolySettings", encodeURIComponent(JSON.stringify(cookie as MonopolyCookie)));
         }
@@ -36,8 +36,8 @@ export default function Home() {
                 gameEngine: "2d",
                 accessibility: [45, 5, false, false, true],
                 audio: [100, 100, 5],
-                notifications: true
-            }
+                notifications: true,
+            },
         } as MonopolyCookie;
 
         CookieManager.set("monopolySettings", encodeURIComponent(JSON.stringify(cookie as MonopolyCookie)));
@@ -109,7 +109,9 @@ export default function Home() {
         }
 
         try {
-            const cookieObj = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
+            const cookieObj = JSON.parse(
+                decodeURIComponent(CookieManager.get("monopolySettings") as string),
+            ) as MonopolyCookie;
             cookieObj.login = {
                 id: "",
                 remember: false,
@@ -127,7 +129,7 @@ export default function Home() {
         SetDisabled(true);
 
         const address = TranslateCode(joinAddr) as string;
-        var socketObj: Socket;
+        let socketObj: Socket;
         try {
             socketObj = await io(address);
 
@@ -166,7 +168,7 @@ export default function Home() {
                                     }),
                                 ],
                             }),
-                            "info"
+                            "info",
                         );
                         break;
                     case 2:
@@ -186,7 +188,7 @@ export default function Home() {
                                     }),
                                 ],
                             }),
-                            "info"
+                            "info",
                         );
                         break;
                     default:
@@ -202,7 +204,8 @@ export default function Home() {
             // a room that no longer exists, causing an infinite retry loop.
             sessionStorage.removeItem("current_room");
             sessionStorage.removeItem("monopoly_token_" + TranslateCode(joinAddr));
-            const errMsg = r === "Room not found" ? "Room not found — session cleared" : `Could not connect to peer ${addr}`;
+            const errMsg =
+                r === "Room not found" ? "Room not found — session cleared" : `Could not connect to peer ${addr}`;
             notifyRef.current?.message(errMsg, "error", 2, () => {
                 SetDisabled(false);
             });
@@ -226,7 +229,6 @@ export default function Home() {
             setIsSpectatorState(isSpectator);
             joinButtonClicked(storedRoom, storedName, isSpectator);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -247,16 +249,16 @@ export default function Home() {
                 const response = await fetch("/api/create-room", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ playersCount })
+                    body: JSON.stringify({ playersCount }),
                 });
                 const data = await response.json();
                 if (data.success) {
                     sessionStorage.setItem("current_room", data.hostCode);
                     localStorage.setItem("current_name", name);
-                    
+
                     const virtualServer = new Server();
                     virtualServer.code = data.translatedCode; // RAW code
-                    
+
                     const socketObj = await io(TranslateCode(virtualServer.code));
                     socketObj.on("state", (args: number) => {
                         switch (args) {
@@ -289,32 +291,28 @@ export default function Home() {
             <NotifyElement ref={notifyRef} />
             <div className="entry">
                 <header className="entry-header">
-                    <div className="logo-group" onClick={() => { document.location.href = "/"; }} style={{ cursor: "pointer" }}>
+                    <div
+                        className="logo-group"
+                        onClick={() => {
+                            document.location.href = "/";
+                        }}
+                        style={{ cursor: "pointer" }}
+                    >
                         <div className="logo-square">
                             <img src="./icon.png" alt="" className="logo-icon" />
                         </div>
                         <span className="logo-title">MONOPOLY</span>
                     </div>
                     <nav className="entry-nav">
-                        <button
-                            data-select={tabIndex === 0}
-                            onClick={() => SetTab(0)}
-                            className="nav-item"
-                        >
+                        <button data-select={tabIndex === 0} onClick={() => SetTab(0)} className="nav-item">
                             Play Game
                         </button>
-                        <button
-                            data-select={tabIndex === 4}
-                            onClick={() => SetTab(4)}
-                            className="nav-item"
-                        >
+                        <button data-select={tabIndex === 4} onClick={() => SetTab(4)} className="nav-item">
                             Settings
                         </button>
                     </nav>
                     <div className="user-profile">
-                        <div className="profile-avatar">
-                            {name ? name.charAt(0).toUpperCase() : 'G'}
-                        </div>
+                        <div className="profile-avatar">{name ? name.charAt(0).toUpperCase() : "G"}</div>
                         <div className="profile-info">
                             <input
                                 type="text"
@@ -325,7 +323,9 @@ export default function Home() {
                                 maxLength={16}
                                 title="Click to edit your name"
                             />
-                            <span className="profile-handle">@{name ? name.toLowerCase().replace(/\s+/g, '') : "guest"}</span>
+                            <span className="profile-handle">
+                                @{name ? name.toLowerCase().replace(/\s+/g, "") : "guest"}
+                            </span>
                         </div>
                     </div>
                 </header>
@@ -351,10 +351,7 @@ export default function Home() {
                                 name={name}
                             />
                             <div className="reset-session-container">
-                                <button
-                                    className="btn-secondary btn-reset"
-                                    onClick={resetSavedGameSession}
-                                >
+                                <button className="btn-secondary btn-reset" onClick={resetSavedGameSession}>
                                     Reset Saved Game Session
                                 </button>
                             </div>

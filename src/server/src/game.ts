@@ -6,7 +6,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
     const maxPlayers = playersCount > 0 ? Math.min(playersCount, 6) : 6;
     const gameState = new GameState();
 
-    const gameServer = new Server(
+    new Server(
         (server) => {
             server.clientsCount = () => gameState.clients.size;
             server.maxPlayers = maxPlayers;
@@ -16,11 +16,13 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
                 return hostClient ? hostClient.player.username : "Unknown";
             };
             server.hostId = () => gameState.hostId;
-            server.setHostId = (id: string) => { gameState.hostId = id; };
+            server.setHostId = (id: string) => {
+                gameState.hostId = id;
+            };
             f?.(server.code, server);
         },
         (socket: Socket, server: Server) => {
             registerSocketHandlers(socket, server, gameState, maxPlayers);
-        }
+        },
     );
 }
