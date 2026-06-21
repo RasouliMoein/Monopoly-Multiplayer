@@ -224,10 +224,11 @@ async function main(playersCount, f) {
      * Returns the winning Player object if a win is detected, otherwise null.
      */
     function checkWinCondition() {
+        // Regardless of game mode, if only one active player remains, they are the winner.
+        const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
+        if (active.length === 1)
+            return active[0].player;
         if (selectedMode.WinningMode === "last-standing") {
-            const active = Array.from(Clients.values()).filter((v) => !v.player.isBankrupt);
-            if (active.length === 1)
-                return active[0].player;
             return null;
         }
         for (const { player } of Array.from(Clients.values())) {
@@ -259,6 +260,22 @@ async function main(playersCount, f) {
             }
         }
         return null;
+    }
+    /**
+     * Check if a player has won. If so, updates the game state to stopped,
+     * resets ready states of all players, and emits updated ready status.
+     */
+    function checkAndHandleWinCondition() {
+        const winner = checkWinCondition();
+        if (winner) {
+            gameStarted = false;
+            for (const c of Array.from(Clients.values())) {
+                c.ready = false;
+                EmitAll("ready", { id: c.player.id, state: false, selectedMode });
+            }
+            currentId = winner.id;
+        }
+        return winner;
     }
     /**
      * Compute rent owed at a position (server-authoritative).
@@ -743,6 +760,7 @@ async function main(playersCount, f) {
             position: auction.propertyPosition,
         });
         emitServerHistory(`${winner.username} won the auction for ${prop.name} at $${auction.currentBid}`);
+        checkAndHandleWinCondition();
         EmitStateUpdate();
     }
     // ── WebSocket server ──────────────────────────────────────────────────────
@@ -1419,13 +1437,7 @@ async function main(playersCount, f) {
                         let i = arr.indexOf(socket.id);
                         i = arr.length > 0 ? (i + 1) % arr.length : -1;
                         currentId = i === -1 ? "" : arr[i];
-                        const winner = checkWinCondition();
-                        if (winner) {
-                            for (const c of Array.from(Clients.values()))
-                                c.ready = false;
-                            gameStarted = false;
-                            currentId = winner.id;
-                        }
+                        checkAndHandleWinCondition();
                         // Record turn-end net worth snapshots for all players
                         for (const c of Array.from(Clients.values())) {
                             const p = c.player;
@@ -1631,12 +1643,7 @@ async function main(playersCount, f) {
                         turnId: currentId,
                         pJsons: Array.from(Clients.values()).map((c) => c.player.to_json()),
                     });
-                    const winner = checkWinCondition();
-                    if (winner) {
-                        gameStarted = false;
-                        for (const c of Array.from(Clients.values()))
-                            c.ready = false;
-                    }
+                    checkAndHandleWinCondition();
                     EmitStateUpdate();
                 };
                 // Helper: declare bankruptcy for player
@@ -1960,6 +1967,7 @@ async function main(playersCount, f) {
                         pJsons: [tp.to_json(), ap.to_json()],
                         action: `${tp.username} done a trade with ${ap.username}`,
                     });
+                    checkAndHandleWinCondition();
                     EmitStateUpdate();
                     return true;
                 }

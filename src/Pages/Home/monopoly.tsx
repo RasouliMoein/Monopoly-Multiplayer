@@ -301,6 +301,8 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
         const showWinDialog = (winner: Player, reason: string) => {
             mainTheme.pause();
+            SetGameStarted(false);
+            SetGameStartedDisplay(false);
             const isLocal = winner.id === socket.id;
             const title = isLocal ? "YOU WON!" : `${winner.username} WON!`;
             const description = isLocal ? reason : reason.replace(/\byou\b/gi, winner.username);
@@ -319,6 +321,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
         };
 
         const checkVictory = (updatedClients: Map<string, Player>): boolean => {
+            if (!gameStartedRef.current) return false;
             const winMode = selectedModeRef.current?.WinningMode ?? "last-standing";
             const activePlayers = Array.from(updatedClients.values()).filter((p) => !p.isBankrupt);
 
@@ -330,35 +333,37 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             }
 
             // 2. check other conditions if not last-standing
-            for (const p of activePlayers) {
-                // Count completed sets
-                const prpGrups: string[] = [];
-                for (const prp of p.properties) {
-                    if (!["Special", "Railroad", "Utilities"].includes(prp.group)) {
-                        prpGrups.push(prp.group);
+            if (winMode !== "last-standing") {
+                for (const p of activePlayers) {
+                    // Count completed sets
+                    const prpGrups: string[] = [];
+                    for (const prp of p.properties) {
+                        if (!["Special", "Railroad", "Utilities"].includes(prp.group)) {
+                            prpGrups.push(prp.group);
+                        }
                     }
-                }
 
-                const uniqueGroups = Array.from(new Set(prpGrups));
-                let completedSets = 0;
-                for (const g of uniqueGroups) {
-                    const ownedCount = prpGrups.filter((v) => v === g).length;
-                    const totalInGroup = monopolyJSON.properties.filter((v) => v.group === g).length;
-                    if (ownedCount === totalInGroup) {
-                        completedSets += 1;
+                    const uniqueGroups = Array.from(new Set(prpGrups));
+                    let completedSets = 0;
+                    for (const g of uniqueGroups) {
+                        const ownedCount = prpGrups.filter((v) => v === g).length;
+                        const totalInGroup = monopolyJSON.properties.filter((v) => v.group === g).length;
+                        if (ownedCount === totalInGroup) {
+                            completedSets += 1;
+                        }
                     }
-                }
 
-                if (completedSets >= 3) {
-                    showWinDialog(p, "you have completed 3 or more color groups!");
-                    return true;
-                }
-
-                if (winMode === "monopols & trains") {
-                    const railroadsOwned = p.properties.filter((v) => v.group === "Railroad").length;
-                    if (railroadsOwned >= 4) {
-                        showWinDialog(p, "you have completed 4 railroads!");
+                    if (completedSets >= 3) {
+                        showWinDialog(p, "you have completed 3 or more color groups!");
                         return true;
+                    }
+
+                    if (winMode === "monopols & trains") {
+                        const railroadsOwned = p.properties.filter((v) => v.group === "Railroad").length;
+                        if (railroadsOwned >= 4) {
+                            showWinDialog(p, "you have completed 4 railroads!");
+                            return true;
+                        }
                     }
                 }
             }
@@ -1221,6 +1226,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             }
             SetClients(nextClients);
             navRef.current?.reRenderPlayerList();
+            checkVictory(nextClients);
 
             // Turn state is now synchronized directly via player class properties
         });
