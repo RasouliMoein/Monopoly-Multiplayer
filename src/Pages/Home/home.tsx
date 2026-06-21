@@ -54,6 +54,7 @@ export default function Home() {
 
     // Server Stuff
     const [server, SetServer] = useState<Server | undefined>(undefined);
+    const [isSpectatorState, setIsSpectatorState] = useState<boolean>(false);
 
     function resetSavedGameSession() {
         const keysToRemove: string[] = [];
@@ -88,7 +89,7 @@ export default function Home() {
         } catch {}
     }, []);
 
-    const joinButtonClicked = async (forceAddress?: string, forceName?: string) => {
+    const joinButtonClicked = async (forceAddress?: string, forceName?: string, spectateOnly = false) => {
         const joinName = forceName || name;
         const joinAddr = forceAddress || addr;
 
@@ -97,8 +98,14 @@ export default function Home() {
             return;
         }
 
+        setIsSpectatorState(spectateOnly);
         sessionStorage.setItem("current_room", joinAddr);
         localStorage.setItem("current_name", joinName);
+        if (spectateOnly) {
+            sessionStorage.setItem("is_spectator_" + TranslateCode(joinAddr), "true");
+        } else {
+            sessionStorage.removeItem("is_spectator_" + TranslateCode(joinAddr));
+        }
 
         try {
             const cookieObj = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
@@ -125,6 +132,14 @@ export default function Home() {
 
             socketObj.on("state", (args: number) => {
                 console.log("state");
+                if (spectateOnly) {
+                    SetSocket(socketObj);
+                    SetName(joinName);
+                    SetAddress(joinAddr);
+                    SetSignedIn(true);
+                    SetDisabled(false);
+                    return;
+                }
                 switch (args) {
                     case 0:
                         SetSocket(socketObj);
@@ -134,20 +149,44 @@ export default function Home() {
                         SetDisabled(false);
                         break;
                     case 1:
-                        // Game already started — clear saved room so page reload doesn't auto-rejoin
-                        sessionStorage.removeItem("current_room");
-                        notifyRef.current?.message("the game has already begun", "error", 2, () => {
-                            SetDisabled(false);
-                        });
+                        // Game already started — ask if they want to spectate
                         socketObj.disconnect();
+                        notifyRef.current?.dialog(
+                            (close_func, createButton) => ({
+                                innerHTML: `<h3>Game In Progress</h3><p>The game has already begun. Would you like to spectate?</p>`,
+                                buttons: [
+                                    createButton("SPECTATE", () => {
+                                        close_func();
+                                        joinButtonClicked(joinAddr, joinName, true);
+                                    }),
+                                    createButton("CANCEL", () => {
+                                        close_func();
+                                        SetDisabled(false);
+                                    }),
+                                ],
+                            }),
+                            "info"
+                        );
                         break;
                     case 2:
-                        // Room full — clear saved room so page reload doesn't auto-rejoin
-                        sessionStorage.removeItem("current_room");
-                        notifyRef.current?.message("too many players on the server", "error", 2, () => {
-                            SetDisabled(false);
-                        });
+                        // Room full — ask if they want to spectate
                         socketObj.disconnect();
+                        notifyRef.current?.dialog(
+                            (close_func, createButton) => ({
+                                innerHTML: `<h3>Lobby Full</h3><p>The lobby is full. Would you like to join as a spectator?</p>`,
+                                buttons: [
+                                    createButton("SPECTATE", () => {
+                                        close_func();
+                                        joinButtonClicked(joinAddr, joinName, true);
+                                    }),
+                                    createButton("CANCEL", () => {
+                                        close_func();
+                                        SetDisabled(false);
+                                    }),
+                                ],
+                            }),
+                            "info"
+                        );
                         break;
                     default:
                         notifyRef.current?.message("unkown error", "error", 2, () => {
@@ -181,8 +220,10 @@ export default function Home() {
             SetName(storedName);
         }
         if (storedRoom && storedName) {
+            const isSpectator = sessionStorage.getItem("is_spectator_" + TranslateCode(storedRoom)) === "true";
             SetAddress(storedRoom);
-            joinButtonClicked(storedRoom, storedName);
+            setIsSpectatorState(isSpectator);
+            joinButtonClicked(storedRoom, storedName, isSpectator);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -241,7 +282,7 @@ export default function Home() {
     }
 
     return socket !== undefined && isSignedIn === true ? (
-        <Monopoly socket={socket} name={name} server={server} />
+        <Monopoly socket={socket} name={name} server={server} isSpectator={isSpectatorState} />
     ) : (
         <>
             <NotifyElement ref={notifyRef} />
@@ -294,8 +335,11 @@ export default function Home() {
                         <>
                             <JoinScreen
                                 disabled={disabled}
-                                joinViaCode={() => {
-                                    joinButtonClicked();
+                                joinViaCode={(code?: string) => {
+                                    joinButtonClicked(code);
+                                }}
+                                spectateLobby={(code?: string) => {
+                                    joinButtonClicked(code, undefined, true);
                                 }}
                                 createRoom={(count) => {
                                     createRoomAndJoin(count);

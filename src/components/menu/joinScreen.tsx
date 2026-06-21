@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Icons } from "../icons";
 
 export default function JoinScreen(props: {
-    joinViaCode: () => void;
+    joinViaCode: (code?: string) => void;
+    spectateLobby: (code?: string) => void;
     createRoom: (playersCount: number) => void;
     disabled: boolean;
     name: string;
@@ -65,14 +66,14 @@ export default function JoinScreen(props: {
                                         <div 
                                             key={room.translatedCode}
                                             onClick={() => {
+                                                props.SetAddress(room.code);
                                                 if (isJoinable) {
-                                                    props.SetAddress(room.code);
-                                                    setTimeout(() => {
-                                                        props.joinViaCode();
-                                                    }, 100);
+                                                    props.joinViaCode(room.code);
+                                                } else {
+                                                    props.spectateLobby(room.code);
                                                 }
                                             }}
-                                            className={`lobby-row-item ${isJoinable ? 'joinable' : 'full'}`}
+                                            className={`lobby-row-item joinable`}
                                         >
                                             <div className="lobby-row-left">
                                                 <span className="room-code-tag">{room.code}</span>
@@ -85,7 +86,11 @@ export default function JoinScreen(props: {
                                             </div>
                                             <div className="lobby-row-right">
                                                 <span className="player-count-label"><Icons.Users width={12} height={12} style={{verticalAlign:'middle', marginRight:3}} />{room.clientsCount}/{room.maxPlayers}</span>
-                                                {isJoinable && <span className="join-arrow-btn">Join →</span>}
+                                                {isJoinable ? (
+                                                    <span className="join-arrow-btn">Join →</span>
+                                                ) : (
+                                                    <span className="join-arrow-btn spectate-btn-label">Spectate 👁️</span>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -95,7 +100,7 @@ export default function JoinScreen(props: {
                     </div>
 
                     {/* BOTTOM BAR: Join Game Only */}
-                    <div className="search-bar-horizontal" style={{ gridTemplateColumns: '1.8fr 1fr' }}>
+                    <div className="search-bar-horizontal" style={{ gridTemplateColumns: '1.6fr 1fr 1fr', gap: '8px' }}>
                         <div className="search-pill-input code-pill" style={{ width: '100%' }}>
                             <input
                                 type="text"
@@ -110,12 +115,20 @@ export default function JoinScreen(props: {
                             <span className="pill-icon"><Icons.MapPin width={12} height={12} /></span>
                         </div>
                         <button
-                            onClick={props.joinViaCode}
+                            onClick={() => props.joinViaCode()}
                             disabled={props.disabled || !props.addr || !props.name}
                             className="primary-action-btn"
                             style={{ height: '40px', padding: '0 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
                             <Icons.Zap width={14} height={14} style={{flexShrink:0}} /> Join Lobby
+                        </button>
+                        <button
+                            onClick={() => props.spectateLobby()}
+                            disabled={props.disabled || !props.addr || !props.name}
+                            className="primary-action-btn secondary-btn"
+                            style={{ height: '40px', padding: '0 10px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc' }}
+                        >
+                            👁️ Spectate
                         </button>
                     </div>
                 </div>

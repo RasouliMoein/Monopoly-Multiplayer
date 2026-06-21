@@ -47,6 +47,7 @@ interface MonopolyGameProps {
         timerSeconds: number;
         bids: Array<{ bidderName: string; amount: number }>;
     } | null;
+    isSpectator?: boolean;
 }
 export interface MonopolyGameRef {
     diceResults: (args: { l: [number, number]; time: number; onDone: () => void }) => void;
@@ -834,6 +835,65 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
     return (
         <>
             <div className="game" style={prop.tradeObj !== undefined ? { translate: "0px -100%" } : {}}>
+                {prop.isSpectator && (
+                    <>
+                        <style>{`
+                            .spectator-banner {
+                                position: fixed;
+                                top: 20px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                z-index: 10000;
+                                background: rgba(15, 23, 42, 0.65);
+                                backdrop-filter: blur(12px);
+                                border: 1px solid rgba(255, 255, 255, 0.15);
+                                padding: 8px 16px;
+                                border-radius: 9999px;
+                                box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+                                pointer-events: none;
+                                font-family: 'Outfit', sans-serif;
+                            }
+                            .spectator-badge-container {
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                            }
+                            .spectator-text {
+                                font-size: 0.85rem;
+                                font-weight: 600;
+                                color: #cbd5e1;
+                                letter-spacing: 0.05em;
+                            }
+                            .spectator-ping {
+                                width: 8px;
+                                height: 8px;
+                                background-color: #3b82f6;
+                                border-radius: 50%;
+                                position: relative;
+                            }
+                            .spectator-ping::after {
+                                content: '';
+                                position: absolute;
+                                top: 0; left: 0; right: 0; bottom: 0;
+                                border-radius: 50%;
+                                background-color: #3b82f6;
+                                animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+                            }
+                            @keyframes ping {
+                                75%, 100% {
+                                    transform: scale(2.5);
+                                    opacity: 0;
+                                }
+                            }
+                        `}</style>
+                        <div className="spectator-banner animate-fade">
+                            <div className="spectator-badge-container">
+                                <span className="spectator-ping"></span>
+                                <span className="spectator-text">SPECTATING GAME</span>
+                            </div>
+                        </div>
+                    </>
+                )}
                 <div style={{ overflowY: "hidden" }}>
                     <div id="dice-panel" data-show={showDice}></div>
                     <div
@@ -2235,8 +2295,9 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
             {/* Phase 2: Property Auction Modal Overlay */}
             {prop.currentAuction && (() => {
                 const myPlayer = prop.players.find(v => v.id === prop.socket.id);
-                if (!myPlayer) return null;
-                const myBalance = myPlayer.balance;
+                const isSpectator = !myPlayer || prop.isSpectator;
+                const myBalance = myPlayer ? myPlayer.balance : 0;
+                const isBankrupt = myPlayer ? myPlayer.isBankrupt : false;
                 const auctionProp = propretyMap.get(prop.currentAuction.position);
                 if (!auctionProp) return null;
 
@@ -2292,10 +2353,10 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
 
                                     {/* Quick Bids */}
                                     <div className="auction-quick-bids">
-                                        <button disabled={myPlayer.isBankrupt || myBalance <= prop.currentAuction.currentBid} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 1)}>+$1</button>
-                                        <button disabled={myPlayer.isBankrupt || myBalance <= prop.currentAuction.currentBid + 9} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 10)}>+$10</button>
-                                        <button disabled={myPlayer.isBankrupt || myBalance <= prop.currentAuction.currentBid + 49} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 50)}>+$50</button>
-                                        <button disabled={myPlayer.isBankrupt || myBalance <= prop.currentAuction.currentBid + 99} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 100)}>+$100</button>
+                                        <button disabled={isSpectator || isBankrupt || myBalance <= prop.currentAuction.currentBid} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 1)}>+$1</button>
+                                        <button disabled={isSpectator || isBankrupt || myBalance <= prop.currentAuction.currentBid + 9} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 10)}>+$10</button>
+                                        <button disabled={isSpectator || isBankrupt || myBalance <= prop.currentAuction.currentBid + 49} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 50)}>+$50</button>
+                                        <button disabled={isSpectator || isBankrupt || myBalance <= prop.currentAuction.currentBid + 99} onClick={() => handleBidSubmit(prop.currentAuction!.currentBid + 100)}>+$100</button>
                                     </div>
 
                                     {/* Custom Bid Input */}
@@ -2307,17 +2368,22 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                             max={myBalance}
                                             value={customBidValue}
                                             onChange={(e) => setCustomBidValue(parseInt(e.target.value) || 0)}
-                                            placeholder={`Min: $${prop.currentAuction.currentBid + 1}`}
-                                            disabled={myPlayer.isBankrupt}
+                                            placeholder={isSpectator ? "Spectating" : `Min: $${prop.currentAuction.currentBid + 1}`}
+                                            disabled={isSpectator || isBankrupt}
                                         />
                                         <button
                                             className="bid-btn"
-                                            disabled={myPlayer.isBankrupt || customBidValue <= prop.currentAuction.currentBid || customBidValue > myBalance}
+                                            disabled={isSpectator || isBankrupt || customBidValue <= prop.currentAuction.currentBid || customBidValue > myBalance}
                                             onClick={() => handleBidSubmit(customBidValue)}
                                         >
                                             Place Bid
                                         </button>
                                     </div>
+                                    {isSpectator && (
+                                        <div className="spectator-bid-notice" style={{ color: "#94a3b8", fontSize: "0.8rem", textAlign: "center", marginTop: "10px", fontWeight: 500 }}>
+                                            👁️ Spectators cannot place bids
+                                        </div>
+                                    )}
 
                                     {/* Bid History */}
                                     <div className="auction-history-scroller">

@@ -10,7 +10,7 @@ import monopolyJSON from "../../data/monopoly.json";
 import { Icons } from "../../components/icons";
 import { MonopolySettings, MonopolyModes, historyAction, history, GameTrading, MonopolyMode, MonopolyCookie, GameStats } from "../../types";
 import { CookieManager } from "../../utils/cookieManager";
-function App({ socket, name, server }: { socket: Socket; name: string; server: Server | undefined }) {
+function App({ socket, name, server, isSpectator = false }: { socket: Socket; name: string; server: Server | undefined; isSpectator?: boolean }) {
     const [clients, SetClients] = useState<Map<string, Player>>(new Map());
     const players = Array.from(clients.values());
     const clientsRef = useRef(clients);
@@ -1149,7 +1149,9 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             notifyRef.current?.message(args.message, "error", 4);
         };
 
-        document.addEventListener("mousemove", mouseMove);
+        if (!isSpectator) {
+            document.addEventListener("mousemove", mouseMove);
+        }
         socket.on("initials", socket_Initials);
         socket.on("new-player", socket_NewPlayer);
         socket.on("ready", socket_Ready);
@@ -1377,12 +1379,20 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
         var to_emit_name = true;
         //#endregion
-        if (to_emit_name) socket.emit("name", name);
+        if (to_emit_name) {
+            if (isSpectator) {
+                socket.emit("spectator", name);
+            } else {
+                socket.emit("name", name);
+            }
+        }
 
         return () => {
             to_emit_name = false;
             clearInterval(settings_interval);
-            document.removeEventListener("mousemove", mouseMove);
+            if (!isSpectator) {
+                document.removeEventListener("mousemove", mouseMove);
+            }
             window.removeEventListener("debug_toggle_auth", handleDebugToggleAuth);
         };
     }, []);
@@ -1417,6 +1427,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
             )}
             <main>
                 <MonopolyNav
+                    isSpectator={isSpectator}
                     currentTurn={currentId}
                     ref={navRef}
                     name={name}
@@ -1491,13 +1502,14 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                 />
 
                 <MonopolyGame
+                    isSpectator={isSpectator}
                     clickedOnBoard={(a) => {
                         navRef.current?.clickedOnBoard(a);
                     }}
                     ref={engineRef}
                     socket={socket}
                     players={Array.from(clients.values())}
-                    myTurn={currentId === socket.id}
+                    myTurn={currentId === socket.id && !isSpectator}
                     tradeObj={currentTrade}
                     tradeApi={{
                         onSelectPlayer(pId) {
@@ -1896,7 +1908,7 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                     <div className="lobbies-board-card">
                         <div className="board-header">
                             <div style={{ textAlign: "left" }}>
-                                <h3 className="section-title">Hello there, {name}</h3>
+                                <h3 className="section-title">Hello there, {name} {isSpectator && <span style={{ fontSize: '0.8em', color: '#94a3b8', marginLeft: '6px' }}>(Spectating)</span>}</h3>
                                 <p className="section-subtitle">Players currently connected to this multiplayer session.</p>
                             </div>
                         </div>
@@ -1943,18 +1955,24 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
 
                         {/* Bottom action bars for ready/leave */}
                         <div className="search-bar-horizontal lobby-actions-row">
-                            <button
-                                disabled={gameStarted}
-                                onClick={() => {
-                                    socket.emit("ready", {
-                                        ready: !imReady,
-                                    });
-                                    SetReady(!imReady);
-                                }}
-                                className={`lobby-ready-toggle-btn ${imReady ? 'is-ready' : 'is-pending'}`}
-                            >
-                                {imReady ? "Toggle Unready" : "Toggle Ready"}
-                            </button>
+                            {isSpectator ? (
+                                <button className="lobby-ready-toggle-btn is-ready" disabled={true}>
+                                    Spectating Lobby
+                                </button>
+                            ) : (
+                                <button
+                                    disabled={gameStarted}
+                                    onClick={() => {
+                                        socket.emit("ready", {
+                                            ready: !imReady,
+                                        });
+                                        SetReady(!imReady);
+                                    }}
+                                    className={`lobby-ready-toggle-btn ${imReady ? 'is-ready' : 'is-pending'}`}
+                                >
+                                    {imReady ? "Toggle Unready" : "Toggle Ready"}
+                                </button>
+                            )}
                             
                             <button
                                 onClick={() => {
@@ -2044,46 +2062,48 @@ function App({ socket, name, server }: { socket: Socket; name: string; server: S
                         </div>
 
                         {/* Player Color and Avatar Selection */}
-                        <div className="reminder-type-section" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-                            <label className="section-label">SELECT YOUR AVATAR & COLOR</label>
-                            <div className="avatar-selection-grid">
-                                {(() => {
-                                    const myPlayer = clients.get(socket.id);
-                                    const myIconIndex = myPlayer ? myPlayer.icon : 0;
-                                    const colors = ["#E0115F", "#4169e1", "#50C878", "#FFC000", "#a855f7", "#FF7F50"];
-                                    
-                                    return colors.map((col, idx) => {
-                                        const takenBy = Array.from(clients.values()).find(
-                                            (p) => p.id !== socket.id && p.icon === idx
-                                        );
-                                        const isSelected = myIconIndex === idx;
+                        {!isSpectator && (
+                            <div className="reminder-type-section" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                                <label className="section-label">SELECT YOUR AVATAR & COLOR</label>
+                                <div className="avatar-selection-grid">
+                                    {(() => {
+                                        const myPlayer = clients.get(socket.id);
+                                        const myIconIndex = myPlayer ? myPlayer.icon : 0;
+                                        const colors = ["#E0115F", "#4169e1", "#50C878", "#FFC000", "#a855f7", "#FF7F50"];
                                         
-                                        return (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                className={`avatar-choice-btn ${isSelected ? "active" : ""} ${takenBy ? "taken" : ""}`}
-                                                style={{ 
-                                                    backgroundColor: col, 
-                                                }}
-                                                disabled={!!takenBy}
-                                                onClick={() => {
-                                                    socket.emit("select_icon", idx);
-                                                }}
-                                                title={takenBy ? `Taken by ${takenBy.username}` : `Select Color`}
-                                            >
-                                                <img src={`./p${idx + 1}.png`} alt="" className="avatar-choice-img" />
-                                                {takenBy && (
-                                                     <span className="avatar-taken-badge">
-                                                         {takenBy.username.charAt(0).toUpperCase()}
-                                                     </span>
-                                                )}
-                                            </button>
-                                        );
-                                    });
-                                })()}
+                                        return colors.map((col, idx) => {
+                                            const takenBy = Array.from(clients.values()).find(
+                                                (p) => p.id !== socket.id && p.icon === idx
+                                            );
+                                            const isSelected = myIconIndex === idx;
+                                            
+                                            return (
+                                                <button
+                                                    key={idx}
+                                                    type="button"
+                                                    className={`avatar-choice-btn ${isSelected ? "active" : ""} ${takenBy ? "taken" : ""}`}
+                                                    style={{ 
+                                                        backgroundColor: col, 
+                                                    }}
+                                                    disabled={!!takenBy}
+                                                    onClick={() => {
+                                                        socket.emit("select_icon", idx);
+                                                    }}
+                                                    title={takenBy ? `Taken by ${takenBy.username}` : `Select Color`}
+                                                >
+                                                    <img src={`./p${idx + 1}.png`} alt="" className="avatar-choice-img" />
+                                                    {takenBy && (
+                                                         <span className="avatar-taken-badge">
+                                                             {takenBy.username.charAt(0).toUpperCase()}
+                                                         </span>
+                                                    )}
+                                                </button>
+                                            );
+                                        });
+                                    })()}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Match details list */}
                         <div className="event-details-section">

@@ -35,6 +35,7 @@ interface MonopolyNavProps {
     hostId: string;
     bankHouses?: number;
     bankHotels?: number;
+    isSpectator?: boolean;
 }
 
 export interface MonopolyNavRef {

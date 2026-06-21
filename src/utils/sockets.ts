@@ -147,7 +147,12 @@ newWs.onopen = () => {
 	// Use localStorage so the name survives tab closes and lobby leaves.
 	const name = localStorage.getItem("current_name") || sessionStorage.getItem("current_name") || "";
 	if (name) {
-		this.emit("name", name);
+		const isSpectator = sessionStorage.getItem("is_spectator_" + this.uri) === "true";
+		if (isSpectator) {
+			this.emit("spectator", name);
+		} else {
+			this.emit("name", name);
+		}
 	}
 	try {
 		const reconHandler = this.events.get("reconnected");

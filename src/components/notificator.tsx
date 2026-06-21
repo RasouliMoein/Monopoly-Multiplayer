@@ -22,7 +22,7 @@ export interface NotificatorRef {
 			innerHTML: string;
 			buttons: Array<HTMLButtonElement>;
 		},
-		soundtrack: "winning" | "loosing"
+		soundtrack: "winning" | "loosing" | "info"
 	) => void;
 }
 

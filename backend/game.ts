@@ -126,6 +126,7 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
     }
 
     const Clients = new Map<string, Client>();
+    const Spectators = new Map<string, Socket>();
     const logs_strings: Array<string> = [];
     let currentId = "";
     let gameStarted = false;
@@ -255,9 +256,11 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
 
     function EmitAll(event: string, args: any) {
         for (const x of Array.from(Clients.values())) x.socket.emit(event, args);
+        for (const s of Array.from(Spectators.values())) s.emit(event, args);
     }
     function EmitExcepts(id: string, event: string, args: any) {
         for (const [k, x] of Array.from(Clients.entries())) if (k !== id) x.socket.emit(event, args);
+        for (const [k, s] of Array.from(Spectators.entries())) if (k !== id) s.emit(event, args);
     }
 
     /** Broadcast canonical player state to every connected client. */
@@ -850,8 +853,65 @@ export async function main(playersCount: number, f?: (host: string, Server: Serv
             f?.(server.code, server);
         },
         (socket: Socket, server: Server) => {
-            let isReconnecting = Clients.has(socket.id);
+            let isReconnecting = Clients.has(socket.id) || Spectators.has(socket.id);
             socket.emit("state", isReconnecting ? 0 : (Clients.size < maxPlayers && !gameStarted ? 0 : gameStarted ? 1 : 2));
+
+            socket.on("spectator", (name: string) => {
+                try {
+                    let isSpecReconnecting = Spectators.has(socket.id);
+                    if (isSpecReconnecting) {
+                        const oldSocket = Spectators.get(socket.id);
+                        Spectators.set(socket.id, socket);
+                        if (oldSocket && oldSocket !== socket) oldSocket.disconnect();
+                    } else {
+                        Spectators.set(socket.id, socket);
+                    }
+
+                    server.clearCleanupTimer();
+
+                    const logMsg = `{${getCurrentTime()}} [${socket.id}] Spectator "${name}" has ${isSpecReconnecting ? "reconnected" : "connected"}.`;
+                    server.logFunction(logMsg);
+                    logs_strings.push(logMsg);
+
+                    socket.emit("initials", {
+                        turn_id: currentId,
+                        other_players: Array.from(Clients.values()).map((x) => x.player.to_json()),
+                        selectedMode,
+                        logs: logs_strings,
+                        gameStarted: gameStarted,
+                        hostId: hostId,
+                        history: server_histories,
+                        stats: gameStats
+                    });
+
+                    if (!isSpecReconnecting) {
+                        EmitAll("message", { from: "System", message: `${name} is now spectating the game.` });
+                    }
+
+                    socket.on("message", (message: string) => {
+                        try {
+                            server.logFunction(`{${getCurrentTime()}} [${socket.id}] Spectator "${name}" messaged "${message}".`);
+                            EmitAll("message", { from: `[Spectator] ${name}`, message });
+                        } catch (e) { server.logFunction(e); }
+                    });
+
+                    socket.on("leave-room", () => {
+                        Spectators.delete(socket.id);
+                        server.logFunction(`{${getCurrentTime()}} [${socket.id}] Spectator "${name}" has left the room.`);
+                        EmitAll("message", { from: "System", message: `${name} stopped spectating.` });
+                        socket.disconnect();
+                    });
+
+                    socket.on("disconnect", () => {
+                        try {
+                            if (Spectators.get(socket.id) === socket) {
+                                Spectators.delete(socket.id);
+                                server.logFunction(`{${getCurrentTime()}} [${socket.id}] Spectator "${name}" has disconnected.`);
+                            }
+                        } catch (e) { server.logFunction(e); }
+                    });
+                } catch (e) { server.logFunction(e); }
+            });
 
             socket.on("name", (name: string) => {
                 try {
