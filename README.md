@@ -147,6 +147,36 @@ npm start
 ```
 Open your browser at **[http://localhost:3064](http://localhost:3064)**.
 
+#### 🏥 Health & Monitoring
+The server exposes a health status endpoint:
+* **Endpoint**: `http://localhost:3064/api/health`
+* **Response**: Returns JSON containing server status (`UP`), process uptime, active lobbies/rooms count, connected players count, and node process memory footprint details.
+
+---
+
+## 🧪 Test Suite & Continuous Integration
+
+This project uses **Jest** with `ts-jest` for TypeScript test compilation and execution.
+
+### 🏃‍♂️ Running the Tests
+To run all test suites locally:
+```bash
+npm run test
+```
+
+### 🔬 What is Tested
+1. **Player Logic Unit Tests**: Validates initialization, JSON state serializations/deserializations, and balance modification callbacks.
+2. **Board Rent Payouts**: Tests rent calculations for single properties, monopolies (double rent), railroad structures, utility multiplier logic, and mortgaged flags.
+3. **GameState Cycles**: Tests asset valuation, property auctions, bankruptcy liquidation logic, and trading rules verification.
+4. **WebSocket Routing & Zod Validation**: Mocks client-to-server WebSocket events to verify Zod schema validation blocks malformed actions and safe event wrappers forward errors cleanly.
+
+### ⚙️ GitHub Actions CI Pipeline
+A workflow configuration is defined at `.github/workflows/ci.yml`. On every push and pull request to the `main` branch, the pipeline automatically:
+- Installs dependencies.
+- Enforces syntax conventions via `npm run lint`.
+- Verifies TypeScript builds via `npm run type-check`.
+- Runs the test suite via `npm run test`.
+
 ---
 
 ## 🎮 Key Controls & Keyboards
