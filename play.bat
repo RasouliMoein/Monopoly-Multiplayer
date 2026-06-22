@@ -14,5 +14,5 @@ echo.
 echo Starting Server...
 echo The game will be available at http://localhost:3064
 echo.
-node dist-backend/index.js
+node dist-backend/src/server/src/index.js
 pause

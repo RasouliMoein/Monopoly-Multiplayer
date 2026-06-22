@@ -21,5 +21,5 @@ if %errorlevel% neq 0 (
 )
 
 echo Starting Server...
-node dist-backend/index.js
+node dist-backend/src/server/src/index.js
 pause
