@@ -1072,14 +1072,20 @@ function App({
             if (xplayer === undefined) return;
             xplayer.positions = { x: args.x, y: args.y };
         }
-        function socket_networkDisconnect() {
+        function socket_networkDisconnect(code?: string) {
             if (leavingRoomRef.current) {
                 return;
             }
             mainTheme.pause();
+            const isRoomNotFound = code === "ROOM_NOT_FOUND";
+            const title = isRoomNotFound ? "LOBBY DESTROYED" : "LOST CONNECTION";
+            const description = isRoomNotFound
+                ? "The game lobby no longer exists or the host closed the connection."
+                : "You were disconnected from the game.";
+
             notifyRef.current?.dialog(
                 (close_func, createButton) => ({
-                    innerHTML: `<h3> LOST CONNECTION </h3> <p> you were disconnected from the game </p>`,
+                    innerHTML: `<h3> ${title} </h3> <p> ${description} </p>`,
                     buttons: [
                         createButton("RETURN TO MAIN MENU", () => {
                             close_func();
@@ -1192,6 +1198,9 @@ function App({
         socket.on("auction-end", socket_AuctionEnd);
         socket.on("auction-skip", socket_AuctionSkip);
         socket.on("pool-shortage", socket_PoolShortage);
+        socket.on("error-message", (args: { event?: string; message: string; details?: any }) => {
+            notifyRef.current?.message(args.message, "error", 4);
+        });
 
         socket.on("reconnecting", (attempt: number) => {
             SetReconnectAttempt(attempt);

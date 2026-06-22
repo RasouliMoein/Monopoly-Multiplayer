@@ -96,8 +96,33 @@ app.post("/api/create-room", (req, res) => {
     });
 });
 
+// Centralized Health Check API Endpoint
+app.get("/api/health", (_req, res) => {
+    const uptime = process.uptime();
+    const totalPlayers = Array.from(activeServers.values()).reduce(
+        (sum, s) => sum + (s.clientsCount ? s.clientsCount() : 0),
+        0,
+    );
+    res.json({
+        status: "UP",
+        uptime,
+        activeRooms: activeServers.size,
+        totalConnectedPlayers: totalPlayers,
+        memoryUsage: process.memoryUsage(),
+    });
+});
+
 app.get("*", (_req, res) => {
     res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
+});
+
+// Centralized express global error handler middleware
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    logger.error("Unhandled express route error:", err);
+    res.status(500).json({
+        error: "Internal Server Error",
+        message: err.message || "An unexpected error occurred",
+    });
 });
 
 server.listen(PORT as number, "0.0.0.0", () => {

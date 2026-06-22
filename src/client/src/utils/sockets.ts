@@ -112,11 +112,20 @@ export class Socket {
             console.error("Data connection error:", error);
         };
 
-        this.client.onclose = () => {
+        this.client.onclose = (event: CloseEvent) => {
             if (this.isDisconnectingExplicitly) {
                 try {
                     const xhandler = this.events.get("disconnect");
                     if (xhandler !== undefined) xhandler("");
+                } catch {}
+                return;
+            }
+
+            if (event.code === 1008) {
+                logger.error("Connection aborted: Room not found (close code 1008).");
+                try {
+                    const xhandler = this.events.get("disconnect");
+                    if (xhandler !== undefined) xhandler("ROOM_NOT_FOUND");
                 } catch {}
                 return;
             }
@@ -152,7 +161,16 @@ export class Socket {
 
         // Register onclose BEFORE onopen so a failed reconnect attempt (backend still down)
         // is properly detected and the retry loop continues rather than stalling.
-        newWs.onclose = () => {
+        newWs.onclose = (event: CloseEvent) => {
+            if (event.code === 1008) {
+                logger.error("Reconnection aborted: Room not found (close code 1008).");
+                try {
+                    const xhandler = this.events.get("disconnect");
+                    if (xhandler !== undefined) xhandler("ROOM_NOT_FOUND");
+                } catch {}
+                return;
+            }
+
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 this.reconnectAttempts += 1;
                 logger.warn(`Reconnect failed. Retrying ${this.reconnectAttempts}/${this.maxReconnectAttempts}...`);

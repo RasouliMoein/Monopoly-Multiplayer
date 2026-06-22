@@ -4,6 +4,8 @@ import { Player } from "../game/Player";
 import { propertyByPosition, CARD_TILES } from "../game/Board";
 import { GameTrading, MonopolyMode, historyAction } from "../../../shared/types/game";
 import monopolyJSON from "../../../shared/data/monopoly.json";
+import { websocketSchemas } from "../../../shared/validation/schemas";
+import { GameError } from "../../../shared/errors/GameErrors";
 
 function getCurrentTime() {
     const now = new Date();
@@ -30,6 +32,47 @@ function getPlayerColor(icon: number) {
 }
 
 export function registerSocketHandlers(socket: Socket, server: Server, state: GameState, maxPlayers: number) {
+    // Intercept socket.on registrations to validate payload with Zod schemas and catch logic/runtime errors
+    const originalOn = socket.on.bind(socket);
+    socket.on = (event: string, handler: (...args: any[]) => void) => {
+        if (event === "disconnect") {
+            originalOn(event, handler);
+            return socket;
+        }
+        originalOn(event, async (...args: any[]) => {
+            try {
+                const schema = (websocketSchemas as any)[event];
+                let parsedArgs = args[0];
+                if (schema) {
+                    const parseResult = schema.safeParse(args[0]);
+                    if (!parseResult.success) {
+                        const errorDetails = parseResult.error.format();
+                        server.logFunction(
+                            `[VALIDATION_FAILED] Event "${event}" from socket ${socket.id} has invalid payload:`,
+                            JSON.stringify(errorDetails),
+                        );
+                        socket.emit("error-message", {
+                            event,
+                            message: `Invalid input for action "${event}".`,
+                            details: errorDetails,
+                        });
+                        return;
+                    }
+                    parsedArgs = parseResult.data;
+                }
+                await handler(parsedArgs);
+            } catch (e: any) {
+                server.logFunction(`[SOCKET_ERROR] Error in event "${event}" from socket ${socket.id}:`, e);
+                const message = e instanceof GameError ? e.message : "An unexpected server error occurred.";
+                socket.emit("error-message", {
+                    event,
+                    message,
+                });
+            }
+        });
+        return socket;
+    };
+
     let isReconnecting = state.clients.has(socket.id) || state.spectators.has(socket.id);
     socket.emit(
         "state",
