@@ -1,5 +1,13 @@
+/**
+ * @file Player.ts
+ * @description Authoritative server-side Player class wrapping player state, property catalogs, jail logs, bankruptcy attributes, and change event triggers.
+ */
+
 import { PlayerProprety } from "../../../shared/types/game";
 
+/**
+ * Authoritative Player class running on the authorative server.
+ */
 export class Player {
     public id: string;
     public username: string;
@@ -7,9 +15,17 @@ export class Player {
     public position: number;
 
     private _balance = 0;
+
+    /**
+     * Gets the player's current cash balance.
+     */
     public get balance(): number {
         return this._balance;
     }
+
+    /**
+     * Sets the player's cash balance and triggers balance changes listener hooks.
+     */
     public set balance(val: number) {
         const prev = this._balance;
         this._balance = val;
@@ -17,6 +33,8 @@ export class Player {
             this.onBalanceChange(prev, val);
         }
     }
+
+    /** Callback triggered whenever player's balance updates (useful for statistics tracing) */
     public onBalanceChange?: (prev: number, val: number) => void;
 
     public properties: Array<PlayerProprety>;
@@ -28,6 +46,14 @@ export class Player {
     public hasRolled: boolean;
     public allowRollAgain: boolean;
 
+    /**
+     * Constructs a new server authoritative Player instance.
+     *
+     * @param _id Socket connection ID
+     * @param _name Chosen username
+     * @param _icon Chosen avatar index
+     * @param cash Starting cash amount (defaults to 1500)
+     */
     constructor(_id: string, _name: string, _icon: number, cash?: number) {
         this.id = _id;
         this.username = _name;
@@ -44,6 +70,11 @@ export class Player {
         this.allowRollAgain = false;
     }
 
+    /**
+     * Serializes player state details to send over room socket broadcast loops.
+     *
+     * @returns A PlayerJSON serializable packet
+     */
     to_json(): PlayerJSON {
         return {
             id: this.id,
@@ -62,6 +93,11 @@ export class Player {
         };
     }
 
+    /**
+     * Restores state details from a raw PlayerJSON payload.
+     *
+     * @param json Serialized player data packet
+     */
     from_json(json: PlayerJSON) {
         if (this.id !== json.id) return;
         this.position = json.position;
@@ -77,6 +113,9 @@ export class Player {
     }
 }
 
+/**
+ * Serialized representation of a player's core details on the server.
+ */
 export type PlayerJSON = {
     id: string;
     username: string;

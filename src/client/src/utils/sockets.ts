@@ -1,5 +1,17 @@
+/**
+ * @file sockets.ts
+ * @description WebSocket client wrapper with automatic reconnection logic, token-based session persistence, and custom event emitter dispatching.
+ */
+
 import { logger } from "./logger";
 
+/**
+ * Initializes a WebSocket connection to a specific lobby room.
+ *
+ * @param uri The lobby room resource code
+ * @param forceToken Optional token override (e.g. for testing)
+ * @returns A promise resolving to a configured Socket wrapper instance
+ */
 export function io(uri: string, forceToken?: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
         let token = forceToken;
@@ -46,7 +58,10 @@ export function io(uri: string, forceToken?: string): Promise<Socket> {
     });
 }
 
-// class For websocket
+/**
+ * Custom Socket wrapper that encapsulates an open WebSocket client,
+ * maps custom triggers to listener functions, and triggers reconnect procedures.
+ */
 export class Socket {
     private client: WebSocket;
     public events: Map<string, (args: any) => void>;
@@ -57,6 +72,13 @@ export class Socket {
     private maxReconnectAttempts = 5;
     private isDisconnectingExplicitly = false;
 
+    /**
+     * Constructs a new Socket wrapper.
+     *
+     * @param _socket The active native WebSocket instance
+     * @param uri The lobby room resource code
+     * @param token Session token identifier
+     */
     constructor(_socket: WebSocket, uri: string, token: string) {
         this.id = "";
         this.client = _socket;
@@ -66,6 +88,9 @@ export class Socket {
         this.setupSocketHandlers();
     }
 
+    /**
+     * Configures native WebSocket listener hooks for incoming messages, close events, and errors.
+     */
     private setupSocketHandlers() {
         this.client.onmessage = (event) => {
             try {
@@ -118,6 +143,9 @@ export class Socket {
         };
     }
 
+    /**
+     * Initiates WebSocket reconnection procedures.
+     */
     private reconnect() {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const newWs = new WebSocket(`${protocol}//${window.location.host}/room/${this.uri}?token=${this.token}`);
@@ -170,14 +198,31 @@ export class Socket {
         };
     }
 
+    /**
+     * Registers a callback handler for a given event.
+     *
+     * @param event_name Name of the websocket event
+     * @param handler Event callback processing block
+     */
     public on(event_name: string | "disconnect" | "reconnecting" | "reconnected", handler: (args: any) => void) {
         this.events.set(event_name, handler);
     }
+
+    /**
+     * Sends a WebSocket message payload back to the backend authoritative server.
+     *
+     * @param event_name Name of the socket event
+     * @param args Custom argument parameters mapping
+     */
     public emit(event_name: string, args?: any) {
         if (this.client.readyState === WebSocket.OPEN) {
             this.client.send(JSON.stringify({ event: event_name, args: args ?? undefined }));
         }
     }
+
+    /**
+     * Explicitly close this WebSocket session.
+     */
     public disconnect() {
         this.isDisconnectingExplicitly = true;
         this.emit("disconnect");
@@ -185,7 +230,9 @@ export class Socket {
     }
 }
 
-// Kept for offline/bot modes to avoid breaking everything
+/**
+ * Server mock helper class kept for offline/bot modes to avoid breaking runtime compatibility.
+ */
 export class Server {
     public logFunction: (...data: any[]) => void = () => {};
     public renderFunction: (v: Array<any[]>) => void = () => {};

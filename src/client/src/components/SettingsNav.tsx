@@ -1,7 +1,16 @@
+/**
+ * @file SettingsNav.tsx
+ * @description Renders the system settings page, managing volume parameters, rendering options, cursor updates, and debug configuration in local cookie storage.
+ */
+
 import Slider from "./utils/Slider";
 import { useEffect, useState } from "react";
 import { CookieManager } from "../utils/cookieManager";
 import { MonopolyCookie, MonopolySettings, EngineSettings } from "../../../shared/types/game";
+
+/**
+ * SettingsNav component rendering preferences and system options.
+ */
 export default function SettingsNav() {
     const cookie = JSON.parse(decodeURIComponent(CookieManager.get("monopolySettings") as string)) as MonopolyCookie;
     const l: {

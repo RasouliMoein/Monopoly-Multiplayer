@@ -1,16 +1,34 @@
+/**
+ * @file JoinScreen.tsx
+ * @description Lobby dashboard component rendering the list of active public rooms, allow lobby search by code, and providing configuration settings for hosting new matches.
+ */
+
 import { useState, useEffect } from "react";
 import { Icons } from "../icons";
 
-export default function JoinScreen(props: {
+interface JoinScreenProps {
+    /** Triggered when the user clicks the join button or row, attempting connection to a lobby code */
     joinViaCode: (code?: string) => void;
+    /** Triggered to connect to a lobby room as a spectator only */
     spectateLobby: (code?: string) => void;
+    /** Creates a new authorize room on the backend */
     createRoom: (playersCount: number) => void;
+    /** Disable state of the controls when connecting/rejoining is pending */
     disabled: boolean;
+    /** Username of the local player */
     name: string;
+    /** Currently typed lobby code address */
     addr: string;
+    /** Dispatch handler to update address state in parent page */
     SetAddress: React.Dispatch<React.SetStateAction<string>>;
+    /** Dispatch handler to update username state in parent page */
     SetName: React.Dispatch<React.SetStateAction<string>>;
-}) {
+}
+
+/**
+ * JoinScreen component offering options to join, spectate, or host Monopoly lobbies.
+ */
+export default function JoinScreen(props: JoinScreenProps) {
     const [maxPlayers, setMaxPlayers] = useState(4);
     const [activeRooms, setActiveRooms] = useState<any[]>([]);
     const [isRefreshing, setIsRefreshing] = useState(false);

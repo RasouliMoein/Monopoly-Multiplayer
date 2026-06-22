@@ -1,16 +1,41 @@
+/**
+ * @file Board.ts
+ * @description Server-authoritative utility mappings of board coordinates and helper functions to calculate property rent payouts dynamically.
+ */
+
 import monopolyJSON from "../../../shared/data/monopoly.json";
 import { Player } from "./Player";
 
+/**
+ * Fast lookup map index grouping board property configurations by their tile board index (0-39).
+ */
 export const propertyByPosition = new Map<number, any>(monopolyJSON.properties.map((p) => [p.posistion ?? 0, p]));
 
+/**
+ * Fast lookup map index grouping board property configurations by their unique JSON string ID.
+ */
 export const propertyById = new Map<string, any>(monopolyJSON.properties.map((p) => [p.id ?? "", p]));
 
+/**
+ * Set containing tile IDs corresponding to card decks (Chance and Community Chest).
+ */
 export const CARD_TILES = new Set(["communitychest", "chance"]);
+
+/**
+ * Set containing tile IDs that do not trigger purchases or actions.
+ */
 export const INERT_TILES = new Set(["go", "jail", "freeparking"]);
 
 /**
  * Compute rent owed at a position (server-authoritative).
- * Returns { owner, amount }; amount=0 when mortgaged or unowned.
+ * Handles monopolies (double rent on unimproved color groups), houses/hotels, utilities (dice rolls factor), and railroads.
+ * Returns { owner, amount }; amount is 0 if mortgaged or unowned.
+ *
+ * @param position Board coordinate (0-39) being evaluated
+ * @param rolls Total sum of the dice rolled in the current turn
+ * @param players Active players list in the room lobby
+ * @param multiplier Optional multiplier factor (e.g. from Chance card events)
+ * @returns Object indicating the owner (if any) and the exact rent amount owed
  */
 export function computeRent(
     position: number,

@@ -1,5 +1,13 @@
+/**
+ * @file player.ts
+ * @description Client-side representation of a Monopoly Player. Exposes helper methods to serialize/deserialize player payload packets.
+ */
+
 import { PlayerProprety } from "../../../shared/types/game";
 
+/**
+ * Player class representing a local or remote participant in the game.
+ */
 export class Player {
     public id: string;
     public username: string;
@@ -18,6 +26,12 @@ export class Player {
     public hasRolled: boolean;
     public allowRollAgain: boolean;
 
+    /**
+     * Initializes a new Player instance.
+     *
+     * @param _id Socket connection ID of the player
+     * @param _name Display username
+     */
     constructor(_id: string, _name: string) {
         this.id = _id;
         this.username = _name;
@@ -35,6 +49,13 @@ export class Player {
         this.hasRolled = false;
         this.allowRollAgain = false;
     }
+
+    /**
+     * Updates the player instance fields with data from a JSON packet.
+     *
+     * @param json Deserialized JSON representation of the player state
+     * @returns This instance updated with the JSON values
+     */
     recieveJson(json: PlayerJSON) {
         this.username = json.username;
         this.position = json.position;
@@ -51,7 +72,12 @@ export class Player {
         return this;
     }
 
-    public toJson() {
+    /**
+     * Serializes this Player instance into a JSON packet format.
+     *
+     * @returns A serialized PlayerJSON packet
+     */
+    public toJson(): PlayerJSON {
         return {
             balance: this.balance,
             icon: this.icon,
@@ -69,7 +95,10 @@ export class Player {
         } as PlayerJSON;
     }
 
-    get color() {
+    /**
+     * Resolves the hexadecimal color value representing the player's icon avatar choice.
+     */
+    get color(): string {
         switch (this.icon) {
             case 0:
                 return "#E0115F";
@@ -88,6 +117,10 @@ export class Player {
         }
     }
 }
+
+/**
+ * Serialized JSON format of a player state shared over WebSockets.
+ */
 export type PlayerJSON = {
     id: string;
     username: string;

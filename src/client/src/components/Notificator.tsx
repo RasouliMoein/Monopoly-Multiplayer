@@ -1,10 +1,28 @@
+/**
+ * @file Notificator.tsx
+ * @description React notification component exposing imperative ref APIs to display toast notifications and dialog boxes with soundtracks.
+ */
+
 import { forwardRef, useImperativeHandle } from "react";
 import { MonopolyCookie } from "../../../shared/types/game";
 import { CookieManager } from "../utils/cookieManager";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 interface NotificatorProps {}
+
+/**
+ * Interface representing the imperative handle ref structure of the Notificator.
+ */
 export interface NotificatorRef {
+    /**
+     * Spawns a floating notification toast message at the top-right of the screen.
+     *
+     * @param message Text or HTML content of the notification
+     * @param type The priority/color styling type ("info", "warn", "error")
+     * @param time Display duration in seconds before auto-fading
+     * @param after Optional callback triggered after the notification disappears
+     * @param sfx Whether to play the standard notification chime sound effect
+     */
     message: (
         message: string,
         type?: "info" | "warn" | "error",
@@ -12,6 +30,12 @@ export interface NotificatorRef {
         after?: () => void,
         sfx?: boolean,
     ) => void;
+    /**
+     * Opens a modal overlay dialog box blocking interactions.
+     *
+     * @param build_dialog_function Builder function which accepts dialog closing triggers and constructs the layout
+     * @param soundtrack Soundtrack to trigger ("winning", "loosing", "info")
+     */
     dialog: (
         build_dialog_function: (
             close_dialog_func: () => void,
@@ -27,7 +51,9 @@ export interface NotificatorRef {
     ) => void;
 }
 
-// Create the component with forwardRef
+/**
+ * NotifyElement component providing toast notification and overlay dialog box APIs.
+ */
 const NotifyElement = forwardRef<NotificatorRef, NotificatorProps>(
     // @ts-ignore
     (prop, ref) => {

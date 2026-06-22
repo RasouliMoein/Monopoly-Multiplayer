@@ -1,8 +1,16 @@
+/**
+ * @file GameState.ts
+ * @description Core authoritative server game state machine for managing player connections, board movements, card resolutions, auctions, trades, and bankruptcy resolution.
+ */
+
 import { Player } from "./Player";
 import { computeRent, propertyByPosition, propertyById, CARD_TILES, INERT_TILES } from "./Board";
 import monopolyJSON from "../../../shared/data/monopoly.json";
 import { GameTrading, MonopolyMode, MonopolyModes, historyAction, GameStats } from "../../../shared/types/game";
 
+/**
+ * Authoritative game state machine containing the complete active game state, player list, logs, statistics, and rules engine.
+ */
 export class GameState {
     public clients = new Map<
         string,
@@ -62,6 +70,12 @@ export class GameState {
     public emitServerHistory: (actionText: string) => void = () => {};
     public logFunction: (...data: any[]) => void = () => {};
 
+    /**
+     * Calculates the total net worth of a player including cash balance, mortgaged properties values, and houses/hotels value.
+     *
+     * @param player The Player instance
+     * @returns The total calculated net worth
+     */
     public calculateNetWorth(player: Player): number {
         let nw = player.balance;
         for (const prop of player.properties) {
@@ -79,6 +93,11 @@ export class GameState {
         return nw;
     }
 
+    /**
+     * Initializes player statistics entry in gameStats and hooks balance changes to track total cash gains and losses.
+     *
+     * @param player The Player instance
+     */
     public initPlayerStats(player: Player) {
         if (!this.gameStats.playerStats[player.id]) {
             this.gameStats.playerStats[player.id] = {
@@ -108,6 +127,11 @@ export class GameState {
         };
     }
 
+    /**
+     * Checks if the win condition has been met according to selected game mode rules.
+     *
+     * @returns The winning Player if a winner is found, or null
+     */
     public checkWinCondition(): Player | null {
         const active = Array.from(this.clients.values()).filter((v) => !v.player.isBankrupt);
         if (active.length === 1) return active[0].player;
@@ -150,6 +174,11 @@ export class GameState {
         return null;
     }
 
+    /**
+     * Evaluates the win condition and resets ready states and turn IDs if a winner is found.
+     *
+     * @returns The winning Player if a winner is found, or null
+     */
     public checkAndHandleWinCondition(): Player | null {
         const winner = this.checkWinCondition();
         if (winner) {
@@ -163,6 +192,13 @@ export class GameState {
         return winner;
     }
 
+    /**
+     * Calculates expected rent risk/exposure and maximum possible rent exposure for the player's next move.
+     *
+     * @param player The Player instance
+     * @param oldPos The player's current position on the board
+     * @returns An object containing expectedRent and maxRent
+     */
     public getExpectedRentExposure(player: Player, oldPos: number): { expectedRent: number; maxRent: number } {
         const probs: Record<number, number> = {
             2: 1 / 36,
@@ -239,6 +275,16 @@ export class GameState {
         return { expectedRent, maxRent };
     }
 
+    /**
+     * Processes game events and financial rules when a player lands on a specific board tile.
+     *
+     * @param player The landing Player instance
+     * @param position The landed tile position index (0-39)
+     * @param rolls Total value of the dice rolls that led to this landing (used for railroad/utility rent calculations)
+     * @param multiplier Rent multiplier (used for card effects)
+     * @param isCardMove Whether the landing was caused by a card movement (affects luck statistics calculation)
+     * @returns Decision structure indicating if the player needs to buy the property, and the log annotation
+     */
     public processLanding(
         player: Player,
         position: number,
@@ -363,6 +409,14 @@ export class GameState {
         return result;
     }
 
+    /**
+     * Resolves the actions and modifications of a drawn Chance or Community Chest card.
+     *
+     * @param player The active Player instance
+     * @param card The raw card configuration object
+     * @param rolls Dice rolls value
+     * @returns Execution flags and status of card actions
+     */
     public resolveCard(
         player: Player,
         card: any,
@@ -548,6 +602,11 @@ export class GameState {
         }
     }
 
+    /**
+     * Starts a real-time property auction bidding cycle for a specified board tile.
+     *
+     * @param position The position of the property being auctioned
+     */
     public startAuction(position: number) {
         const prop = propertyByPosition.get(position) as any;
         if (!prop) return;
@@ -586,6 +645,9 @@ export class GameState {
         }, 1000);
     }
 
+    /**
+     * Concludes the current property auction, determines the winner, transfers ownership, and collects payment.
+     */
     public endAuction() {
         if (!this.currentAuction) return;
         const auction = this.currentAuction;
@@ -630,6 +692,11 @@ export class GameState {
         this.emitStateUpdate();
     }
 
+    /**
+     * Declares a player bankrupt, transferring cash, card assets, and liquidated properties to their creditor.
+     *
+     * @param targetId The ID of the bankrupt player
+     */
     public declareBankruptcyForPlayer(targetId: string) {
         const clientItem = this.clients.get(targetId);
         if (!clientItem) return;
@@ -767,6 +834,11 @@ export class GameState {
         }
     }
 
+    /**
+     * Finalizes bankruptcy status, clears active tracking lists, and advances the game turn to the next player.
+     *
+     * @param bankruptSocketId The ID of the bankrupt player
+     */
     public finalizeBankruptcy(bankruptSocketId: string) {
         const bankruptClient = this.clients.get(bankruptSocketId);
         if (!bankruptClient) return;
@@ -796,6 +868,12 @@ export class GameState {
         this.emitStateUpdate();
     }
 
+    /**
+     * Validates deal guidelines and processes property and money transfers for an accepted trade.
+     *
+     * @param x The GameTrading transaction proposal details
+     * @returns True if the trade succeeded, otherwise false
+     */
     public validateAndExecuteTrade(x: GameTrading): boolean {
         if (!this.selectedMode.AllowDeals) return false;
         if (!x.turnPlayer.accepted || !x.againstPlayer.accepted) return false;
