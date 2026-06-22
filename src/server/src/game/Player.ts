@@ -106,6 +106,7 @@ export class Player {
         this.isInJail = json.isInJail;
         this.jailTurnsRemaining = json.jailTurnsRemaining;
         this.getoutCards = json.getoutCards;
+        this.icon = json.icon;
         this.connected = json.connected ?? true;
         this.isBankrupt = json.isBankrupt ?? false;
         this.hasRolled = json.hasRolled ?? false;
