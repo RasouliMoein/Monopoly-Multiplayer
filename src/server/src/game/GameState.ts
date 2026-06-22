@@ -79,7 +79,7 @@ export class GameState {
     public calculateNetWorth(player: Player): number {
         let nw = player.balance;
         for (const prop of player.properties) {
-            const propData = propertyByPosition.get(prop.posistion);
+            const propData = propertyByPosition.get(prop.position);
             if (!propData) continue;
             if (prop.morgage === true || (prop.morgage as any) === "true") {
                 nw += Math.round((propData.price ?? 0) * 0.5);
@@ -230,20 +230,20 @@ export class GameState {
                 rentOrTax = 100;
             } else if (prop.group && prop.group !== "Special") {
                 const clientOwner = Array.from(this.clients.values()).find(
-                    (c) => c.player.properties.some((p) => p.posistion === targetPos) && !c.player.isBankrupt,
+                    (c) => c.player.properties.some((p) => p.position === targetPos) && !c.player.isBankrupt,
                 );
                 if (clientOwner && clientOwner.player.id !== player.id) {
                     const owner = clientOwner.player;
-                    const prp = owner.properties.find((p) => p.posistion === targetPos);
+                    const prp = owner.properties.find((p) => p.position === targetPos);
                     if (prp && prp.morgage !== true && (prp.morgage as any) !== "true") {
                         if (prop.group === "Utilities") {
                             const ownedCount = owner.properties.filter(
-                                (op) => propertyByPosition.get(op.posistion)?.group === "Utilities",
+                                (op) => propertyByPosition.get(op.position)?.group === "Utilities",
                             ).length;
                             rentOrTax = 7 * (ownedCount === 2 ? 10 : 4);
                         } else if (prop.group === "Railroad") {
                             const ownedCount = owner.properties.filter(
-                                (op) => propertyByPosition.get(op.posistion)?.group === "Railroad",
+                                (op) => propertyByPosition.get(op.position)?.group === "Railroad",
                             ).length;
                             rentOrTax = [0, 25, 50, 100, 200][Math.min(ownedCount, 4)];
                         } else {
@@ -299,7 +299,7 @@ export class GameState {
         if (prop.id === "gotojail") return { requiresPurchaseDecision: false, landingNote: "" };
 
         const getRentLuckWeight = (pOwner: Player, pos: number) => {
-            const prp = pOwner.properties.find((p) => p.posistion === pos);
+            const prp = pOwner.properties.find((p) => p.position === pos);
             if (!prp) return 1;
             if (prp.count === "h") return 3;
             if (typeof prp.count === "number" && prp.count > 0) return 2;
@@ -495,7 +495,7 @@ export class GameState {
                 let targetPos: number | undefined;
                 let passedGo = false;
                 if (card.tileid) {
-                    targetPos = propertyById.get(card.tileid)?.posistion;
+                    targetPos = propertyById.get(card.tileid)?.position;
                     if (targetPos !== undefined && targetPos < player.position) passedGo = true;
                 } else if (card.count !== undefined) {
                     const raw = player.position + card.count;
@@ -551,7 +551,7 @@ export class GameState {
                 const group = card.groupid === "utility" ? "Utilities" : "Railroad";
                 const positions = monopolyJSON.properties
                     .filter((p) => p.group === group)
-                    .map((p) => p.posistion ?? 0)
+                    .map((p) => p.position ?? 0)
                     .sort((a, b) => a - b);
 
                 let nearest = positions[0];
@@ -668,7 +668,7 @@ export class GameState {
         const winner = winnerClient.player;
         winner.balance -= auction.currentBid;
         winner.properties.push({
-            posistion: auction.propertyPosition,
+            position: auction.propertyPosition,
             count: 0,
             group: prop.group ?? "",
         });
@@ -749,8 +749,7 @@ export class GameState {
                 }
 
                 for (const prp of bpPlayer.properties) {
-                    const propData =
-                        propertyById.get(prp.posistion?.toString()) ?? propertyByPosition.get(prp.posistion);
+                    const propData = propertyById.get(prp.position?.toString()) ?? propertyByPosition.get(prp.position);
                     const propName = propData?.name ?? "a property";
 
                     // Liquidate buildings → 50% refund to creditor and return to bank pool
@@ -778,13 +777,13 @@ export class GameState {
                 const mortgagedPending = cp.properties
                     .filter((prp: any) => prp.morgage === true || prp.morgage === "true")
                     .filter((prp: any) => {
-                        return bpPlayer.properties.some((orig: any) => orig.posistion === prp.posistion);
+                        return bpPlayer.properties.some((orig: any) => orig.position === prp.position);
                     })
                     .map((prp: any) => {
-                        const propData = propertyByPosition.get(prp.posistion) as any;
+                        const propData = propertyByPosition.get(prp.position) as any;
                         const price = propData?.price ?? 0;
                         return {
-                            position: prp.posistion,
+                            position: prp.position,
                             name: propData?.name ?? "Unknown",
                             mortgageValue: Math.round(price * 0.5),
                             interestFee: Math.round(price * 0.05),
@@ -818,7 +817,7 @@ export class GameState {
                 bpPlayer.getoutCards = 0;
             }
             for (const prp of bpPlayer.properties) {
-                const propData = propertyById.get(prp.posistion?.toString()) ?? propertyByPosition.get(prp.posistion);
+                const propData = propertyById.get(prp.position?.toString()) ?? propertyByPosition.get(prp.position);
                 const propName = propData?.name ?? "a property";
 
                 if (prp.count === "h") {
@@ -899,28 +898,24 @@ export class GameState {
         };
 
         for (const offer of x.turnPlayer.prop) {
-            const owned = tp.properties.find((p: any) => p.posistion === offer.posistion);
+            const owned = tp.properties.find((p: any) => p.position === offer.position);
             if (!owned) return false;
             if (hasGroupBuildings(tp, offer.group)) return false;
         }
 
         for (const offer of x.againstPlayer.prop) {
-            const owned = ap.properties.find((p: any) => p.posistion === offer.posistion);
+            const owned = ap.properties.find((p: any) => p.position === offer.position);
             if (!owned) return false;
             if (hasGroupBuildings(ap, offer.group)) return false;
         }
 
-        const tGets = ap.properties.filter((v1: any) =>
-            x.againstPlayer.prop.some((v2) => v2.posistion === v1.posistion),
-        );
+        const tGets = ap.properties.filter((v1: any) => x.againstPlayer.prop.some((v2) => v2.position === v1.position));
         ap.properties = ap.properties.filter(
-            (v1: any) => !x.againstPlayer.prop.some((v2) => v2.posistion === v1.posistion),
+            (v1: any) => !x.againstPlayer.prop.some((v2) => v2.position === v1.position),
         );
 
-        const aGets = tp.properties.filter((v1: any) => x.turnPlayer.prop.some((v2) => v2.posistion === v1.posistion));
-        tp.properties = tp.properties.filter(
-            (v1: any) => !x.turnPlayer.prop.some((v2) => v2.posistion === v1.posistion),
-        );
+        const aGets = tp.properties.filter((v1: any) => x.turnPlayer.prop.some((v2) => v2.position === v1.position));
+        tp.properties = tp.properties.filter((v1: any) => !x.turnPlayer.prop.some((v2) => v2.position === v1.position));
 
         ap.balance -= x.againstPlayer.balance;
         tp.balance -= x.turnPlayer.balance;
@@ -954,10 +949,10 @@ export class GameState {
 
         if (tpMortgaged.length > 0) {
             const pendingList = tpMortgaged.map((prp: any) => {
-                const propData = propertyByPosition.get(prp.posistion) as any;
+                const propData = propertyByPosition.get(prp.position) as any;
                 const price = propData?.price ?? 0;
                 return {
-                    position: prp.posistion,
+                    position: prp.position,
                     name: propData?.name ?? "Unknown",
                     mortgageValue: Math.round(price * 0.5),
                     interestFee: Math.round(price * 0.05),
@@ -973,10 +968,10 @@ export class GameState {
 
         if (apMortgaged.length > 0) {
             const pendingList = apMortgaged.map((prp: any) => {
-                const propData = propertyByPosition.get(prp.posistion) as any;
+                const propData = propertyByPosition.get(prp.position) as any;
                 const price = propData?.price ?? 0;
                 return {
-                    position: prp.posistion,
+                    position: prp.position,
                     name: propData?.name ?? "Unknown",
                     mortgageValue: Math.round(price * 0.5),
                     interestFee: Math.round(price * 0.05),

@@ -5,6 +5,7 @@ import { WebSocketServer } from "ws";
 import { activeServers } from "./sockets.js";
 import { main as startGame } from "./game.js";
 import { logger } from "./logger.js";
+import { Config } from "../../shared/config/index";
 
 import fs from "fs";
 
@@ -28,10 +29,10 @@ try {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3064;
+const PORT = Config.PORT;
 
 // Serve the built React app
-app.use(express.static(path.join(__dirname, "..", "dist")));
+app.use(express.static(path.join(process.cwd(), "dist")));
 
 const server = http.createServer(app);
 
@@ -113,7 +114,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.get("*", (_req, res) => {
-    res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
+    res.sendFile(path.join(process.cwd(), "dist", "index.html"));
 });
 
 // Centralized express global error handler middleware

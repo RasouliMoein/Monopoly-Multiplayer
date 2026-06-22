@@ -6,6 +6,7 @@ import { GameTrading, MonopolyMode, historyAction } from "../../../shared/types/
 import monopolyJSON from "../../../shared/data/monopoly.json";
 import { websocketSchemas } from "../../../shared/validation/schemas";
 import { GameError } from "../../../shared/errors/GameErrors";
+import { Config } from "../../../shared/config/index";
 
 function getCurrentTime() {
     const now = new Date();
@@ -635,7 +636,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     if (args.action === "buy") {
                         if (!prop || prop.price === undefined) return;
                         player.balance -= prop.price;
-                        player.properties.push({ posistion: player.position, count: 0, group: prop.group ?? "" });
+                        player.properties.push({ position: player.position, count: 0, group: prop.group ?? "" });
                         state.logs_strings.push(
                             `{${getCurrentTime()}} [${socket.id}] Player "${player.username}" bought ${prop.name ?? player.position}.`,
                         );
@@ -657,7 +658,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         const targetPosition =
                             args.propertyPosition !== undefined ? args.propertyPosition : player.position;
                         const targetProp = propertyByPosition.get(targetPosition) as any;
-                        const idx = player.properties.findIndex((p: any) => p.posistion === targetPosition);
+                        const idx = player.properties.findIndex((p: any) => p.position === targetPosition);
                         if (idx === -1) return;
 
                         if (
@@ -706,7 +707,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         const targetPosition =
                             args.propertyPosition !== undefined ? args.propertyPosition : player.position;
                         const targetProp = propertyByPosition.get(targetPosition) as any;
-                        const idx = player.properties.findIndex((p: any) => p.posistion === targetPosition);
+                        const idx = player.properties.findIndex((p: any) => p.position === targetPosition);
                         if (idx === -1) return;
 
                         const toNum2 = (v: any) => (v === "h" ? 5 : typeof v === "number" ? v : 0);
@@ -746,7 +747,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         const landedProp = propertyByPosition.get(player.position) as any;
                         if (landedProp && landedProp.price !== undefined && landedProp.group !== "Special") {
                             const isUnowned = Array.from(state.clients.values()).every(
-                                (c) => !c.player.properties.some((p) => p.posistion === player.position),
+                                (c) => !c.player.properties.some((p) => p.position === player.position),
                             );
                             if (isUnowned) {
                                 state.startAuction(player.position);
@@ -768,7 +769,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         );
                         return;
                     }
-                    const idx = player.properties.findIndex((p: any) => p.posistion === args.propertyPosition);
+                    const idx = player.properties.findIndex((p: any) => p.position === args.propertyPosition);
                     if (idx === -1) return;
                     const propData = propertyByPosition.get(args.propertyPosition) as any;
                     if (!propData || propData.price === undefined) return;
@@ -886,7 +887,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
             // ── DEBUG Authentication ──
             socket.on("debug_authenticate", (args: { password?: string }) => {
                 try {
-                    const serverPassword = process.env.DEBUG_PASSWORD || "monopolyadmin";
+                    const serverPassword = Config.DEBUG_PASSWORD;
                     const clientItem = state.clients.get(socket.id);
                     if (clientItem) {
                         if (args && args.password === serverPassword) {
@@ -1070,7 +1071,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         }
 
                         for (const choice of args.choices) {
-                            const idx = player.properties.findIndex((p: any) => p.posistion === choice.position);
+                            const idx = player.properties.findIndex((p: any) => p.position === choice.position);
                             if (idx === -1) continue;
                             const propData = propertyByPosition.get(choice.position) as any;
                             if (!propData) continue;

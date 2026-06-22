@@ -29,7 +29,7 @@ describe("Player Class", () => {
         player.balance = 1200;
         player.position = 5;
         player.isInJail = true;
-        player.properties.push({ posistion: 1, count: 0, group: "Purple" });
+        player.properties.push({ position: 1, count: 0, group: "Purple" });
 
         const json = player.to_json();
         expect(json.id).toBe("socket-1");
@@ -37,7 +37,7 @@ describe("Player Class", () => {
         expect(json.balance).toBe(1200);
         expect(json.position).toBe(5);
         expect(json.isInJail).toBe(true);
-        expect(json.properties).toEqual([{ posistion: 1, count: 0, group: "Purple" }]);
+        expect(json.properties).toEqual([{ position: 1, count: 0, group: "Purple" }]);
     });
 
     it("should deserialize from JSON correctly", () => {
@@ -52,7 +52,7 @@ describe("Player Class", () => {
             jailTurnsRemaining: 0,
             getoutCards: 1,
             isBankrupt: false,
-            properties: [{ posistion: 3, count: 2 as const, group: "Purple" }],
+            properties: [{ position: 3, count: 2 as const, group: "Purple" }],
             connected: true,
         };
 
@@ -61,7 +61,7 @@ describe("Player Class", () => {
         expect(player.balance).toBe(900);
         expect(player.icon).toBe(4);
         expect(player.getoutCards).toBe(1);
-        expect(player.properties).toEqual([{ posistion: 3, count: 2, group: "Purple" }]);
+        expect(player.properties).toEqual([{ position: 3, count: 2, group: "Purple" }]);
     });
 
     it("should ignore from_json updates if socket ID does not match", () => {

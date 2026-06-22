@@ -25,7 +25,7 @@ export default function InsightsTab({ stats, players }: InsightsTabProps) {
     const getPlayerAssets = (player: Player) => {
         let assets = player.balance;
         player.properties.forEach((p) => {
-            const propData = monopolyJSON.properties.find((pj: any) => pj.posistion === p.posistion);
+            const propData = monopolyJSON.properties.find((pj: any) => pj.position === p.position);
             if (!propData) return;
             if (p.morgage === true || (p.morgage as any) === "true") {
                 assets += Math.round((propData.price ?? 0) * 0.5);
@@ -41,7 +41,7 @@ export default function InsightsTab({ stats, players }: InsightsTabProps) {
 
     // Helper to resolve property details
     const getPropertyDetails = (position: number) => {
-        return monopolyJSON.properties.find((p: any) => p.posistion === position);
+        return monopolyJSON.properties.find((p: any) => p.position === position);
     };
 
     const getGroupColor = (group: string) => {
@@ -168,7 +168,7 @@ function OverviewTab({ stats, players, getPlayerAssets, getPropertyDetails, getG
 
     players.forEach((p) => {
         p.properties.forEach((prop) => {
-            const details = getPropertyDetails(prop.posistion);
+            const details = getPropertyDetails(prop.position);
             if (!details) return;
 
             const isMortgaged = prop.morgage === true || (prop.morgage as any) === "true";
@@ -177,12 +177,12 @@ function OverviewTab({ stats, players, getPlayerAssets, getPropertyDetails, getG
             let rent = 0;
             if (details.group === "Utilities") {
                 const ownedUtilitiesCount = p.properties.filter(
-                    (op) => getPropertyDetails(op.posistion)?.group === "Utilities",
+                    (op) => getPropertyDetails(op.position)?.group === "Utilities",
                 ).length;
                 rent = 7 * (ownedUtilitiesCount === 2 ? 10 : 4);
             } else if (details.group === "Railroad") {
                 const ownedRailroadsCount = p.properties.filter(
-                    (op) => getPropertyDetails(op.posistion)?.group === "Railroad",
+                    (op) => getPropertyDetails(op.position)?.group === "Railroad",
                 ).length;
                 rent = [0, 25, 50, 100, 200][Math.min(ownedRailroadsCount, 4)];
             } else {
@@ -190,7 +190,7 @@ function OverviewTab({ stats, players, getPlayerAssets, getPropertyDetails, getG
                 if (houseCount === 0) {
                     const groupList = monopolyJSON.properties.filter((pj) => pj.group === details.group);
                     const ownedGroup = p.properties.filter(
-                        (op) => getPropertyDetails(op.posistion)?.group === details.group,
+                        (op) => getPropertyDetails(op.position)?.group === details.group,
                     );
                     const hasMonopoly = groupList.length > 0 && ownedGroup.length === groupList.length;
                     const allUnimproved = ownedGroup.every((op) => {
@@ -648,7 +648,7 @@ function HotspotsTab({ stats, players, getPropertyDetails, getGroupColor }: Hots
 
     players.forEach((p) => {
         p.properties.forEach((prop) => {
-            const details = getPropertyDetails(prop.posistion);
+            const details = getPropertyDetails(prop.position);
             if (!details) return;
 
             const isMortgaged = prop.morgage === true || (prop.morgage as any) === "true";
@@ -665,12 +665,12 @@ function HotspotsTab({ stats, players, getPropertyDetails, getGroupColor }: Hots
                 if (details.group === "Utilities") {
                     // Average dice roll sum is 7
                     const ownedUtilitiesCount = p.properties.filter(
-                        (op) => getPropertyDetails(op.posistion)?.group === "Utilities",
+                        (op) => getPropertyDetails(op.position)?.group === "Utilities",
                     ).length;
                     currentRent = 7 * (ownedUtilitiesCount === 2 ? 10 : 4);
                 } else if (details.group === "Railroad") {
                     const ownedRailroadsCount = p.properties.filter(
-                        (op) => getPropertyDetails(op.posistion)?.group === "Railroad",
+                        (op) => getPropertyDetails(op.position)?.group === "Railroad",
                     ).length;
                     currentRent = [0, 25, 50, 100, 200][Math.min(ownedRailroadsCount, 4)];
                 } else {
@@ -679,7 +679,7 @@ function HotspotsTab({ stats, players, getPropertyDetails, getGroupColor }: Hots
                         // Check for group monopoly
                         const groupList = monopolyJSON.properties.filter((pj) => pj.group === details.group);
                         const ownedGroup = p.properties.filter(
-                            (op) => getPropertyDetails(op.posistion)?.group === details.group,
+                            (op) => getPropertyDetails(op.position)?.group === details.group,
                         );
                         const hasMonopoly = groupList.length > 0 && ownedGroup.length === groupList.length;
                         const allUnimproved = ownedGroup.every((op) => {

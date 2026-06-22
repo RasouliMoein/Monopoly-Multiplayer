@@ -9,7 +9,7 @@ import { Player } from "./Player";
 /**
  * Fast lookup map index grouping board property configurations by their tile board index (0-39).
  */
-export const propertyByPosition = new Map<number, any>(monopolyJSON.properties.map((p) => [p.posistion ?? 0, p]));
+export const propertyByPosition = new Map<number, any>(monopolyJSON.properties.map((p) => [p.position ?? 0, p]));
 
 /**
  * Fast lookup map index grouping board property configurations by their unique JSON string ID.
@@ -48,7 +48,7 @@ export function computeRent(
 
     for (const player of players) {
         for (const prp of player.properties) {
-            if (prp.posistion !== position) continue;
+            if (prp.position !== position) continue;
             if (prp.morgage === true) return { owner: player, amount: 0 };
 
             let amt = 0;

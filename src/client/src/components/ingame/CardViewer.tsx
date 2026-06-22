@@ -2,19 +2,19 @@ import StreetCard, { RailroadDisplayInfo, UtilitiesDisplayInfo, StreetDisplayInf
 import monopolyJSON from "../../../../shared/data/monopoly.json";
 
 export default function CardViewer(props: {
-    posistion: number;
+    position: number;
     OnClick: React.MouseEventHandler<HTMLDivElement>;
     style?: React.CSSProperties;
 }) {
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
-            return [obj.posistion ?? 0, obj];
+            return [obj.position ?? 0, obj];
         }),
     );
     let stretDisplay = {};
     let stretType: "Street" | "Utilities" | "Railroad" = "Utilities";
 
-    const x = propretyMap.get(props.posistion);
+    const x = propretyMap.get(props.position);
     if (x) {
         if (x.group === "Special") {
             return <></>;

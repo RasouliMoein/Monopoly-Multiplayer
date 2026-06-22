@@ -94,7 +94,7 @@ export const MonopolyModes: MonopolyMode[] = [
  * Schema for an individual property owned by a player.
  */
 export interface PlayerProprety {
-    posistion: number;
+    position: number;
     /** Number of houses built (1-4) or hotel ("h"), 0 means unimproved */
     count: 0 | 1 | 2 | 3 | 4 | "h";
     group: string;

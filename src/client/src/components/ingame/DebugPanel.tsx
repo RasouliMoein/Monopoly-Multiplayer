@@ -457,8 +457,8 @@ export default function DebugPanel({
                                     }}
                                 >
                                     {monopolyJSON.properties.map((p) => (
-                                        <option key={p.posistion} value={p.posistion}>
-                                            {p.posistion}: {p.name}
+                                        <option key={p.position} value={p.position}>
+                                            {p.position}: {p.name}
                                         </option>
                                     ))}
                                 </select>

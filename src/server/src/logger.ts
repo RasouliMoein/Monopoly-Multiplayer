@@ -1,3 +1,5 @@
+import { Config } from "../../shared/config/index";
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -9,7 +11,8 @@ const LOG_LEVELS: Record<LogLevel, number> = {
 
 class Logger {
     private getLogLevel(): number {
-        const envVal = typeof process !== "undefined" && process.env ? process.env.LOG_LEVEL : undefined;
+        const envVal = Config.LOG_LEVEL;
+
         const level: LogLevel = (envVal?.toLowerCase() as LogLevel) || "info";
         return LOG_LEVELS[level] !== undefined ? LOG_LEVELS[level] : 1;
     }

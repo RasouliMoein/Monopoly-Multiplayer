@@ -9,7 +9,7 @@ import { z } from "zod";
  * Schema for player property details.
  */
 export const playerPropertySchema = z.object({
-    posistion: z.number().int().min(0).max(39),
+    position: z.number().int().min(0).max(39),
     count: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal("h")]),
     group: z.string(),
     rent: z.number().int().optional(),

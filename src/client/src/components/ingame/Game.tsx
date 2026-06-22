@@ -91,7 +91,7 @@ export type g_Buy = 0 | 1 | 2 | 3 | 4 | "h";
 const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) => {
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
-            return [obj.posistion ?? 0, obj];
+            return [obj.position ?? 0, obj];
         }),
     );
 
@@ -303,7 +303,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                 }
                                 const propId = Array.from(
                                     new Map(localPlayer.properties.map((v, i) => [i, v])).entries(),
-                                ).filter((v) => v[1].posistion === args.location)[0][0];
+                                ).filter((v) => v[1].position === args.location)[0][0];
 
                                 function transformCount(v: 0 | 2 | 1 | 3 | 4 | "h") {
                                     switch (v) {
@@ -400,14 +400,14 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                 let count: 0 | 1 | 2 | 3 | 4 | "h" = 0;
                 // check states
                 for (const _prp of localPlayer.properties) {
-                    if (!belong_to_me && _prp.posistion === args.location) {
+                    if (!belong_to_me && _prp.position === args.location) {
                         belong_to_me = true;
                         count = _prp.count;
                     }
                 }
                 for (const _p of prop.players) {
                     for (const _prp of _p.properties) {
-                        if (_prp.posistion === args.location && _p.id != localPlayer.id) belong_to_others = true;
+                        if (_prp.position === args.location && _p.id != localPlayer.id) belong_to_others = true;
                     }
                 }
 
@@ -597,11 +597,11 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
         const safe = Array.from(propretyMap.values()).filter((v) => v.group != "Special");
         for (const x of safe) {
             const element = (document.getElementById("locations") as HTMLDivElement).querySelector(
-                `div.street[data-position="${x.posistion}"]`,
+                `div.street[data-position="${x.position}"]`,
             ) as HTMLDivElement;
 
             element.onclick = () => {
-                prop.clickedOnBoard(x.posistion);
+                prop.clickedOnBoard(x.position);
             };
 
             element.onmousemove = () => {
@@ -715,7 +715,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                 }
                 for (const _player of prop.players) {
                     for (const _prp of _player.properties) {
-                        const location = _prp.posistion;
+                        const location = _prp.position;
                         const state = _prp.count;
 
                         if (streetsFolder) {
@@ -1939,7 +1939,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                             : {}
                                                                     }
                                                                 >
-                                                                    {propretyMap.get(v.posistion)?.name ?? ""}
+                                                                    {propretyMap.get(v.position)?.name ?? ""}
                                                                 </h3>
                                                                 <div>
                                                                     {v.count == "h" ? (
@@ -2018,7 +2018,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                             : {}
                                                                     }
                                                                 >
-                                                                    {propretyMap.get(v.posistion)?.name ?? ""}
+                                                                    {propretyMap.get(v.position)?.name ?? ""}
                                                                 </h3>
                                                                 <div>
                                                                     {v.count == "h" ? (
@@ -2127,7 +2127,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                                 : {}
                                                                         }
                                                                     >
-                                                                        {propretyMap.get(v.posistion)?.name ?? ""}
+                                                                        {propretyMap.get(v.position)?.name ?? ""}
                                                                         {v.morgage !== undefined &&
                                                                             v.morgage === true && (
                                                                                 <span
@@ -2253,7 +2253,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                                 : {}
                                                                         }
                                                                     >
-                                                                        {propretyMap.get(v.posistion)?.name ?? ""}
+                                                                        {propretyMap.get(v.position)?.name ?? ""}
                                                                         {v.morgage !== undefined &&
                                                                             v.morgage === true && (
                                                                                 <span

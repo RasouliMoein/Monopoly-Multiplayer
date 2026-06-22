@@ -28,7 +28,7 @@ export interface PropertyTabRef {
 const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) => {
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
-            return [obj.posistion ?? 0, obj];
+            return [obj.position ?? 0, obj];
         }),
     );
 
@@ -51,18 +51,18 @@ const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
             const x = propretyMap.get(location);
             const localP = props.players.filter((v) => v.id === props.socket.id)[0];
 
-            return x !== undefined && x.group !== "Special" && localP.properties.some((v) => v.posistion === location);
+            return x !== undefined && x.group !== "Special" && localP.properties.some((v) => v.position === location);
         },
         isMortaged: (location: number) => {
             const localP = props.players.filter((v) => v.id === props.socket.id)[0];
-            const a = localP.properties.find((v) => v.posistion === location);
+            const a = localP.properties.find((v) => v.position === location);
             return a !== undefined && a.morgage === true;
         },
         buttons: {
             cancel: () => {
                 const location = currentCardPosition;
                 const localP = props.players.filter((v) => v.id === props.socket.id)[0];
-                const prp = localP.properties.find((v) => v.posistion === location);
+                const prp = localP.properties.find((v) => v.position === location);
                 if (!prp) return;
 
                 const propData = propretyMap.get(location);
@@ -83,7 +83,7 @@ const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
             pay: () => {
                 const location = currentCardPosition;
                 const localP = props.players.filter((v) => v.id === props.socket.id)[0];
-                const prp = localP.properties.find((v) => v.posistion === location);
+                const prp = localP.properties.find((v) => v.position === location);
                 if (!prp) return;
 
                 if (prp.count !== 0 && prp.count !== undefined) {
@@ -111,7 +111,7 @@ const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
 
     const localPlayer = props.players.filter((v) => v.id === props.socket.id)[0];
 
-    const prp = localPlayer?.properties.find((v) => v.posistion === currentCardPosition);
+    const prp = localPlayer?.properties.find((v) => v.position === currentCardPosition);
     const propData = propretyMap.get(currentCardPosition);
 
     const group = prp?.group;
@@ -217,8 +217,8 @@ const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
         SetLookCard(-1);
         SetCardPos(-1);
         const safe = Array.from(propretyMap.values()).filter((v) => v.group != "Special");
-        const lyricalSearch: Array<[string, number]> = safe.map((v) => [v.name, v.posistion]);
-        const numricalSearch: Array<string> = safe.map((v) => v.posistion.toString());
+        const lyricalSearch: Array<[string, number]> = safe.map((v) => [v.name, v.position]);
+        const numricalSearch: Array<string> = safe.map((v) => v.position.toString());
 
         const s: Array<number> = [];
 
@@ -269,7 +269,7 @@ const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
                                             marginBottom: 25,
                                             marginTop: 10,
                                         }}
-                                        posistion={v}
+                                        position={v}
                                         OnClick={() => {
                                             SetLookCard(-1);
                                         }}
@@ -293,7 +293,7 @@ const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
                         <div
                             key={i}
                             onClick={() => {
-                                SetCardPos(v.posistion);
+                                SetCardPos(v.position);
                             }}
                             className="proprety-nav"
                         >
@@ -310,7 +310,7 @@ const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
                                         : {}
                                 }
                             >
-                                {propretyMap.get(v.posistion)?.name ?? ""}
+                                {propretyMap.get(v.position)?.name ?? ""}
                             </h3>
                             <div>
                                 {v.count == "h" ? (
@@ -338,7 +338,7 @@ const PropertyTab = forwardRef<PropertyTabRef, PropertyTabProps>((props, ref) =>
                         >
                             <CardViewer
                                 style={{ filter: "drop-shadow(5px 5px 0px rgba(255,255,255,20%))" }}
-                                posistion={currentCardPosition}
+                                position={currentCardPosition}
                                 OnClick={() => {
                                     SetCardPos(-1);
                                 }}

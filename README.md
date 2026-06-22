@@ -107,21 +107,20 @@ The project builds the React app into static files served by the Express backend
 1. Create a `.env` file in the project root:
    ```env
    PORT=3064
+   DEBUG_PASSWORD=monopolyadmin
+   CODE_PREFIX=my_monopoly_game
+   LOG_LEVEL=info
    ```
-2. Configure settings inside [src/config.ts](file:///d:/Games/Monopoly-main/Monopoly-main/src/config.ts):
-   ```ts
-   export default {
-     CODE_PREFIX: "my_monopoly_game",
-   };
-   ```
+2. Dynamic environment settings are defined inside [src/shared/config/index.ts](file:///d:/Games/Monopoly-main/Monopoly-main/src/shared/config/index.ts). This serves as the single source of truth for both server and client parameters.
 
 ### 💻 Running the App
 
 #### Windows (Quick Play)
-Simply execute `play.bat` from your file explorer, or run the following in PowerShell/CMD:
+Simply execute `start.bat` from your file explorer, or run the following in PowerShell/CMD:
 ```cmd
-play.bat
+start.bat
 ```
+
 
 #### Linux / macOS
 Grant execution rights and launch the script:

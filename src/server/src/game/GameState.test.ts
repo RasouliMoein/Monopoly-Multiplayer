@@ -17,10 +17,10 @@ describe("GameState Class", () => {
     });
 
     it("should calculate correct net worth for a player", () => {
-        p1.properties.push({ posistion: 1, count: 0, group: "Purple" });
+        p1.properties.push({ position: 1, count: 0, group: "Purple" });
         expect(state.calculateNetWorth(p1)).toBe(1560);
 
-        p1.properties.push({ posistion: 3, count: 1, group: "Purple" });
+        p1.properties.push({ position: 3, count: 1, group: "Purple" });
         expect(state.calculateNetWorth(p1)).toBe(1670);
     });
 
@@ -34,7 +34,7 @@ describe("GameState Class", () => {
 
     it("should process bankruptcy from a player to the Bank", () => {
         p1.balance = -100;
-        p1.properties.push({ posistion: 1, count: 0, group: "Purple" });
+        p1.properties.push({ position: 1, count: 0, group: "Purple" });
         state.creditorMap.set(p1.id, "bank");
 
         state.declareBankruptcyForPlayer(p1.id);
@@ -44,22 +44,22 @@ describe("GameState Class", () => {
 
     it("should process bankruptcy from a player to another player creditor", () => {
         p1.balance = -200;
-        p1.properties.push({ posistion: 1, count: 0, group: "Purple" });
+        p1.properties.push({ position: 1, count: 0, group: "Purple" });
         state.creditorMap.set(p1.id, p2.id);
 
         state.declareBankruptcyForPlayer(p1.id);
         expect(p1.isBankrupt).toBe(true);
-        expect(p2.properties).toContainEqual({ posistion: 1, count: 0, group: "Purple" });
+        expect(p2.properties).toContainEqual({ position: 1, count: 0, group: "Purple" });
     });
 
     it("should validate and execute trades between players", () => {
-        p1.properties.push({ posistion: 1, count: 0, group: "Purple" });
+        p1.properties.push({ position: 1, count: 0, group: "Purple" });
 
         const trade: GameTrading = {
             turnPlayer: {
                 id: p1.id,
                 balance: 0,
-                prop: [{ posistion: 1, count: 0, group: "Purple" }],
+                prop: [{ position: 1, count: 0, group: "Purple" }],
                 accepted: true,
             },
             againstPlayer: {
@@ -74,7 +74,7 @@ describe("GameState Class", () => {
         expect(success).toBe(true);
         expect(p1.balance).toBe(2000);
         expect(p2.balance).toBe(1000);
-        expect(p2.properties).toContainEqual({ posistion: 1, count: 0, group: "Purple" });
+        expect(p2.properties).toContainEqual({ position: 1, count: 0, group: "Purple" });
         expect(p1.properties.length).toBe(0);
     });
 });

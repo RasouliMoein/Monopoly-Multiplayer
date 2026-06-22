@@ -424,7 +424,7 @@ export interface PlayersTabRef {
 const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
     const propretyMap = new Map(
         monopolyJSON.properties.map((obj) => {
-            return [obj.posistion ?? 0, obj];
+            return [obj.position ?? 0, obj];
         }),
     );
 
@@ -606,7 +606,7 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                         key={i}
                                         onClick={() => {
                                             SetCurrentPlayer(undefined);
-                                            props.clickedOnPlayer(v.posistion);
+                                            props.clickedOnPlayer(v.position);
                                         }}
                                         className="proprety-nav"
                                     >
@@ -623,7 +623,7 @@ const playersTab = forwardRef<PlayersTabRef, PlayersTabProps>((props, ref) => {
                                                     : {}
                                             }
                                         >
-                                            {propretyMap.get(v.posistion)?.name ?? ""}
+                                            {propretyMap.get(v.position)?.name ?? ""}
                                         </h3>
                                         <div>
                                             {v.count == "h" ? (
