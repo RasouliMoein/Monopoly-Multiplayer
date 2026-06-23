@@ -484,6 +484,10 @@ function App({
             if (args.stats) {
                 setGameStats(args.stats);
             }
+            const localPlayer = args.other_players.find((p) => p.id === socket.id);
+            if (localPlayer) {
+                SetReady(localPlayer.ready ?? false);
+            }
         };
 
         const socket_NewPlayer = (args: PlayerJSON) => {
@@ -1084,15 +1088,26 @@ function App({
                 : "You were disconnected from the game.";
 
             notifyRef.current?.dialog(
-                (close_func, createButton) => ({
-                    innerHTML: `<h3> ${title} </h3> <p> ${description} </p>`,
-                    buttons: [
+                (close_func, createButton) => {
+                    const buttons = [
                         createButton("RETURN TO MAIN MENU", () => {
                             close_func();
                             leaveGameSession();
                         }),
-                    ],
-                }),
+                    ];
+                    if (!isRoomNotFound) {
+                        buttons.unshift(
+                            createButton("RECONNECT", () => {
+                                close_func();
+                                socket.startReconnecting();
+                            })
+                        );
+                    }
+                    return {
+                        innerHTML: `<h3> ${title} </h3> <p> ${description} </p>`,
+                        buttons,
+                    };
+                },
                 "loosing",
             );
         }
@@ -1886,12 +1901,12 @@ function App({
                                                         type="button"
                                                         className={`color-pill ${colorClass} ${isSelected ? "active" : ""}`}
                                                         onClick={() => {
-                                                            if (server !== undefined)
+                                                            if (hostId === socket.id)
                                                                 socket.emit("ready", {
                                                                     mode: v,
                                                                 });
                                                         }}
-                                                        disabled={server === undefined}
+                                                        disabled={hostId !== socket.id}
                                                     >
                                                         <span
                                                             className={`pill-dot ${colors[k % colors.length]}-dot`}
@@ -1904,16 +1919,16 @@ function App({
                                                 type="button"
                                                 className={`color-pill red-pill ${selectedMode.Name === "Custom Mode" ? "active" : ""}`}
                                                 onClick={() => {
-                                                    if (server !== undefined)
+                                                    if (hostId === socket.id)
                                                         socket.emit("ready", {
                                                             mode: customConfig,
                                                         });
                                                 }}
-                                                disabled={server === undefined}
+                                                disabled={hostId !== socket.id}
                                             >
                                                 <span className="pill-dot red-dot"></span> Custom Mode
                                             </button>
-                                            {selectedMode.Name === "Custom Mode" && server !== undefined && (
+                                            {selectedMode.Name === "Custom Mode" && hostId === socket.id && (
                                                 <button
                                                     type="button"
                                                     onClick={() => setShowCustomModal(true)}
@@ -2082,7 +2097,7 @@ function App({
 
                                     {/* Large Primary Action Button */}
                                     <div className="action-button-container">
-                                        {server === undefined ? (
+                                        {hostId !== socket.id ? (
                                             <button className="primary-action-btn lobby-client-status" disabled={true}>
                                                 Waiting for Host to Start...
                                             </button>
@@ -2160,8 +2175,34 @@ function App({
                 `}</style>
                         <h3 style={{ margin: 0, fontSize: "24px", fontWeight: "600" }}>Lost Connection</h3>
                         <p style={{ margin: 0, opacity: 0.8 }}>
-                            Attempting to reconnect... [Attempt {reconnectAttempt}/5]
+                            Attempting to reconnect... [Attempt {reconnectAttempt}/60]
                         </p>
+                        <button
+                            onClick={() => {
+                                sessionStorage.removeItem("current_room");
+                                socket.disconnect();
+                                document.location.reload();
+                            }}
+                            style={{
+                                marginTop: "15px",
+                                padding: "8px 16px",
+                                borderRadius: "8px",
+                                border: "1px solid rgba(255, 255, 255, 0.2)",
+                                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                                color: "white",
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                transition: "all 0.2s",
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.2)";
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                            }}
+                        >
+                            Return to Main Menu
+                        </button>
                     </div>
                 </div>
             )}

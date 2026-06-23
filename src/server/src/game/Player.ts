@@ -45,6 +45,7 @@ export class Player {
     public isBankrupt: boolean;
     public hasRolled: boolean;
     public allowRollAgain: boolean;
+    public ready: boolean;
 
     /**
      * Constructs a new server authoritative Player instance.
@@ -68,6 +69,7 @@ export class Player {
         this.isBankrupt = false;
         this.hasRolled = false;
         this.allowRollAgain = false;
+        this.ready = false;
     }
 
     /**
@@ -90,6 +92,7 @@ export class Player {
             isBankrupt: this.isBankrupt,
             hasRolled: this.hasRolled,
             allowRollAgain: this.allowRollAgain,
+            ready: this.ready,
         };
     }
 
@@ -111,6 +114,7 @@ export class Player {
         this.isBankrupt = json.isBankrupt ?? false;
         this.hasRolled = json.hasRolled ?? false;
         this.allowRollAgain = json.allowRollAgain ?? false;
+        this.ready = json.ready ?? false;
     }
 }
 
@@ -131,4 +135,5 @@ export type PlayerJSON = {
     isBankrupt?: boolean;
     hasRolled?: boolean;
     allowRollAgain?: boolean;
+    ready?: boolean;
 };

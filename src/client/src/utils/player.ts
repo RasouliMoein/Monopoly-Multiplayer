@@ -69,6 +69,7 @@ export class Player {
         this.isBankrupt = json.isBankrupt ?? false; // Phase 2A
         this.hasRolled = json.hasRolled ?? false;
         this.allowRollAgain = json.allowRollAgain ?? false;
+        this.ready = json.ready ?? false;
         return this;
     }
 
@@ -92,6 +93,7 @@ export class Player {
             isBankrupt: this.isBankrupt, // Phase 2A
             hasRolled: this.hasRolled,
             allowRollAgain: this.allowRollAgain,
+            ready: this.ready,
         } as PlayerJSON;
     }
 
@@ -135,4 +137,5 @@ export type PlayerJSON = {
     isBankrupt?: boolean; // Phase 2A
     hasRolled?: boolean;
     allowRollAgain?: boolean;
+    ready?: boolean;
 };

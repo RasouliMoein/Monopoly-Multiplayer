@@ -220,6 +220,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 client!.socket = socket;
                 client!.connected = true;
                 client!.player.connected = true;
+                client!.player.ready = client!.ready;
                 client!.socket.emit("assign_id", socket.id);
                 if (oldSocket !== socket) oldSocket.disconnect();
             }
@@ -1200,10 +1201,15 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
             }
 
             if (!state.gameStarted) {
-                state.clients.delete(socket.id);
+                if (dc) {
+                    dc.ready = false;
+                    dc.player.ready = false;
+                    dc.connected = false;
+                    dc.player.connected = false;
+                }
 
                 if (state.hostId === socket.id) {
-                    const nextHost = Array.from(state.clients.values()).find((c) => c.connected);
+                    const nextHost = Array.from(state.clients.values()).find((c) => c.connected && c.player.id !== socket.id);
                     state.hostId = nextHost ? nextHost.player.id : "";
                     if (nextHost) {
                         const hMsg = `[Host promoted] "${nextHost.player.username}" is now the host.`;
@@ -1220,7 +1226,11 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 state.emitAll("disconnected-player", { id: socket.id, turn: state.currentId, wasInGame: false });
                 state.emitStateUpdate();
 
-                if (state.clients.size === 0) server.destroy();
+                const connectedCount = Array.from(state.clients.values()).filter((c) => c.connected).length;
+                if (connectedCount === 0) {
+                    server.logFunction("All players disconnected in lobby. Starting 2-minute cleanup timer.");
+                    server.resetCleanupTimer(2 * 60 * 1000);
+                }
             } else {
                 if (dc) {
                     dc.ready = false;
@@ -1276,7 +1286,10 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
         try {
             const client = state.clients.get(socket.id);
             if (!client) return;
-            if (args.ready !== undefined) client.ready = args.ready;
+            if (args.ready !== undefined) {
+                client.ready = args.ready;
+                client.player.ready = args.ready;
+            }
             if (args.mode !== undefined && socket.id === state.hostId) state.selectedMode = args.mode;
             state.clients.set(socket.id, client);
             state.emitAll("ready", { id: socket.id, state: client.ready, selectedMode: state.selectedMode });
@@ -1293,6 +1306,8 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     c.player.isBankrupt = false;
                     c.player.hasRolled = false;
                     c.player.allowRollAgain = false;
+                    c.player.ready = false;
+                    c.ready = false;
                 }
                 state.server_histories.length = 0;
                 state.gameStats.diceRolls = {};

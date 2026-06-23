@@ -69,7 +69,7 @@ export class Socket {
     private uri: string;
     private token: string;
     private reconnectAttempts = 0;
-    private maxReconnectAttempts = 5;
+    private maxReconnectAttempts = 60;
     private isDisconnectingExplicitly = false;
 
     /**
@@ -241,6 +241,15 @@ export class Socket {
     /**
      * Explicitly close this WebSocket session.
      */
+    public startReconnecting() {
+        this.reconnectAttempts = 0;
+        this.isDisconnectingExplicitly = false;
+        try {
+            this.client.close();
+        } catch {}
+        this.reconnect();
+    }
+
     public disconnect() {
         this.isDisconnectingExplicitly = true;
         this.emit("disconnect");
