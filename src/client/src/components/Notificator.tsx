@@ -49,6 +49,10 @@ export interface NotificatorRef {
         },
         soundtrack: "winning" | "loosing" | "info",
     ) => void;
+    /**
+     * Programmatically closes any active modal overlay dialog box.
+     */
+    closeDialog: () => void;
 }
 
 /**
@@ -165,6 +169,22 @@ const NotifyElement = forwardRef<NotificatorRef, NotificatorProps>(
                         break;
                     default:
                         break;
+                }
+            },
+            closeDialog() {
+                const dialogScreen = document.querySelector("div.dialog-screen") as HTMLDivElement;
+                const dialaogElement = document.querySelector("div.dialog-box") as HTMLDivElement;
+                const textsElement = dialaogElement.querySelector("div.texts") as HTMLDivElement;
+                const buttonsElement = dialaogElement.querySelector("div.buttons") as HTMLDivElement;
+                if (dialogScreen && dialaogElement) {
+                    dialogScreen.setAttribute("data-show", "false");
+                    dialaogElement.setAttribute("data-show", "false");
+                    dialaogElement.style.animation = "dialogout 1s cubic-bezier(.5,0,1,.5)";
+                    setTimeout(() => {
+                        dialaogElement.style.animation = "";
+                        textsElement.innerHTML = "";
+                        buttonsElement.innerHTML = "";
+                    }, 1000);
                 }
             },
         }));

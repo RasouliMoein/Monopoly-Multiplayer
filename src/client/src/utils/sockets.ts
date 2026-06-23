@@ -16,10 +16,10 @@ export function io(uri: string, forceToken?: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
         let token = forceToken;
         if (!token) {
-            token = sessionStorage.getItem("monopoly_token_" + uri) || undefined;
+            token = localStorage.getItem("monopoly_token_" + uri) || undefined;
             if (!token) {
                 token = Date.now().toString(36) + Math.random().toString(36).substring(2);
-                sessionStorage.setItem("monopoly_token_" + uri, token);
+                localStorage.setItem("monopoly_token_" + uri, token);
             }
         }
 
@@ -195,9 +195,9 @@ export class Socket {
             this.reconnectAttempts = 0;
             this.setupSocketHandlers();
             // Use localStorage so the name survives tab closes and lobby leaves.
-            const name = localStorage.getItem("current_name") || sessionStorage.getItem("current_name") || "";
+            const name = localStorage.getItem("current_name") || "";
             if (name) {
-                const isSpectator = sessionStorage.getItem("is_spectator_" + this.uri) === "true";
+                const isSpectator = localStorage.getItem("is_spectator_" + this.uri) === "true";
                 if (isSpectator) {
                     this.emit("spectator", name);
                 } else {

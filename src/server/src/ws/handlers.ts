@@ -223,6 +223,15 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 client!.player.ready = client!.ready;
                 client!.socket.emit("assign_id", socket.id);
                 if (oldSocket !== socket) oldSocket.disconnect();
+
+                const graceTimer = state.disconnectGracePeriodTimers.get(socket.id);
+                if (graceTimer) {
+                    clearTimeout(graceTimer);
+                    state.disconnectGracePeriodTimers.delete(socket.id);
+                    server.logFunction(
+                        `[Grace Period] Player "${client!.player.username}" reconnected. Turn skip cancelled.`,
+                    );
+                }
             }
 
             server.clearCleanupTimer();
@@ -1251,19 +1260,24 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 }
 
                 if (state.currentId === socket.id && dc) {
-                    dc.player.hasRolled = false;
-                    dc.player.allowRollAgain = false;
-                    const activeAll = Array.from(state.clients.values()).filter((v) => !v.player.isBankrupt);
-                    const arr = activeAll.map((v) => v.player.id);
-                    let i = arr.indexOf(socket.id);
-                    i = arr.length > 0 ? (i + 1) % arr.length : -1;
-                    state.currentId = i === -1 ? "" : arr[i];
-                    state.emitAll("turn-finished", {
-                        from: socket.id,
-                        turnId: state.currentId,
-                        pJson: dc.player.to_json(),
-                        WinningMode: state.selectedMode.WinningMode,
-                    });
+                    const graceTimer = setTimeout(() => {
+                        state.disconnectGracePeriodTimers.delete(socket.id);
+                        dc.player.hasRolled = false;
+                        dc.player.allowRollAgain = false;
+                        const activeAll = Array.from(state.clients.values()).filter((v) => !v.player.isBankrupt);
+                        const arr = activeAll.map((v) => v.player.id);
+                        let i = arr.indexOf(socket.id);
+                        i = arr.length > 0 ? (i + 1) % arr.length : -1;
+                        state.currentId = i === -1 ? "" : arr[i];
+                        state.emitAll("turn-finished", {
+                            from: socket.id,
+                            turnId: state.currentId,
+                            pJson: dc.player.to_json(),
+                            WinningMode: state.selectedMode.WinningMode,
+                        });
+                        state.emitStateUpdate();
+                    }, 15000);
+                    state.disconnectGracePeriodTimers.set(socket.id, graceTimer);
                 }
 
                 state.emitAll("disconnected-player", { id: socket.id, turn: state.currentId, wasInGame: true });
@@ -1272,7 +1286,6 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 const connectedCount = Array.from(state.clients.values()).filter((c) => c.connected).length;
                 if (connectedCount === 0) {
                     server.logFunction("All players disconnected. Starting 2-minute cleanup timer.");
-                    state.gameStarted = false;
                     server.resetCleanupTimer(2 * 60 * 1000);
                 }
             }

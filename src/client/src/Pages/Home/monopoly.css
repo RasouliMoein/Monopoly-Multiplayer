@@ -2589,8 +2589,9 @@ div.game div.trade-table div.trade-mission {
     flex-wrap: nowrap !important;
     gap: 20px !important;
     width: 100% !important;
-    max-width: 900px !important;
+    max-width: 950px !important;
     box-sizing: border-box !important;
+    align-items: stretch !important;
 }
 
 div.game div.trade-table div.trade-mission div.player {
@@ -2660,16 +2661,52 @@ div.game div.trade-table div.trade-mission div.player table tr td:nth-child(2) {
     font-weight: 700 !important;
 }
 
-div.game div.trade-table div.trade-mission div.trade-craft {
+div.game div.trade-table div.trade-mission div.flexchild div.trade-craft {
     background: var(--bg-sidebar) !important;
     border: 1px solid var(--border-color) !important;
     border-radius: 16px !important;
     padding: 12px 16px !important;
     margin: 0 !important;
     width: 100% !important;
-    max-height: 180px !important;
-    overflow-y: auto !important;
+    height: 100% !important;
+    min-height: 450px !important;
+    max-height: 450px !important;
+    display: flex !important;
+    flex-direction: column !important;
     box-sizing: border-box !important;
+}
+
+div.game div.trade-table div.trade-mission div.trade-properties-list {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    margin-top: 10px !important;
+    padding-right: 4px !important;
+}
+
+/* Thin custom scrollbar styling for trade lists */
+div.game div.trade-table div.trade-mission div.player,
+div.game div.trade-table div.trade-mission div.trade-properties-list {
+    scrollbar-width: thin !important;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent !important;
+}
+
+div.game div.trade-table div.trade-mission div.player::-webkit-scrollbar,
+div.game div.trade-table div.trade-mission div.trade-properties-list::-webkit-scrollbar {
+    width: 6px !important;
+}
+div.game div.trade-table div.trade-mission div.player::-webkit-scrollbar-track,
+div.game div.trade-table div.trade-mission div.trade-properties-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border-radius: 10px !important;
+}
+div.game div.trade-table div.trade-mission div.player::-webkit-scrollbar-thumb,
+div.game div.trade-table div.trade-mission div.trade-properties-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 10px !important;
+}
+div.game div.trade-table div.trade-mission div.player::-webkit-scrollbar-thumb:hover,
+div.game div.trade-table div.trade-mission div.trade-properties-list::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary) !important;
 }
 
 div.game div.trade-table div.trade-mission div.trade-craft p {
@@ -2721,18 +2758,25 @@ div.game div.trade-table div.trade-mission * div.proprety-nav i.box {
 }
 
 /* 4. Trade Offer Bottom Controls & State Toggles */
+div.game div.trade-table div.trade-mission div.flexchild.trade-buttons-column {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
 div.game div.trade-table div.trade-craft-buttons {
     display: flex !important;
-    flex-wrap: wrap !important;
-    justify-content: center !important;
-    background: transparent !important;
+    flex-direction: column !important;
     gap: 12px !important;
-    margin-top: 16px !important;
-    margin-bottom: 10px !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    max-width: 900px !important;
+    background: rgba(20, 19, 26, 0.95) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 16px !important;
+    padding: 16px 12px !important;
+    box-shadow: var(--shadow-premium) !important;
+    backdrop-filter: blur(12px) !important;
+    margin: 0 !important;
+    width: 140px !important;
     box-sizing: border-box !important;
 }
 
@@ -2740,7 +2784,7 @@ div.game div.trade-table div.trade-craft-buttons button {
     font-family: var(--font-outfit) !important;
     font-size: 14px !important;
     font-weight: 700 !important;
-    padding: 8px 16px !important;
+    padding: 10px 16px !important;
     border-radius: 10px !important;
     border: 1px solid var(--border-color) !important;
     background: var(--bg-sidebar) !important;
@@ -2748,6 +2792,9 @@ div.game div.trade-table div.trade-craft-buttons button {
     cursor: pointer !important;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
     box-shadow: none !important;
+    width: 100% !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
 }
 
 div.game div.trade-table div.trade-craft-buttons button:hover {

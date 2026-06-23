@@ -60,16 +60,21 @@ export default function Home() {
     function resetSavedGameSession() {
         const keysToRemove: string[] = [];
 
-        for (let index = 0; index < sessionStorage.length; index += 1) {
-            const key = sessionStorage.key(index);
+        for (let index = 0; index < localStorage.length; index += 1) {
+            const key = localStorage.key(index);
             if (key === null) continue;
-            if (key === "current_room" || key === "current_name" || key.startsWith("monopoly_token_")) {
+            if (
+                key === "current_room" ||
+                key === "current_name" ||
+                key.startsWith("monopoly_token_") ||
+                key.startsWith("is_spectator_")
+            ) {
                 keysToRemove.push(key);
             }
         }
 
         for (const key of keysToRemove) {
-            sessionStorage.removeItem(key);
+            localStorage.removeItem(key);
         }
 
         // Also clear the persistent username so it doesn't interfere with a fresh start
@@ -100,12 +105,12 @@ export default function Home() {
         }
 
         setIsSpectatorState(spectateOnly);
-        sessionStorage.setItem("current_room", joinAddr);
+        localStorage.setItem("current_room", joinAddr);
         localStorage.setItem("current_name", joinName);
         if (spectateOnly) {
-            sessionStorage.setItem("is_spectator_" + TranslateCode(joinAddr), "true");
+            localStorage.setItem("is_spectator_" + TranslateCode(joinAddr), "true");
         } else {
-            sessionStorage.removeItem("is_spectator_" + TranslateCode(joinAddr));
+            localStorage.removeItem("is_spectator_" + TranslateCode(joinAddr));
         }
 
         try {
@@ -202,8 +207,9 @@ export default function Home() {
         } catch (r) {
             // Clear the stale session so the next page refresh doesn't auto-rejoin
             // a room that no longer exists, causing an infinite retry loop.
-            sessionStorage.removeItem("current_room");
-            sessionStorage.removeItem("monopoly_token_" + TranslateCode(joinAddr));
+            localStorage.removeItem("current_room");
+            localStorage.removeItem("monopoly_token_" + TranslateCode(joinAddr));
+            localStorage.removeItem("is_spectator_" + TranslateCode(joinAddr));
             const errMsg =
                 r === "Room not found" ? "Room not found — session cleared" : `Could not connect to peer ${addr}`;
             notifyRef.current?.message(errMsg, "error", 2, () => {
@@ -218,13 +224,13 @@ export default function Home() {
             SetAddress(uriParams.get("ip") ?? "");
         }
 
-        const storedRoom = sessionStorage.getItem("current_room");
-        const storedName = localStorage.getItem("current_name") || sessionStorage.getItem("current_name");
+        const storedRoom = localStorage.getItem("current_room");
+        const storedName = localStorage.getItem("current_name");
         if (storedName) {
             SetName(storedName);
         }
         if (storedRoom && storedName) {
-            const isSpectator = sessionStorage.getItem("is_spectator_" + TranslateCode(storedRoom)) === "true";
+            const isSpectator = localStorage.getItem("is_spectator_" + TranslateCode(storedRoom)) === "true";
             SetAddress(storedRoom);
             setIsSpectatorState(isSpectator);
             joinButtonClicked(storedRoom, storedName, isSpectator);
@@ -253,7 +259,7 @@ export default function Home() {
                 });
                 const data = await response.json();
                 if (data.success) {
-                    sessionStorage.setItem("current_room", data.hostCode);
+                    localStorage.setItem("current_room", data.hostCode);
                     localStorage.setItem("current_name", name);
 
                     const virtualServer = new Server();

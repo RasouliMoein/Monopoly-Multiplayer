@@ -39,7 +39,12 @@ function App({
     clientsRef.current = clients;
 
     const leaveGameSession = () => {
-        sessionStorage.removeItem("current_room");
+        const code = localStorage.getItem("current_room") || "";
+        localStorage.removeItem("current_room");
+        if (code) {
+            localStorage.removeItem("monopoly_token_" + code);
+            localStorage.removeItem("is_spectator_" + code);
+        }
         document.location.reload();
     };
 
@@ -242,6 +247,76 @@ function App({
             const xplayer = clientsRef.current.get(socket.id);
             socket.emit("mouse", _pos);
             xplayer ? (xplayer.positions = _pos) : "";
+        }
+
+        function showBuyUI(location: number, rolls: number = 0) {
+            const proprety = propretyMap.get(location);
+            if (!proprety) {
+                engineRef.current?.freeDice();
+                return;
+            }
+            engineRef.current?.setStreet({
+                location,
+                rolls,
+                onResponse: (b: string, info: any) => {
+                    const time_till_free = 0;
+                    if (b === "buy" || b === "special_action") {
+                        socket.emit("player_action", { action: "buy" });
+                        if (settings?.notifications === true)
+                            notifyRef.current?.message(
+                                `${clientsRef.current.get(socket.id)?.username ?? "you"} bought ${proprety?.name ?? "a property"} for $${proprety?.price ?? 0}`,
+                                "info",
+                                2,
+                                () => {},
+                                false,
+                            );
+                        const buyAudio = new Audio("./buying1.mp3");
+                        buyAudio.volume =
+                            0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                        buyAudio.play();
+                        engineRef.current?.applyAnimation(1);
+                    } else if (b === "advance-buy") {
+                        const _info = info as { state: 1 | 2 | 3 | 4 | 5; money: number };
+                        socket.emit("player_action", {
+                            action: "buy-advance",
+                            newCount: _info.state,
+                            housesAdded: _info.money,
+                        });
+                        if (_info.state === 5) {
+                            if (settings?.notifications === true)
+                                notifyRef.current?.message(
+                                    `Built a hotel on ${proprety?.name}`,
+                                    "info",
+                                    2,
+                                    () => {},
+                                    false,
+                                );
+                        } else {
+                            if (settings?.notifications === true)
+                                notifyRef.current?.message(
+                                    `Built ${_info.money} house${_info.money > 1 ? "s" : ""} on ${proprety?.name}`,
+                                    "info",
+                                    2,
+                                    () => {},
+                                    false,
+                                );
+                        }
+                        const houseAudio = new Audio("./buying1.mp3");
+                        houseAudio.volume =
+                            0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
+                        houseAudio.play();
+                        engineRef.current?.applyAnimation(1);
+                    }
+                    // "someones" is now fully server-side — no client action needed
+                    // "nothing" / skip — just end turn
+                    setTimeout(() => {
+                        engineRef.current?.freeDice();
+                        if (b === "nothing") {
+                            socket.emit("player_action", { action: "skip" });
+                        }
+                    }, time_till_free);
+                },
+            });
         }
 
         const showWinDialog = (winner: Player, reason: string) => {
@@ -487,6 +562,21 @@ function App({
             const localPlayer = args.other_players.find((p) => p.id === socket.id);
             if (localPlayer) {
                 SetReady(localPlayer.ready ?? false);
+                // Restoration of purchase decision UI on reconnection
+                if (args.gameStarted && args.turn_id === socket.id && localPlayer.hasRolled) {
+                    const pos = localPlayer.position;
+                    const propData = propretyMap.get(pos);
+                    if (propData && propData.price !== undefined && propData.group !== "Special") {
+                        const isOwned = args.other_players.some((p) =>
+                            p.properties.some((pr: any) => pr.position === pos),
+                        );
+                        if (!isOwned) {
+                            setTimeout(() => {
+                                showBuyUI(pos);
+                            }, 1000);
+                        }
+                    }
+                }
             }
         };
 
@@ -700,76 +790,7 @@ function App({
                 }
             };
 
-            // ── Helper: show property buy/upgrade UI and emit player_action ──
-            const showBuyUI = (location: number) => {
-                const proprety = propretyMap.get(location);
-                if (!proprety) {
-                    engineRef.current?.freeDice();
-                    return;
-                }
-                engineRef.current?.setStreet({
-                    location,
-                    rolls,
-                    onResponse: (b: string, info: any) => {
-                        const time_till_free = 0;
-                        if (b === "buy" || b === "special_action") {
-                            socket.emit("player_action", { action: "buy" });
-                            if (settings?.notifications === true)
-                                notifyRef.current?.message(
-                                    `${clientsRef.current.get(socket.id)?.username ?? "you"} bought ${proprety?.name ?? "a property"} for $${proprety?.price ?? 0}`,
-                                    "info",
-                                    2,
-                                    () => {},
-                                    false,
-                                );
-                            const buyAudio = new Audio("./buying1.mp3");
-                            buyAudio.volume =
-                                0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            buyAudio.play();
-                            engineRef.current?.applyAnimation(1);
-                        } else if (b === "advance-buy") {
-                            const _info = info as { state: 1 | 2 | 3 | 4 | 5; money: number };
-                            socket.emit("player_action", {
-                                action: "buy-advance",
-                                newCount: _info.state,
-                                housesAdded: _info.money,
-                            });
-                            if (_info.state === 5) {
-                                if (settings?.notifications === true)
-                                    notifyRef.current?.message(
-                                        `Built a hotel on ${proprety?.name}`,
-                                        "info",
-                                        2,
-                                        () => {},
-                                        false,
-                                    );
-                            } else {
-                                if (settings?.notifications === true)
-                                    notifyRef.current?.message(
-                                        `Built ${_info.money} house${_info.money > 1 ? "s" : ""} on ${proprety?.name}`,
-                                        "info",
-                                        2,
-                                        () => {},
-                                        false,
-                                    );
-                            }
-                            const houseAudio = new Audio("./buying1.mp3");
-                            houseAudio.volume =
-                                0.5 * ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
-                            houseAudio.play();
-                            engineRef.current?.applyAnimation(1);
-                        }
-                        // "someones" is now fully server-side — no client action needed
-                        // "nothing" / skip — just end turn
-                        setTimeout(() => {
-                            engineRef.current?.freeDice();
-                            if (b === "nothing") {
-                                socket.emit("player_action", { action: "skip" });
-                            }
-                        }, time_till_free);
-                    },
-                });
-            };
+
 
             // ── afterFinished for playerMoveGENERATOR (jail animation) ──
             const afterMovementFinished = () => {
@@ -910,7 +931,7 @@ function App({
                                                     nested.requiresPurchaseDecision &&
                                                     nested.newPosition !== undefined
                                                 ) {
-                                                    showBuyUI(nested.newPosition);
+                                                    showBuyUI(nested.newPosition, rolls);
                                                 } else {
                                                     engineRef.current?.freeDice();
                                                 }
@@ -919,7 +940,7 @@ function App({
                                     } else {
                                         if (isActivePlayer) {
                                             if (args.pendingCard.requiresPurchaseDecision) {
-                                                showBuyUI(args.pendingCard.newPosition);
+                                                showBuyUI(args.pendingCard.newPosition, rolls);
                                             } else {
                                                 // Phase 2E: Re-roll on doubles if applicable
                                                 engineRef.current?.freeDice();
@@ -940,7 +961,7 @@ function App({
                                     args.pendingCard.requiresPurchaseDecision &&
                                     args.pendingCard.newPosition !== undefined
                                 ) {
-                                    showBuyUI(args.pendingCard.newPosition);
+                                    showBuyUI(args.pendingCard.newPosition, rolls);
                                 } else {
                                     // Phase 2E: Re-roll on doubles if applicable
                                     engineRef.current?.freeDice();
@@ -950,7 +971,7 @@ function App({
                     }, numOfTime);
                 } else if (isActivePlayer) {
                     if (args.requiresPurchaseDecision) {
-                        showBuyUI(args.finalPosition ?? rolledPosition);
+                        showBuyUI(args.finalPosition ?? rolledPosition, rolls);
                     } else {
                         // Phase 2E: Re-roll on doubles if applicable
                         engineRef.current?.freeDice();
@@ -1083,8 +1104,12 @@ function App({
         function socket_playerUpdate(args: { playerId: string; pJson: PlayerJSON }) {
             const x = clientsRef.current.get(args.playerId);
             if (x === undefined) return;
+            const wasConnected = x.connected;
             x.recieveJson(args.pJson);
             SetClients(new Map(clientsRef.current));
+            if (!wasConnected && x.connected) {
+                notifyRef.current?.message(`${x.username} reconnected!`, "info");
+            }
         }
 
         const socket_AuctionStart = (args: {
@@ -1183,6 +1208,7 @@ function App({
         });
         socket.on("reconnected", () => {
             SetReconnectAttempt(null);
+            notifyRef.current?.closeDialog();
             notifyRef.current?.message("Reconnected successfully!", "info", 2);
         });
         socket.on("kicked", () => {
@@ -1454,7 +1480,12 @@ function App({
                             server={server}
                             onLeave={() => {
                                 leavingRoomRef.current = true;
-                                sessionStorage.removeItem("current_room");
+                                const code = server?.code || localStorage.getItem("current_room") || "";
+                                localStorage.removeItem("current_room");
+                                if (code) {
+                                    localStorage.removeItem("monopoly_token_" + code);
+                                    localStorage.removeItem("is_spectator_" + code);
+                                }
                                 socket.emit("leave-room");
                                 socket.disconnect();
                                 document.location.reload();
@@ -1655,11 +1686,11 @@ function App({
                             >
                                 <span className="pill-prefix">Room Code:</span>
                                 <span className="pill-code">
-                                    {server?.code || sessionStorage.getItem("current_room") || "------"}
+                                    {server?.code || localStorage.getItem("current_room") || "------"}
                                 </span>
                                 <button
                                     onClick={() => {
-                                        const code = server?.code || sessionStorage.getItem("current_room") || "";
+                                        const code = server?.code || localStorage.getItem("current_room") || "";
                                         if (code) {
                                             navigator.clipboard.writeText(code);
                                             setCopiedCode(true);
@@ -1827,7 +1858,12 @@ function App({
 
                                         <button
                                             onClick={() => {
-                                                sessionStorage.removeItem("current_room");
+                                                const code = server?.code || localStorage.getItem("current_room") || "";
+                                                localStorage.removeItem("current_room");
+                                                if (code) {
+                                                    localStorage.removeItem("monopoly_token_" + code);
+                                                    localStorage.removeItem("is_spectator_" + code);
+                                                }
                                                 socket.emit("leave-room");
                                                 socket.disconnect();
                                                 document.location.reload();
@@ -2140,7 +2176,12 @@ function App({
                         </p>
                         <button
                             onClick={() => {
-                                sessionStorage.removeItem("current_room");
+                                const code = server?.code || localStorage.getItem("current_room") || "";
+                                localStorage.removeItem("current_room");
+                                if (code) {
+                                    localStorage.removeItem("monopoly_token_" + code);
+                                    localStorage.removeItem("is_spectator_" + code);
+                                }
                                 socket.disconnect();
                                 document.location.reload();
                             }}

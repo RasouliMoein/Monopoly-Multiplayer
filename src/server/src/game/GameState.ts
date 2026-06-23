@@ -29,6 +29,7 @@ export class GameState {
     public gameStarted = false;
     public selectedMode: MonopolyMode = MonopolyModes[0];
     public hostId = "";
+    public disconnectGracePeriodTimers = new Map<string, any>();
 
     // Persistent game history & statistics storage
     public server_histories: Array<historyAction> = [];
