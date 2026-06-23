@@ -1953,19 +1953,21 @@ div.game div.trade-table {
     top: 100%;
     left: 0%;
     background-color: rgb(20, 20, 20);
-    overflow-y: auto;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
-    padding: 30px 20px;
+    justify-content: center;
+    padding: 10px 20px;
     box-sizing: border-box;
 }
 
 div.game div.trade-table h3 {
     width: 100%;
     text-align: center;
-    font-size: 40px;
+    font-size: 24px;
+    margin-top: 10px;
+    margin-bottom: 8px;
 }
 
 div.game div.trade-table div.middle {
@@ -1977,8 +1979,11 @@ div.game div.trade-table div.middle {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     width: 100%;
     max-width: 950px;
+    height: 100%;
+    max-height: 98vh;
     box-sizing: border-box;
 }
 
@@ -2016,8 +2021,9 @@ div.game div.trade-table div.select-players button[data-selectable="true"]:hover
 
 div.game div.trade-table div.trade-mission {
     display: flex;
-    flex-wrap: wrap;
-    gap: 24px;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 20px;
     position: unset;
     transform: unset;
     justify-content: center;
@@ -2027,11 +2033,11 @@ div.game div.trade-table div.trade-mission {
 }
 
 div.game div.trade-table div.trade-mission div.flexchild {
-    flex: 1 1 380px !important;
-    min-width: 280px !important;
+    flex: 1 1 50% !important;
+    min-width: 0 !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 16px !important;
+    gap: 10px !important;
     box-sizing: border-box !important;
 }
 
@@ -2041,6 +2047,8 @@ div.game div.trade-table div.trade-mission div.player {
     position: unset;
     transform: unset;
     width: 100% !important;
+    max-height: 220px !important;
+    overflow-y: auto !important;
     box-sizing: border-box !important;
 }
 
@@ -2090,9 +2098,9 @@ div.game div.trade-table div.trade-mission div.trade-craft {
 }
 
 div.game div.trade-table div.trade-mission div.flexchild div.trade-craft {
-    min-height: 100px;
-    max-height: 300px;
-    overflow-y: auto;
+    min-height: 80px !important;
+    max-height: 180px !important;
+    overflow-y: auto !important;
 }
 
 div.game div.trade-table div.trade-mission * div.proprety-nav {
@@ -2525,12 +2533,12 @@ div.game div.trade-table {
         radial-gradient(circle at 10% 90%, rgba(44, 27, 61, 0.12) 0%, transparent 60%) !important;
     font-family: var(--font-outfit) !important;
     border-top: 1px solid var(--border-color) !important;
-    overflow-y: auto !important;
+    overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    justify-content: flex-start !important;
-    padding: 30px 20px !important;
+    justify-content: center !important;
+    padding: 10px 20px !important;
     box-sizing: border-box !important;
 }
 
@@ -2538,9 +2546,9 @@ div.game div.trade-table h3 {
     font-family: var(--font-outfit) !important;
     font-weight: 800 !important;
     color: var(--text-main) !important;
-    font-size: 32px !important;
-    margin-top: 24px !important;
-    margin-bottom: 20px !important;
+    font-size: 24px !important;
+    margin-top: 10px !important;
+    margin-bottom: 8px !important;
 }
 
 div.game div.trade-table h2 {
@@ -2577,8 +2585,9 @@ div.game div.trade-table div.select-players button[data-selectable="true"]:hover
 
 div.game div.trade-table div.trade-mission {
     display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 24px !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 20px !important;
     width: 100% !important;
     max-width: 900px !important;
     box-sizing: border-box !important;
@@ -2587,15 +2596,16 @@ div.game div.trade-table div.trade-mission {
 div.game div.trade-table div.trade-mission div.player {
     background: rgba(20, 19, 26, 0.6) !important;
     border: 1px solid var(--border-color) !important;
-    border-radius: 20px !important;
-    padding: 20px !important;
+    border-radius: 16px !important;
+    padding: 12px 16px !important;
     backdrop-filter: blur(12px) !important;
     box-shadow: var(--shadow-premium) !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 12px !important;
-    flex: 1 1 380px !important;
-    min-width: 280px !important;
+    gap: 8px !important;
+    flex: 1 1 50% !important;
+    max-height: 220px !important;
+    overflow-y: auto !important;
     box-sizing: border-box !important;
 }
 
@@ -2634,7 +2644,7 @@ div.game div.trade-table div.trade-mission div.player table tr:last-child {
 }
 
 div.game div.trade-table div.trade-mission div.player table tr td {
-    padding: 10px 0 !important;
+    padding: 6px 0 !important;
     font-size: 14px !important;
     color: var(--text-main) !important;
     vertical-align: middle !important;
@@ -2654,9 +2664,11 @@ div.game div.trade-table div.trade-mission div.trade-craft {
     background: var(--bg-sidebar) !important;
     border: 1px solid var(--border-color) !important;
     border-radius: 16px !important;
-    padding: 16px !important;
+    padding: 12px 16px !important;
     margin: 0 !important;
     width: 100% !important;
+    max-height: 180px !important;
+    overflow-y: auto !important;
     box-sizing: border-box !important;
 }
 
@@ -2715,8 +2727,8 @@ div.game div.trade-table div.trade-craft-buttons {
     justify-content: center !important;
     background: transparent !important;
     gap: 12px !important;
-    margin-top: 32px !important;
-    margin-bottom: 20px !important;
+    margin-top: 16px !important;
+    margin-bottom: 10px !important;
     border-radius: 0 !important;
     padding: 0 !important;
     width: 100% !important;
@@ -2728,7 +2740,7 @@ div.game div.trade-table div.trade-craft-buttons button {
     font-family: var(--font-outfit) !important;
     font-size: 14px !important;
     font-weight: 700 !important;
-    padding: 10px 24px !important;
+    padding: 8px 16px !important;
     border-radius: 10px !important;
     border: 1px solid var(--border-color) !important;
     background: var(--bg-sidebar) !important;
