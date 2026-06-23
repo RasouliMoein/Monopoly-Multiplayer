@@ -1619,8 +1619,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                         className="action-bar"
                         style={
                             prop.myTurn && !sended && !prop.players.find((v) => v.id === prop.socket.id)?.isBankrupt
-                                ? {}
-                                : { translate: "-50% 20vh" }
+                                ? { translate: "0 -50%" }
+                                : { translate: "220px -50%" }
                         }
                     >
                         {prop.selectedMode.turnTimer !== undefined && prop.selectedMode.turnTimer > 0 ? (
@@ -1630,12 +1630,14 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                         display: "inline-block",
                                         opacity: 1,
                                         color: "rgb(0, 114, 187)",
-                                        marginRight: 5,
+                                        margin: "0 auto",
+                                        fontWeight: 800,
+                                        fontSize: "15px"
                                     }}
                                 >
                                     {prop.selectedMode.turnTimer - timer}{" "}
                                 </p>
-                                <hr style={{ display: "inline", opacity: 0.5 }} />
+                                <hr style={{ width: "80%", border: "none", borderTop: "1px solid rgba(255, 255, 255, 0.15)", margin: "4px auto 8px auto", opacity: 0.5 }} />
                             </>
                         ) : (
                             <></>
@@ -1645,6 +1647,7 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                             <button
                                 id="btn-declare-bankruptcy"
                                 className="action-btn bankruptcy-btn"
+                                data-tooltip-hover="Declare Bankruptcy"
                                 onClick={() => {
                                     const firstConfirm = window.confirm(
                                         "Are you sure you want to declare bankruptcy? This will eliminate you from the game.",
@@ -1660,25 +1663,28 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                     }
                                 }}
                             >
-                                <Icons.Skull width={15} height={15} style={{ flexShrink: 0 }} />
-                                Declare Bankruptcy
+                                <Icons.Skull width={18} height={18} style={{ flexShrink: 0 }} />
                             </button>
                         ) : !(prop.hasRolled && !prop.allowRollAgain) ? (
-                            <button data-button-type="roll" aria-disabled={false} onClick={handleRoll}>
-                                <p>ROLL THE DICE</p>
-                                <Icons.Dice width={18} height={18} style={{ marginLeft: 8, flexShrink: 0 }} />
+                            <button
+                                data-button-type="roll"
+                                aria-disabled={false}
+                                onClick={handleRoll}
+                                data-tooltip-hover="Roll the Dice"
+                            >
+                                <Icons.Dice width={18} height={18} style={{ flexShrink: 0 }} />
                             </button>
                         ) : (
                             <button
                                 id="btn-end-turn"
                                 className="action-btn end-turn-btn"
+                                data-tooltip-hover="End Turn"
                                 onClick={() => {
                                     localFreeDice();
                                     prop.socket.emit("finish-turn");
                                 }}
                             >
-                                End Turn
-                                <Icons.EndTurn width={16} height={16} style={{ flexShrink: 0 }} />
+                                <Icons.EndTurn width={18} height={18} style={{ flexShrink: 0 }} />
                             </button>
                         )}
                         <button data-button-type="pay" data-tooltip-hover="pay" aria-disabled={true}>

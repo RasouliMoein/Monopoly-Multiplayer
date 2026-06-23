@@ -188,19 +188,7 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                     </div>
                 </div>
                 <div className="lower">
-                    {prop.server !== undefined ? (
-                        <div
-                            key={"ingame-nav-header-server"}
-                            data-selected={false}
-                            onClick={() => prop.callServer()}
-                            data-tooltip-hover="server"
-                            className="button"
-                        >
-                            <img src="server.png" alt="" />
-                        </div>
-                    ) : (
-                        <></>
-                    )}
+
                     <div
                         key={"ingame-nav-header-4"}
                         data-selected={tabIndex == 4}

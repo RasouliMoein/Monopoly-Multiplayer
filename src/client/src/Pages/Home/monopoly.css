@@ -1097,15 +1097,16 @@ div.board div.street.is-mortgaged::after {
 
 div.action-bar {
     position: absolute;
-    bottom: 10%;
-    height: 50spx;
-    width: fit-content;
-    left: 50%;
-    background-color: rgba(20, 20, 20, 100);
-    translate: -50% 0px;
+    right: 24px;
+    left: auto;
+    top: 50%;
+    height: auto;
+    width: 60px;
+    background-color: rgba(20, 20, 20, 0.95);
+    translate: 220px -50%;
     transition: translate 0.3s cubic-bezier(0.21, 1.57, 0.55, 1);
-    border-radius: 10px;
-    padding-inline: 10px;
+    border-radius: 16px;
+    padding: 12px 6px;
 }
 
 div.action-bar button {
@@ -1162,6 +1163,7 @@ div.action-bar button[data-button-type][aria-disabled="true"] {
     opacity: 0 !important;
     visibility: hidden !important;
     width: 0 !important;
+    height: 0 !important;
     min-width: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
@@ -2322,23 +2324,32 @@ main nav.content input[type="text"]:focus {
 
 /* 2. Floating Action Bar & Roll Dice Button */
 div.action-bar {
-    height: 50px !important; /* Fixes height: 50spx typo */
-    border-radius: 16px !important;
+    position: absolute !important;
+    right: 24px !important;
+    left: auto !important;
+    top: 50% !important;
+    bottom: auto !important;
+    height: auto !important;
+    width: 60px !important;
+    border-radius: 20px !important;
     background: rgba(20, 19, 26, 0.95) !important;
     border: 1px solid var(--border-color) !important;
-    padding: 5px 12px !important;
+    padding: 12px 5px !important;
     box-shadow: var(--shadow-premium) !important;
     backdrop-filter: blur(12px) !important;
     display: flex !important;
+    flex-direction: column !important;
     align-items: center !important;
-    gap: 0 !important;
+    gap: 12px !important;
+    z-index: 1000 !important;
 }
 
 div.action-bar button {
     font-family: var(--font-outfit) !important;
-    border-radius: 10px !important;
-    height: 40px !important;
-    padding: 0 16px !important;
+    border-radius: 50% !important;
+    width: 44px !important;
+    height: 44px !important;
+    padding: 0 !important;
     background: rgba(255, 255, 255, 0.03) !important;
     border: 1px solid rgba(255, 255, 255, 0.05) !important;
     color: var(--text-main) !important;
@@ -2349,13 +2360,13 @@ div.action-bar button {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
+    flex-shrink: 0 !important;
 }
 
 div.action-bar button:hover {
     background: rgba(255, 255, 255, 0.08) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
-    transform: translateY(-1px) !important;
-    scale: 1 !important;
+    transform: scale(1.1) !important;
 }
 
 div.action-bar button[data-button-type="roll"] {
@@ -2364,37 +2375,20 @@ div.action-bar button[data-button-type="roll"] {
     color: var(--text-dark) !important;
     font-weight: 800 !important;
     box-shadow: 0 4px 14px var(--color-primary-glow) !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    margin-right: 8px !important;
+    margin: 0 !important;
 }
 
 div.action-bar button[data-button-type="roll"]:hover {
     background: var(--color-primary-hover) !important;
     box-shadow: 0 6px 18px rgba(79, 142, 255, 0.45) !important;
-    transform: translateY(-1px) scale(1.02) !important;
-}
-
-div.action-bar button[data-button-type="roll"] p {
-    color: var(--text-dark) !important;
-    font-family: var(--font-outfit) !important;
-    font-weight: 800 !important;
-}
-
-div.action-bar button[data-button-type="roll"] span {
-    color: var(--text-dark) !important;
-    line-height: 1 !important;
+    transform: scale(1.1) !important;
 }
 
 div.action-bar button.bankruptcy-btn {
     background: rgba(239, 68, 68, 0.15) !important;
     border: 1.5px solid rgba(239, 68, 68, 0.45) !important;
     color: #fca5a5 !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    margin-right: 8px !important;
-    gap: 8px !important;
+    margin: 0 !important;
     box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15) !important;
 }
 
@@ -2403,18 +2397,14 @@ div.action-bar button.bankruptcy-btn:hover {
     border-color: rgba(239, 68, 68, 0.7) !important;
     color: #ffffff !important;
     box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3) !important;
-    transform: translateY(-1px) scale(1.02) !important;
+    transform: scale(1.1) !important;
 }
 
 div.action-bar button.end-turn-btn {
     background: rgba(16, 185, 129, 0.15) !important;
     border: 1.5px solid rgba(16, 185, 129, 0.45) !important;
     color: #6ee7b7 !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    margin-right: 8px !important;
-    gap: 8px !important;
+    margin: 0 !important;
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15) !important;
 }
 
@@ -2423,7 +2413,7 @@ div.action-bar button.end-turn-btn:hover {
     border-color: rgba(16, 185, 129, 0.7) !important;
     color: #ffffff !important;
     box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3) !important;
-    transform: translateY(-1px) scale(1.02) !important;
+    transform: scale(1.1) !important;
 }
 
 div.action-bar button img {
@@ -2432,6 +2422,33 @@ div.action-bar button img {
     scale: 1 !important;
     translate: 0 !important;
     margin: 0 !important;
+}
+
+/* Tooltip overrides for action bar buttons to display on the left side of the vertical bar */
+div.action-bar button[data-tooltip-hover]::after {
+    left: auto !important;
+    right: 100% !important;
+    top: 50% !important;
+    transform: translateY(-50%) translateX(-10px) !important;
+}
+
+div.action-bar button[data-tooltip-hover]:hover::after {
+    transform: translateY(-50%) translateX(-15px) !important;
+}
+
+div.action-bar p {
+    color: rgb(0, 114, 187) !important;
+    font-weight: 800 !important;
+    font-size: 15px !important;
+    margin: 0 auto !important;
+    text-align: center !important;
+}
+
+div.action-bar hr {
+    width: 80% !important;
+    border: none !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+    margin: 4px auto 8px auto !important;
 }
 
 /* Mortgage / Unmortgage action button in property tab */

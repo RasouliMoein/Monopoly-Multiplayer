@@ -705,9 +705,6 @@ function App({
                 const proprety = propretyMap.get(location);
                 if (!proprety) {
                     engineRef.current?.freeDice();
-                    if (!allowRollAgainRef.current) {
-                        socket.emit("finish-turn");
-                    }
                     return;
                 }
                 engineRef.current?.setStreet({
@@ -768,19 +765,6 @@ function App({
                             engineRef.current?.freeDice();
                             if (b === "nothing") {
                                 socket.emit("player_action", { action: "skip" });
-                                if (!selectedModeRef.current.allowAuctions) {
-                                    if (allowRollAgainRef.current) {
-                                        // Doubles! Do NOT finish turn, just free dice for another roll!
-                                    } else {
-                                        socket.emit("finish-turn");
-                                    }
-                                }
-                            } else {
-                                if (allowRollAgainRef.current) {
-                                    // Doubles! Do NOT finish turn, just free dice for another roll!
-                                } else {
-                                    socket.emit("finish-turn");
-                                }
                             }
                         }, time_till_free);
                     },
@@ -801,7 +785,6 @@ function App({
                             if (isActivePlayer) {
                                 setTimeout(() => {
                                     engineRef.current?.freeDice();
-                                    socket.emit("finish-turn");
                                 }, 500);
                             }
                         });
@@ -826,7 +809,6 @@ function App({
                     // Stayed in jail (non-doubles) — server decremented turns, just end
                     if (isActivePlayer) {
                         engineRef.current?.freeDice();
-                        socket.emit("finish-turn");
                     }
                     return;
                 }
@@ -930,12 +912,7 @@ function App({
                                                 ) {
                                                     showBuyUI(nested.newPosition);
                                                 } else {
-                                                    if (args.allowRollAgain) {
-                                                        engineRef.current?.freeDice();
-                                                    } else {
-                                                        engineRef.current?.freeDice();
-                                                        socket.emit("finish-turn");
-                                                    }
+                                                    engineRef.current?.freeDice();
                                                 }
                                             }
                                         }, numOfTime);
@@ -945,12 +922,7 @@ function App({
                                                 showBuyUI(args.pendingCard.newPosition);
                                             } else {
                                                 // Phase 2E: Re-roll on doubles if applicable
-                                                if (args.allowRollAgain) {
-                                                    engineRef.current?.freeDice();
-                                                } else {
-                                                    engineRef.current?.freeDice();
-                                                    socket.emit("finish-turn");
-                                                }
+                                                engineRef.current?.freeDice();
                                             }
                                         }
                                     }
@@ -971,12 +943,7 @@ function App({
                                     showBuyUI(args.pendingCard.newPosition);
                                 } else {
                                     // Phase 2E: Re-roll on doubles if applicable
-                                    if (args.allowRollAgain) {
-                                        engineRef.current?.freeDice();
-                                    } else {
-                                        engineRef.current?.freeDice();
-                                        socket.emit("finish-turn");
-                                    }
+                                    engineRef.current?.freeDice();
                                 }
                             }
                         }
@@ -986,13 +953,7 @@ function App({
                         showBuyUI(args.finalPosition ?? rolledPosition);
                     } else {
                         // Phase 2E: Re-roll on doubles if applicable
-                        if (args.allowRollAgain) {
-                            // Doubles! Re-enable roll button — do NOT emit finish-turn
-                            engineRef.current?.freeDice();
-                        } else {
-                            engineRef.current?.freeDice();
-                            socket.emit("finish-turn");
-                        }
+                        engineRef.current?.freeDice();
                     }
                 }
             };
