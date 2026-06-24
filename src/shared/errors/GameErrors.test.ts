@@ -1,11 +1,5 @@
 import { describe, it, expect } from "@jest/globals";
-import {
-    GameError,
-    InsufficientFundsError,
-    InvalidActionError,
-    LobbyFullError,
-    NotFoundError,
-} from "./GameErrors";
+import { GameError, InsufficientFundsError, InvalidActionError, LobbyFullError, NotFoundError } from "./GameErrors";
 
 describe("GameErrors", () => {
     it("should instantiate GameError correctly", () => {

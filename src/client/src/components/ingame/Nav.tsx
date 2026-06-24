@@ -188,7 +188,6 @@ const MonopolyNav = forwardRef<MonopolyNavRef, MonopolyNavProps>((prop, ref) => 
                     </div>
                 </div>
                 <div className="lower">
-
                     <div
                         key={"ingame-nav-header-4"}
                         data-selected={tabIndex == 4}

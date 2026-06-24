@@ -1,13 +1,15 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Monopoly Multiplayer E2E Tests", () => {
-    test("Full game loop: join, roll, move animations, audio intercepts, buy property, money animations, and insights tab", async ({ browser }) => {
+    test("Full game loop: join, roll, move animations, audio intercepts, buy property, money animations, and insights tab", async ({
+        browser,
+    }) => {
         console.log("[E2E] Starting test with separate browser contexts...");
-        
+
         // --- 1. SET UP ISOLATED BROWSER CONTEXTS ---
         const context1 = await browser.newContext();
         const context2 = await browser.newContext();
-        
+
         const page1 = await context1.newPage();
         const page2 = await context2.newPage();
 
@@ -74,9 +76,11 @@ test.describe("Monopoly Multiplayer E2E Tests", () => {
         console.log("[E2E] Triggering debug authentication post-connection...");
         // Trigger debug authenticate window event to prevent client name-registration race condition
         await page1.evaluate(() => {
-            window.dispatchEvent(new CustomEvent("debug_toggle_auth", {
-                detail: { password: "monopolyadmin" }
-            }));
+            window.dispatchEvent(
+                new CustomEvent("debug_toggle_auth", {
+                    detail: { password: "monopolyadmin" },
+                }),
+            );
         });
 
         console.log("[E2E] Waiting for Game Debugger panel to render...");
@@ -85,7 +89,7 @@ test.describe("Monopoly Multiplayer E2E Tests", () => {
         // Set Next Roll to [1, 2] (3 steps total) to land on position 3 (Baltic Avenue)
         await page1.locator("select").nth(2).selectOption("1"); // overrideD1
         await page1.locator("select").nth(3).selectOption("2"); // overrideD2
-        
+
         // Click the precise "Set" button for dice overrides (exact match)
         await page1.getByRole("button", { name: "Set", exact: true }).click();
         console.log("[E2E] Dice override set to [1, 2]");
@@ -97,10 +101,13 @@ test.describe("Monopoly Multiplayer E2E Tests", () => {
 
         // Wait for step-by-step movement: check that animation style was applied
         console.log("[E2E] Waiting for jumpstreet animation...");
-        await page1.waitForFunction(() => {
-            const playerEl = document.querySelector("div.player") as HTMLDivElement | null;
-            return playerEl && playerEl.style.animation.includes("jumpstreet");
-        }, { timeout: 8000 });
+        await page1.waitForFunction(
+            () => {
+                const playerEl = document.querySelector("div.player") as HTMLDivElement | null;
+                return playerEl && playerEl.style.animation.includes("jumpstreet");
+            },
+            { timeout: 8000 },
+        );
 
         // Assert step sound step2.mp3 was requested via network
         console.log("[E2E] Asserting audio requests for step2.mp3...");
@@ -108,10 +115,13 @@ test.describe("Monopoly Multiplayer E2E Tests", () => {
 
         // Wait for movement to finish (it lands at Baltic Avenue - pos 3)
         console.log("[E2E] Waiting for movement to complete (part animation)...");
-        await page1.waitForFunction(() => {
-            const playerEl = document.querySelector("div.player") as HTMLDivElement | null;
-            return playerEl && playerEl.style.animation.includes("part");
-        }, { timeout: 10000 });
+        await page1.waitForFunction(
+            () => {
+                const playerEl = document.querySelector("div.player") as HTMLDivElement | null;
+                return playerEl && playerEl.style.animation.includes("part");
+            },
+            { timeout: 10000 },
+        );
 
         // --- 7. VERIFY BUY DIALOGUE OVERLAYS & BUYING ACTION ---
         console.log("[E2E] Verifying buy dialog...");
@@ -152,7 +162,7 @@ test.describe("Monopoly Multiplayer E2E Tests", () => {
         console.log("[E2E] Closing Insights drawer...");
         await page1.locator(".insights-drawer-close").click();
         await expect(insightsDrawer).not.toBeVisible();
-        
+
         console.log("[E2E] Test run completed successfully!");
     });
 });

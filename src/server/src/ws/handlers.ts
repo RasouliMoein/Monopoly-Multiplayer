@@ -1159,7 +1159,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 const isTurnPlayer = socket.id === x.turnPlayer.id;
                 const isAgainstPlayer = socket.id === x.againstPlayer.id;
                 if (!isTurnPlayer && !isAgainstPlayer) {
-                    server.logFunction(`[SECURITY] Rejecting trade-update from ${socket.id} (not a party in the trade).`);
+                    server.logFunction(
+                        `[SECURITY] Rejecting trade-update from ${socket.id} (not a party in the trade).`,
+                    );
                     return;
                 }
 
@@ -1189,7 +1191,8 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 const serverTrade = state.activeTrade;
                 if (isTurnPlayer) {
                     const cashChanged = serverTrade.turnPlayer.balance !== x.turnPlayer.balance;
-                    const propsChanged = JSON.stringify(serverTrade.turnPlayer.prop) !== JSON.stringify(x.turnPlayer.prop);
+                    const propsChanged =
+                        JSON.stringify(serverTrade.turnPlayer.prop) !== JSON.stringify(x.turnPlayer.prop);
 
                     serverTrade.turnPlayer.balance = x.turnPlayer.balance;
                     serverTrade.turnPlayer.prop = x.turnPlayer.prop;
@@ -1200,7 +1203,8 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     }
                 } else {
                     const cashChanged = serverTrade.againstPlayer.balance !== x.againstPlayer.balance;
-                    const propsChanged = JSON.stringify(serverTrade.againstPlayer.prop) !== JSON.stringify(x.againstPlayer.prop);
+                    const propsChanged =
+                        JSON.stringify(serverTrade.againstPlayer.prop) !== JSON.stringify(x.againstPlayer.prop);
 
                     serverTrade.againstPlayer.balance = x.againstPlayer.balance;
                     serverTrade.againstPlayer.prop = x.againstPlayer.prop;
@@ -1279,7 +1283,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 }
 
                 if (state.hostId === socket.id) {
-                    const nextHost = Array.from(state.clients.values()).find((c) => c.connected && c.player.id !== socket.id);
+                    const nextHost = Array.from(state.clients.values()).find(
+                        (c) => c.connected && c.player.id !== socket.id,
+                    );
                     state.hostId = nextHost ? nextHost.player.id : "";
                     if (nextHost) {
                         const hMsg = `[Host promoted] "${nextHost.player.username}" is now the host.`;
@@ -1384,7 +1390,6 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     }
                     state.currentId = clientEntries[0][0];
                 }
-
 
                 for (const c of Array.from(state.clients.values())) {
                     c.player.balance = state.selectedMode.startingCash;

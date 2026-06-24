@@ -249,7 +249,7 @@ function App({
             xplayer ? (xplayer.positions = _pos) : "";
         }
 
-        function showBuyUI(location: number, rolls: number = 0) {
+        function showBuyUI(location: number, rolls = 0) {
             const proprety = propretyMap.get(location);
             if (!proprety) {
                 engineRef.current?.freeDice();
@@ -790,8 +790,6 @@ function App({
                 }
             };
 
-
-
             // ── afterFinished for playerMoveGENERATOR (jail animation) ──
             const afterMovementFinished = () => {
                 if (args.goingToJail) {
@@ -1069,29 +1067,26 @@ function App({
                 ? "The game lobby no longer exists or the host closed the connection."
                 : "You were disconnected from the game.";
 
-            notifyRef.current?.dialog(
-                (close_func, createButton) => {
-                    const buttons = [
-                        createButton("RETURN TO MAIN MENU", () => {
+            notifyRef.current?.dialog((close_func, createButton) => {
+                const buttons = [
+                    createButton("RETURN TO MAIN MENU", () => {
+                        close_func();
+                        leaveGameSession();
+                    }),
+                ];
+                if (!isRoomNotFound) {
+                    buttons.unshift(
+                        createButton("RECONNECT", () => {
                             close_func();
-                            leaveGameSession();
+                            socket.startReconnecting();
                         }),
-                    ];
-                    if (!isRoomNotFound) {
-                        buttons.unshift(
-                            createButton("RECONNECT", () => {
-                                close_func();
-                                socket.startReconnecting();
-                            })
-                        );
-                    }
-                    return {
-                        innerHTML: `<h3> ${title} </h3> <p> ${description} </p>`,
-                        buttons,
-                    };
-                },
-                "loosing",
-            );
+                    );
+                }
+                return {
+                    innerHTML: `<h3> ${title} </h3> <p> ${description} </p>`,
+                    buttons,
+                };
+            }, "loosing");
         }
 
         function socket_history(args: historyAction) {

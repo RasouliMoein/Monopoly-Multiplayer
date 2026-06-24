@@ -4,12 +4,12 @@ import { WebSocket as WSWebSocket } from "ws";
 import { TranslateCode } from "../../shared/utils/code";
 
 class MockWebSocket {
-    public callbacks: Record<string, (args: any) => void> = {};
+    public callbacks: Record<string, (args?: any) => void> = {};
     public readyState = 1; // WSWebSocket.OPEN
     public sent: string[] = [];
     public isClosed = false;
 
-    public on(event: string, callback: (args: any) => void) {
+    public on(event: string, callback: (args?: any) => void) {
         this.callbacks[event] = callback;
         return this;
     }
@@ -65,6 +65,7 @@ describe("Sockets and Server wrappers", () => {
 
         it("should handle JSON parse errors gracefully", () => {
             const socket = new Socket(mockWS as unknown as WSWebSocket, "client-1");
+            expect(socket.id).toBe("client-1");
             if (mockWS.callbacks["message"]) {
                 mockWS.callbacks["message"](Buffer.from("invalid json"));
             }
@@ -73,6 +74,7 @@ describe("Sockets and Server wrappers", () => {
 
         it("should handle error events", () => {
             const socket = new Socket(mockWS as unknown as WSWebSocket, "client-1");
+            expect(socket.id).toBe("client-1");
             const testErr = new Error("Network issues");
             mockWS.simulateError(testErr);
             expect(consoleErrorSpy).toHaveBeenCalledWith("Connection error:", testErr);

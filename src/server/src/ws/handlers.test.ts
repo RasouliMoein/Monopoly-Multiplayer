@@ -1,9 +1,7 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from "@jest/globals";
 import { registerSocketHandlers } from "./handlers";
 import { GameState } from "../game/GameState";
-import { Player } from "../game/Player";
-import { GameTrading, MonopolyModes } from "../../../shared/types/game";
-import monopolyJSON from "../../../shared/data/monopoly.json";
+import { GameTrading } from "../../../shared/types/game";
 
 class MockSocket {
     public id: string;
@@ -93,7 +91,6 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
         it("should reconnect a player if connection updates", () => {
             s1.simulate("name", "Alice");
-            const oldSocket = s1;
             const newS1 = new MockSocket("socket-1");
             registerSocketHandlers(newS1 as any, server, state, 6);
 
@@ -110,7 +107,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         it("should prevent duplicate icons/colors in the lobby", () => {
             s1.simulate("name", "Alice");
             s2.simulate("name", "Bob"); // Bob is automatically assigned icon 1 as second connection
-            
+
             s1.simulate("select_icon", 2); // Alice takes 2
             s2.simulate("select_icon", 2); // Bob tries duplicate 2 (fails)
             expect(state.clients.get("socket-2")?.player.icon).toBe(1); // Bob retains 1
@@ -140,7 +137,6 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
             setupLobbyPlayers();
 
-
             s1.simulate("ready", { ready: true });
             s2.simulate("ready", { ready: true });
             s3.simulate("ready", { ready: true });
@@ -151,7 +147,6 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
             mathRandomSpy.mockRestore();
         });
-
     });
 
     describe("Dice Rolling & Movement Mechanics", () => {
@@ -161,7 +156,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
         it("should roll dice, move player, and trigger state update", () => {
             state.currentId = "socket-1";
-            const player = state.clients.get("socket-1")?.player!;
+            const player = state.clients.get("socket-1")!.player;
             player.hasRolled = false;
 
             s1.simulate("debug_override_dice", { d1: 2, d2: 3 });
@@ -174,7 +169,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
         it("should allow rolling again if player rolls doubles", () => {
             state.currentId = "socket-1";
-            const player = state.clients.get("socket-1")?.player!;
+            const player = state.clients.get("socket-1")!.player;
             player.hasRolled = false;
 
             s1.simulate("debug_override_dice", { d1: 4, d2: 4 });
@@ -187,7 +182,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
         it("should send player to jail if they roll doubles three times in a row", () => {
             state.currentId = "socket-1";
-            const player = state.clients.get("socket-1")?.player!;
+            const player = state.clients.get("socket-1")!.player;
 
             s1.simulate("debug_override_dice", { d1: 2, d2: 2 }); // 1st doubles
             s1.simulate("roll_dice");
@@ -207,7 +202,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
         it("should award $200 when passing GO space", () => {
             state.currentId = "socket-1";
-            const player = state.clients.get("socket-1")?.player!;
+            const player = state.clients.get("socket-1")!.player;
             player.position = 35; // Short Line Railroad
             player.hasRolled = false;
 
@@ -226,7 +221,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
         it("should allow buying an unowned property", () => {
             state.currentId = "socket-1";
-            const p1 = state.clients.get("socket-1")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
             s1.simulate("debug_move_player", { targetPlayerId: "socket-1", position: 1 }); // Med Avenue
 
             s1.simulate("player_action", { action: "buy" });
@@ -237,9 +232,9 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should pay rent when landing on another player's property", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
-            const p2 = state.clients.get("socket-2")?.player!;
-            
+            const p1 = state.clients.get("socket-1")!.player;
+            const p2 = state.clients.get("socket-2")!.player;
+
             // P1 buys Baltic Avenue (3)
             s1.simulate("debug_move_player", { targetPlayerId: "socket-1", position: 3 });
             s1.simulate("player_action", { action: "buy" });
@@ -257,8 +252,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should charge double rent if player owns complete color monopoly", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
-            const p2 = state.clients.get("socket-2")?.player!;
+            const p2 = state.clients.get("socket-2")!.player;
 
             // P1 buys Med (1) and Baltic (3)
             s1.simulate("debug_move_player", { targetPlayerId: "socket-1", position: 1 });
@@ -300,9 +294,9 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
             // Trigger end of auction
             state.endAuction();
-            
-            const p3 = state.clients.get("socket-3")?.player!;
-            expect(p3.properties.some(p => p.position === 1)).toBe(true);
+
+            const p3 = state.clients.get("socket-3")!.player;
+            expect(p3.properties.some((p) => p.position === 1)).toBe(true);
             expect(p3.balance).toBe(1500 - 120);
         });
     });
@@ -313,7 +307,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should buy house upgrades on color groups, checking even-build constraint", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
             // Give P1 Med (1) and Baltic (3)
             p1.properties.push({ position: 1, count: 0, group: "Purple" });
             p1.properties.push({ position: 3, count: 0, group: "Purple" });
@@ -322,43 +316,42 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
             p1.position = 1;
             // Upgrade Med Ave
             s1.simulate("player_action", { action: "buy-advance", propertyPosition: 1, newCount: 1, housesAdded: 1 });
-            expect(p1.properties.find(p => p.position === 1)?.count).toBe(1);
+            expect(p1.properties.find((p) => p.position === 1)?.count).toBe(1);
 
             // Try upgrading Med Ave again before Baltic (violates even build)
             s1.simulate("player_action", { action: "buy-advance", propertyPosition: 1, newCount: 2, housesAdded: 1 });
-            expect(p1.properties.find(p => p.position === 1)?.count).toBe(1); // remains 1
+            expect(p1.properties.find((p) => p.position === 1)?.count).toBe(1); // remains 1
         });
 
         it("should buy hotel upgrades on color groups", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
             p1.properties.push({ position: 1, count: 4, group: "Purple" });
             p1.properties.push({ position: 3, count: 4, group: "Purple" });
 
             state.currentId = "socket-1";
             p1.position = 1;
-            
+
             // Build hotel on Med Ave
             s1.simulate("player_action", { action: "buy-advance", propertyPosition: 1, newCount: 5, housesAdded: 1 });
-            expect(p1.properties.find(p => p.position === 1)?.count).toBe("h");
+            expect(p1.properties.find((p) => p.position === 1)?.count).toBe("h");
             expect(state.bankHotels).toBe(11);
             expect(state.bankHouses).toBe(32 + 4);
         });
 
-
         it("should sell houses/hotels for cash refunds", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
             p1.properties.push({ position: 1, count: 2, group: "Purple" });
             p1.properties.push({ position: 3, count: 1, group: "Purple" });
 
             state.currentId = "socket-1";
             // Sell Baltic Ave house (demote from 2 to 1)
             s1.simulate("player_action", { action: "sell-advance", propertyPosition: 1 });
-            expect(p1.properties.find(p => p.position === 1)?.count).toBe(1);
+            expect(p1.properties.find((p) => p.position === 1)?.count).toBe(1);
             expect(p1.balance).toBe(1500 + 25); // House refund is half price ($50 / 2 = $25)
         });
 
         it("should mortgage and unmortgage property", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
             p1.properties.push({ position: 1, count: 0, group: "Purple" });
 
             // Mortgage Med Ave
@@ -373,8 +366,8 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should exchange resources via player trade deals", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
-            const p2 = state.clients.get("socket-2")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
+            const p2 = state.clients.get("socket-2")!.player;
             p1.properties.push({ position: 1, count: 0, group: "Purple" });
 
             const trade: GameTrading = {
@@ -401,13 +394,13 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
                 againstPlayer: {
                     ...trade.againstPlayer,
                     accepted: true,
-                }
+                },
             };
             s2.simulate("trade-update", tradeAccepted);
 
             expect(p1.balance).toBe(1500 + 300);
             expect(p2.balance).toBe(1500 - 300);
-            expect(p2.properties.some(p => p.position === 1)).toBe(true);
+            expect(p2.properties.some((p) => p.position === 1)).toBe(true);
             expect(p1.properties.length).toBe(0);
         });
     });
@@ -418,7 +411,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should allow unjailing by paying the standard $50 bribe", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
             state.currentId = "socket-1";
             p1.isInJail = true;
             p1.jailTurnsRemaining = 3;
@@ -430,7 +423,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should escape jail by using a Get Out of Jail Free card", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
             state.currentId = "socket-1";
             p1.isInJail = true;
             p1.jailTurnsRemaining = 3;
@@ -445,7 +438,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should release player if they roll doubles while jailed", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
             state.currentId = "socket-1";
             p1.position = 10; // in Jail space
             p1.isInJail = true;
@@ -465,8 +458,8 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should execute resolveCard actions", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
-            
+            const p1 = state.clients.get("socket-1")!.player;
+
             // Add funds card
             state.resolveCard(p1, { action: "addfunds", amount: 100 }, 7);
             expect(p1.balance).toBe(1600);
@@ -492,7 +485,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should declare bankruptcy to bank and clear assets", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
             p1.properties.push({ position: 1, count: 0, group: "Purple" });
             p1.balance = -100;
             state.creditorMap.set(p1.id, "bank");
@@ -504,8 +497,8 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
         });
 
         it("should declare bankruptcy to another player and transfer assets", () => {
-            const p1 = state.clients.get("socket-1")?.player!;
-            const p2 = state.clients.get("socket-2")?.player!;
+            const p1 = state.clients.get("socket-1")!.player;
+            const p2 = state.clients.get("socket-2")!.player;
             p1.properties.push({ position: 1, count: 0, group: "Purple" });
             p1.balance = -100;
             state.creditorMap.set(p1.id, p2.id);
@@ -513,11 +506,11 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
             s1.simulate("declare-bankruptcy");
 
             expect(p1.isBankrupt).toBe(true);
-            expect(p2.properties.some(p => p.position === 1)).toBe(true);
+            expect(p2.properties.some((p) => p.position === 1)).toBe(true);
         });
 
         it("should run admin debug command events", () => {
-            const p2 = state.clients.get("socket-2")?.player!;
+            const p2 = state.clients.get("socket-2")!.player;
 
             // Authenticate first (Zod safeParse checks password)
             s1.simulate("debug_authenticate", { password: "monopolyadmin" });

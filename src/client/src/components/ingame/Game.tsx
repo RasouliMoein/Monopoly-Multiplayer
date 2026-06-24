@@ -1632,12 +1632,20 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                         color: "rgb(0, 114, 187)",
                                         margin: "0 auto",
                                         fontWeight: 800,
-                                        fontSize: "15px"
+                                        fontSize: "15px",
                                     }}
                                 >
                                     {prop.selectedMode.turnTimer - timer}{" "}
                                 </p>
-                                <hr style={{ width: "80%", border: "none", borderTop: "1px solid rgba(255, 255, 255, 0.15)", margin: "4px auto 8px auto", opacity: 0.5 }} />
+                                <hr
+                                    style={{
+                                        width: "80%",
+                                        border: "none",
+                                        borderTop: "1px solid rgba(255, 255, 255, 0.15)",
+                                        margin: "4px auto 8px auto",
+                                        opacity: 0.5,
+                                    }}
+                                />
                             </>
                         ) : (
                             <></>
@@ -1912,11 +1920,14 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                     prop.players.find(
                                                                         (p) =>
                                                                             p.id ===
-                                                                            (prop.tradeObj as GameTrading).againstPlayer.id,
+                                                                            (prop.tradeObj as GameTrading).againstPlayer
+                                                                                .id,
                                                                     )?.properties ?? [];
                                                                 return !ownerProps
                                                                     .filter((p) => p.group === v.group)
-                                                                    .some((p) => p.count !== 0 && p.count !== undefined);
+                                                                    .some(
+                                                                        (p) => p.count !== 0 && p.count !== undefined,
+                                                                    );
                                                             })
                                                             .map((v, i) => (
                                                                 <div
@@ -1940,8 +1951,12 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                     ></i>
                                                                     <h3
                                                                         style={
-                                                                            v.morgage !== undefined && v.morgage === true
-                                                                                ? { textDecoration: "line-through white" }
+                                                                            v.morgage !== undefined &&
+                                                                            v.morgage === true
+                                                                                ? {
+                                                                                      textDecoration:
+                                                                                          "line-through white",
+                                                                                  }
                                                                                 : {}
                                                                         }
                                                                     >
@@ -1953,11 +1968,15 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                                 src={HotelIcon.replace("public/", "")}
                                                                                 alt=""
                                                                             />
-                                                                        ) : typeof v.count === "number" && v.count > 0 ? (
+                                                                        ) : typeof v.count === "number" &&
+                                                                          v.count > 0 ? (
                                                                             <>
                                                                                 <p>{v.count}</p>
                                                                                 <img
-                                                                                    src={HouseIcon.replace("public/", "")}
+                                                                                    src={HouseIcon.replace(
+                                                                                        "public/",
+                                                                                        "",
+                                                                                    )}
                                                                                     alt=""
                                                                                 />
                                                                             </>
@@ -1971,7 +1990,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                         prop.players
                                                             .filter(
                                                                 (v) =>
-                                                                    v.id === (prop.tradeObj as GameTrading).turnPlayer.id,
+                                                                    v.id ===
+                                                                    (prop.tradeObj as GameTrading).turnPlayer.id,
                                                             )[0]
                                                             .properties.filter(
                                                                 (v) =>
@@ -1991,11 +2011,14 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                     prop.players.find(
                                                                         (p) =>
                                                                             p.id ===
-                                                                            (prop.tradeObj as GameTrading).turnPlayer.id,
+                                                                            (prop.tradeObj as GameTrading).turnPlayer
+                                                                                .id,
                                                                     )?.properties ?? [];
                                                                 return !ownerProps
                                                                     .filter((p) => p.group === v.group)
-                                                                    .some((p) => p.count !== 0 && p.count !== undefined);
+                                                                    .some(
+                                                                        (p) => p.count !== 0 && p.count !== undefined,
+                                                                    );
                                                             })
                                                             .map((v, i) => (
                                                                 <div
@@ -2019,8 +2042,12 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                     ></i>
                                                                     <h3
                                                                         style={
-                                                                            v.morgage !== undefined && v.morgage === true
-                                                                                ? { textDecoration: "line-through white" }
+                                                                            v.morgage !== undefined &&
+                                                                            v.morgage === true
+                                                                                ? {
+                                                                                      textDecoration:
+                                                                                          "line-through white",
+                                                                                  }
                                                                                 : {}
                                                                         }
                                                                     >
@@ -2032,11 +2059,15 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                                 src={HotelIcon.replace("public/", "")}
                                                                                 alt=""
                                                                             />
-                                                                        ) : typeof v.count === "number" && v.count > 0 ? (
+                                                                        ) : typeof v.count === "number" &&
+                                                                          v.count > 0 ? (
                                                                             <>
                                                                                 <p>{v.count}</p>
                                                                                 <img
-                                                                                    src={HouseIcon.replace("public/", "")}
+                                                                                    src={HouseIcon.replace(
+                                                                                        "public/",
+                                                                                        "",
+                                                                                    )}
                                                                                     alt=""
                                                                                 />
                                                                             </>
@@ -2334,7 +2365,8 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                 <button
                                                     className={
                                                         (
-                                                            prop.socket.id === (prop.tradeObj as GameTrading).turnPlayer.id
+                                                            prop.socket.id ===
+                                                            (prop.tradeObj as GameTrading).turnPlayer.id
                                                                 ? (prop.tradeObj as GameTrading).turnPlayer.accepted
                                                                 : (prop.tradeObj as GameTrading).againstPlayer.accepted
                                                         )
@@ -2342,7 +2374,9 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                             : "trade-accept-btn"
                                                     }
                                                     onClick={() => {
-                                                        const b = JSON.parse(JSON.stringify(prop.tradeObj)) as GameTrading;
+                                                        const b = JSON.parse(
+                                                            JSON.stringify(prop.tradeObj),
+                                                        ) as GameTrading;
                                                         if (prop.socket.id === b.turnPlayer.id) {
                                                             b.turnPlayer.accepted = !b.turnPlayer.accepted;
                                                         } else {
