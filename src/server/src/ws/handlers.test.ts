@@ -375,12 +375,14 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
                     id: "socket-1",
                     balance: 0,
                     prop: [{ position: 1, count: 0, group: "Purple" }],
+                    getoutCards: 0,
                     accepted: true,
                 },
                 againstPlayer: {
                     id: "socket-2",
                     balance: 300,
                     prop: [],
+                    getoutCards: 0,
                     accepted: false,
                 },
             };
@@ -402,6 +404,49 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
             expect(p2.balance).toBe(1500 - 300);
             expect(p2.properties.some((p) => p.position === 1)).toBe(true);
             expect(p1.properties.length).toBe(0);
+        });
+
+        it("should trade unjail cards via websocket events", () => {
+            const p1 = state.clients.get("socket-1")!.player;
+            const p2 = state.clients.get("socket-2")!.player;
+            p1.getoutCards = 1;
+            state.chanceGetOutOwner = p1.id;
+
+            const trade: GameTrading = {
+                turnPlayer: {
+                    id: "socket-1",
+                    balance: 0,
+                    prop: [],
+                    getoutCards: 1,
+                    accepted: true,
+                },
+                againstPlayer: {
+                    id: "socket-2",
+                    balance: 100,
+                    prop: [],
+                    getoutCards: 0,
+                    accepted: false,
+                },
+            };
+
+            // P1 proposes trade offering the card
+            s1.simulate("trade-update", trade);
+
+            // P2 accepts
+            const tradeAccepted: GameTrading = {
+                ...trade,
+                againstPlayer: {
+                    ...trade.againstPlayer,
+                    accepted: true,
+                },
+            };
+            s2.simulate("trade-update", tradeAccepted);
+
+            expect(p1.balance).toBe(1500 + 100);
+            expect(p2.balance).toBe(1500 - 100);
+            expect(p1.getoutCards).toBe(0);
+            expect(p2.getoutCards).toBe(1);
+            expect(state.chanceGetOutOwner).toBe(p2.id);
         });
     });
 

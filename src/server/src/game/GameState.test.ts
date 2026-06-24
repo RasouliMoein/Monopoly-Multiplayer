@@ -60,12 +60,14 @@ describe("GameState Class", () => {
                 id: p1.id,
                 balance: 0,
                 prop: [{ position: 1, count: 0, group: "Purple" }],
+                getoutCards: 0,
                 accepted: true,
             },
             againstPlayer: {
                 id: p2.id,
                 balance: 500,
                 prop: [],
+                getoutCards: 0,
                 accepted: true,
             },
         };
@@ -76,5 +78,35 @@ describe("GameState Class", () => {
         expect(p2.balance).toBe(1000);
         expect(p2.properties).toContainEqual({ position: 1, count: 0, group: "Purple" });
         expect(p1.properties.length).toBe(0);
+    });
+
+    it("should validate and execute unjail card trades between players", () => {
+        p1.getoutCards = 1;
+        state.chanceGetOutOwner = p1.id;
+
+        const trade: GameTrading = {
+            turnPlayer: {
+                id: p1.id,
+                balance: 0,
+                prop: [],
+                getoutCards: 1,
+                accepted: true,
+            },
+            againstPlayer: {
+                id: p2.id,
+                balance: 200,
+                prop: [],
+                getoutCards: 0,
+                accepted: true,
+            },
+        };
+
+        const success = state.validateAndExecuteTrade(trade);
+        expect(success).toBe(true);
+        expect(p1.balance).toBe(1700);
+        expect(p2.balance).toBe(1300);
+        expect(p1.getoutCards).toBe(0);
+        expect(p2.getoutCards).toBe(1);
+        expect(state.chanceGetOutOwner).toBe(p2.id);
     });
 });

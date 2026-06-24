@@ -909,6 +909,10 @@ export class GameState {
         if (x.turnPlayer.balance > 0 && tp.balance < x.turnPlayer.balance) return false;
         if (x.againstPlayer.balance > 0 && ap.balance < x.againstPlayer.balance) return false;
 
+        if (x.turnPlayer.getoutCards < 0 || x.againstPlayer.getoutCards < 0) return false;
+        if (x.turnPlayer.getoutCards > 0 && tp.getoutCards < x.turnPlayer.getoutCards) return false;
+        if (x.againstPlayer.getoutCards > 0 && ap.getoutCards < x.againstPlayer.getoutCards) return false;
+
         const hasGroupBuildings = (player: Player, group: string) => {
             if (!group || group === "Railroad" || group === "Utilities" || group === "Special") return false;
             return player.properties
@@ -940,6 +944,40 @@ export class GameState {
         tp.balance -= x.turnPlayer.balance;
         tp.balance += x.againstPlayer.balance;
         ap.balance += x.turnPlayer.balance;
+
+        if (x.turnPlayer.getoutCards > 0) {
+            tp.getoutCards -= x.turnPlayer.getoutCards;
+            ap.getoutCards += x.turnPlayer.getoutCards;
+            if (this.chanceGetOutOwner === tp.id) {
+                this.chanceGetOutOwner = ap.id;
+            } else if (this.chestGetOutOwner === tp.id) {
+                this.chestGetOutOwner = ap.id;
+            }
+            if (x.turnPlayer.getoutCards === 2) {
+                if (this.chanceGetOutOwner === tp.id) {
+                    this.chanceGetOutOwner = ap.id;
+                } else if (this.chestGetOutOwner === tp.id) {
+                    this.chestGetOutOwner = ap.id;
+                }
+            }
+        }
+
+        if (x.againstPlayer.getoutCards > 0) {
+            ap.getoutCards -= x.againstPlayer.getoutCards;
+            tp.getoutCards += x.againstPlayer.getoutCards;
+            if (this.chanceGetOutOwner === ap.id) {
+                this.chanceGetOutOwner = tp.id;
+            } else if (this.chestGetOutOwner === ap.id) {
+                this.chestGetOutOwner = tp.id;
+            }
+            if (x.againstPlayer.getoutCards === 2) {
+                if (this.chanceGetOutOwner === ap.id) {
+                    this.chanceGetOutOwner = tp.id;
+                } else if (this.chestGetOutOwner === ap.id) {
+                    this.chestGetOutOwner = tp.id;
+                }
+            }
+        }
 
         tp.properties.push(...tGets);
         ap.properties.push(...aGets);

@@ -1575,12 +1575,14 @@ function App({
                                             id: localPlayer.id,
                                             balance: 0,
                                             prop: [],
+                                            getoutCards: 0,
                                             accepted: false,
                                         },
                                         againstPlayer: {
                                             id: xplayer.id,
                                             balance: 0,
                                             prop: [],
+                                            getoutCards: 0,
                                             accepted: false,
                                         },
                                     };

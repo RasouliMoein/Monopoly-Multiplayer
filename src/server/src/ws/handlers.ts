@@ -1176,12 +1176,14 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                             id: x.turnPlayer.id,
                             balance: x.turnPlayer.balance,
                             prop: x.turnPlayer.prop,
+                            getoutCards: 0,
                             accepted: false,
                         },
                         againstPlayer: {
                             id: x.againstPlayer.id,
                             balance: x.againstPlayer.balance,
                             prop: x.againstPlayer.prop,
+                            getoutCards: 0,
                             accepted: false,
                         },
                     };
@@ -1193,24 +1195,28 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     const cashChanged = serverTrade.turnPlayer.balance !== x.turnPlayer.balance;
                     const propsChanged =
                         JSON.stringify(serverTrade.turnPlayer.prop) !== JSON.stringify(x.turnPlayer.prop);
+                    const cardsChanged = serverTrade.turnPlayer.getoutCards !== x.turnPlayer.getoutCards;
 
                     serverTrade.turnPlayer.balance = x.turnPlayer.balance;
                     serverTrade.turnPlayer.prop = x.turnPlayer.prop;
+                    serverTrade.turnPlayer.getoutCards = x.turnPlayer.getoutCards;
                     serverTrade.turnPlayer.accepted = x.turnPlayer.accepted;
 
-                    if (cashChanged || propsChanged) {
+                    if (cashChanged || propsChanged || cardsChanged) {
                         serverTrade.againstPlayer.accepted = false;
                     }
                 } else {
                     const cashChanged = serverTrade.againstPlayer.balance !== x.againstPlayer.balance;
                     const propsChanged =
                         JSON.stringify(serverTrade.againstPlayer.prop) !== JSON.stringify(x.againstPlayer.prop);
+                    const cardsChanged = serverTrade.againstPlayer.getoutCards !== x.againstPlayer.getoutCards;
 
                     serverTrade.againstPlayer.balance = x.againstPlayer.balance;
                     serverTrade.againstPlayer.prop = x.againstPlayer.prop;
+                    serverTrade.againstPlayer.getoutCards = x.againstPlayer.getoutCards;
                     serverTrade.againstPlayer.accepted = x.againstPlayer.accepted;
 
-                    if (cashChanged || propsChanged) {
+                    if (cashChanged || propsChanged || cardsChanged) {
                         serverTrade.turnPlayer.accepted = false;
                     }
                 }

@@ -1896,187 +1896,283 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                 <br />
                                                 <div className="trade-properties-list">
                                                     {prop.socket.id === prop.tradeObj.againstPlayer.id ? (
-                                                        prop.players
-                                                            .filter(
-                                                                (v) =>
-                                                                    v.id ===
-                                                                    (prop.tradeObj as GameTrading).againstPlayer.id,
-                                                            )[0]
-                                                            .properties.filter(
-                                                                (v) =>
-                                                                    !(prop.tradeObj as GameTrading).againstPlayer.prop
-                                                                        .map((v) => JSON.stringify(v))
-                                                                        .includes(JSON.stringify(v)),
-                                                            )
-                                                            .filter((v) => {
-                                                                // Fix 7: block properties whose color group has any buildings on any property
-                                                                if (
-                                                                    !v.group ||
-                                                                    v.group === "Railroad" ||
-                                                                    v.group === "Utilities"
+                                                        <>
+                                                            {prop.players
+                                                                .filter(
+                                                                    (v) =>
+                                                                        v.id ===
+                                                                        (prop.tradeObj as GameTrading).againstPlayer.id,
+                                                                )[0]
+                                                                .properties.filter(
+                                                                    (v) =>
+                                                                        !(
+                                                                            prop.tradeObj as GameTrading
+                                                                        ).againstPlayer.prop
+                                                                            .map((v) => JSON.stringify(v))
+                                                                            .includes(JSON.stringify(v)),
                                                                 )
-                                                                    return true;
-                                                                const ownerProps =
+                                                                .filter((v) => {
+                                                                    // Fix 7: block properties whose color group has any buildings on any property
+                                                                    if (
+                                                                        !v.group ||
+                                                                        v.group === "Railroad" ||
+                                                                        v.group === "Utilities"
+                                                                    )
+                                                                        return true;
+                                                                    const ownerProps =
+                                                                        prop.players.find(
+                                                                            (p) =>
+                                                                                p.id ===
+                                                                                (prop.tradeObj as GameTrading)
+                                                                                    .againstPlayer.id,
+                                                                        )?.properties ?? [];
+                                                                    return !ownerProps
+                                                                        .filter((p) => p.group === v.group)
+                                                                        .some(
+                                                                            (p) =>
+                                                                                p.count !== 0 && p.count !== undefined,
+                                                                        );
+                                                                })
+                                                                .map((v, i) => (
+                                                                    <div
+                                                                        key={i}
+                                                                        className="proprety-nav"
+                                                                        onClick={() => {
+                                                                            const b = JSON.parse(
+                                                                                JSON.stringify(prop.tradeObj),
+                                                                            ) as GameTrading;
+                                                                            b.againstPlayer.prop.push(v);
+                                                                            b.turnPlayer.accepted = false;
+                                                                            b.againstPlayer.accepted = false;
+                                                                            prop.socket.emit("trade-update", b);
+                                                                        }}
+                                                                    >
+                                                                        <i
+                                                                            className="box"
+                                                                            style={{
+                                                                                backgroundColor: translateGroup(
+                                                                                    v.group,
+                                                                                ),
+                                                                            }}
+                                                                        ></i>
+                                                                        <h3
+                                                                            style={
+                                                                                v.morgage !== undefined &&
+                                                                                v.morgage === true
+                                                                                    ? {
+                                                                                          textDecoration:
+                                                                                              "line-through white",
+                                                                                      }
+                                                                                    : {}
+                                                                            }
+                                                                        >
+                                                                            {propretyMap.get(v.position)?.name ?? ""}
+                                                                        </h3>
+                                                                        <div>
+                                                                            {v.count == "h" ? (
+                                                                                <img
+                                                                                    src={HotelIcon.replace(
+                                                                                        "public/",
+                                                                                        "",
+                                                                                    )}
+                                                                                    alt=""
+                                                                                />
+                                                                            ) : typeof v.count === "number" &&
+                                                                              v.count > 0 ? (
+                                                                                <>
+                                                                                    <p>{v.count}</p>
+                                                                                    <img
+                                                                                        src={HouseIcon.replace(
+                                                                                            "public/",
+                                                                                            "",
+                                                                                        )}
+                                                                                        alt=""
+                                                                                    />
+                                                                                </>
+                                                                            ) : (
+                                                                                <></>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            {(() => {
+                                                                const totalCards =
                                                                     prop.players.find(
                                                                         (p) =>
                                                                             p.id ===
                                                                             (prop.tradeObj as GameTrading).againstPlayer
                                                                                 .id,
-                                                                    )?.properties ?? [];
-                                                                return !ownerProps
-                                                                    .filter((p) => p.group === v.group)
-                                                                    .some(
-                                                                        (p) => p.count !== 0 && p.count !== undefined,
-                                                                    );
-                                                            })
-                                                            .map((v, i) => (
-                                                                <div
-                                                                    key={i}
-                                                                    className="proprety-nav"
-                                                                    onClick={() => {
-                                                                        const b = JSON.parse(
-                                                                            JSON.stringify(prop.tradeObj),
-                                                                        ) as GameTrading;
-                                                                        b.againstPlayer.prop.push(v);
-                                                                        b.turnPlayer.accepted = false;
-                                                                        b.againstPlayer.accepted = false;
-                                                                        prop.socket.emit("trade-update", b);
-                                                                    }}
-                                                                >
-                                                                    <i
-                                                                        className="box"
-                                                                        style={{
-                                                                            backgroundColor: translateGroup(v.group),
+                                                                    )?.getoutCards ?? 0;
+                                                                const offeredCards =
+                                                                    (prop.tradeObj as GameTrading).againstPlayer
+                                                                        .getoutCards ?? 0;
+                                                                const unofferedCards = totalCards - offeredCards;
+                                                                return Array.from({
+                                                                    length: Math.max(0, unofferedCards),
+                                                                }).map((_, i) => (
+                                                                    <div
+                                                                        key={`unjail-${i}`}
+                                                                        className="proprety-nav"
+                                                                        onClick={() => {
+                                                                            const b = JSON.parse(
+                                                                                JSON.stringify(prop.tradeObj),
+                                                                            ) as GameTrading;
+                                                                            b.againstPlayer.getoutCards =
+                                                                                (b.againstPlayer.getoutCards ?? 0) + 1;
+                                                                            b.turnPlayer.accepted = false;
+                                                                            b.againstPlayer.accepted = false;
+                                                                            prop.socket.emit("trade-update", b);
                                                                         }}
-                                                                    ></i>
-                                                                    <h3
-                                                                        style={
-                                                                            v.morgage !== undefined &&
-                                                                            v.morgage === true
-                                                                                ? {
-                                                                                      textDecoration:
-                                                                                          "line-through white",
-                                                                                  }
-                                                                                : {}
-                                                                        }
                                                                     >
-                                                                        {propretyMap.get(v.position)?.name ?? ""}
-                                                                    </h3>
-                                                                    <div>
-                                                                        {v.count == "h" ? (
-                                                                            <img
-                                                                                src={HotelIcon.replace("public/", "")}
-                                                                                alt=""
-                                                                            />
-                                                                        ) : typeof v.count === "number" &&
-                                                                          v.count > 0 ? (
-                                                                            <>
-                                                                                <p>{v.count}</p>
+                                                                        <i
+                                                                            className="box"
+                                                                            style={{
+                                                                                backgroundColor: "#F59E0B",
+                                                                            }}
+                                                                        ></i>
+                                                                        <h3>Get Out of Jail Free</h3>
+                                                                    </div>
+                                                                ));
+                                                            })()}
+                                                        </>
+                                                    ) : prop.socket.id === prop.tradeObj.turnPlayer.id ? (
+                                                        <>
+                                                            {prop.players
+                                                                .filter(
+                                                                    (v) =>
+                                                                        v.id ===
+                                                                        (prop.tradeObj as GameTrading).turnPlayer.id,
+                                                                )[0]
+                                                                .properties.filter(
+                                                                    (v) =>
+                                                                        !(prop.tradeObj as GameTrading).turnPlayer.prop
+                                                                            .map((v) => JSON.stringify(v))
+                                                                            .includes(JSON.stringify(v)),
+                                                                )
+                                                                .filter((v) => {
+                                                                    // Fix 7: block properties whose color group has any buildings on any property
+                                                                    if (
+                                                                        !v.group ||
+                                                                        v.group === "Railroad" ||
+                                                                        v.group === "Utilities"
+                                                                    )
+                                                                        return true;
+                                                                    const ownerProps =
+                                                                        prop.players.find(
+                                                                            (p) =>
+                                                                                p.id ===
+                                                                                (prop.tradeObj as GameTrading)
+                                                                                    .turnPlayer.id,
+                                                                        )?.properties ?? [];
+                                                                    return !ownerProps
+                                                                        .filter((p) => p.group === v.group)
+                                                                        .some(
+                                                                            (p) =>
+                                                                                p.count !== 0 && p.count !== undefined,
+                                                                        );
+                                                                })
+                                                                .map((v, i) => (
+                                                                    <div
+                                                                        key={i}
+                                                                        className="proprety-nav"
+                                                                        onClick={() => {
+                                                                            const b = JSON.parse(
+                                                                                JSON.stringify(prop.tradeObj),
+                                                                            ) as GameTrading;
+                                                                            b.turnPlayer.prop.push(v);
+                                                                            b.turnPlayer.accepted = false;
+                                                                            b.againstPlayer.accepted = false;
+                                                                            prop.socket.emit("trade-update", b);
+                                                                        }}
+                                                                    >
+                                                                        <i
+                                                                            className="box"
+                                                                            style={{
+                                                                                backgroundColor: translateGroup(
+                                                                                    v.group,
+                                                                                ),
+                                                                            }}
+                                                                        ></i>
+                                                                        <h3
+                                                                            style={
+                                                                                v.morgage !== undefined &&
+                                                                                v.morgage === true
+                                                                                    ? {
+                                                                                          textDecoration:
+                                                                                              "line-through white",
+                                                                                      }
+                                                                                    : {}
+                                                                            }
+                                                                        >
+                                                                            {propretyMap.get(v.position)?.name ?? ""}
+                                                                        </h3>
+                                                                        <div>
+                                                                            {v.count == "h" ? (
                                                                                 <img
-                                                                                    src={HouseIcon.replace(
+                                                                                    src={HotelIcon.replace(
                                                                                         "public/",
                                                                                         "",
                                                                                     )}
                                                                                     alt=""
                                                                                 />
-                                                                            </>
-                                                                        ) : (
-                                                                            <></>
-                                                                        )}
+                                                                            ) : typeof v.count === "number" &&
+                                                                              v.count > 0 ? (
+                                                                                <>
+                                                                                    <p>{v.count}</p>
+                                                                                    <img
+                                                                                        src={HouseIcon.replace(
+                                                                                            "public/",
+                                                                                            "",
+                                                                                        )}
+                                                                                        alt=""
+                                                                                    />
+                                                                                </>
+                                                                            ) : (
+                                                                                <></>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            ))
-                                                    ) : prop.socket.id === prop.tradeObj.turnPlayer.id ? (
-                                                        prop.players
-                                                            .filter(
-                                                                (v) =>
-                                                                    v.id ===
-                                                                    (prop.tradeObj as GameTrading).turnPlayer.id,
-                                                            )[0]
-                                                            .properties.filter(
-                                                                (v) =>
-                                                                    !(prop.tradeObj as GameTrading).turnPlayer.prop
-                                                                        .map((v) => JSON.stringify(v))
-                                                                        .includes(JSON.stringify(v)),
-                                                            )
-                                                            .filter((v) => {
-                                                                // Fix 7: block properties whose color group has any buildings on any property
-                                                                if (
-                                                                    !v.group ||
-                                                                    v.group === "Railroad" ||
-                                                                    v.group === "Utilities"
-                                                                )
-                                                                    return true;
-                                                                const ownerProps =
+                                                                ))}
+                                                            {(() => {
+                                                                const totalCards =
                                                                     prop.players.find(
                                                                         (p) =>
                                                                             p.id ===
                                                                             (prop.tradeObj as GameTrading).turnPlayer
                                                                                 .id,
-                                                                    )?.properties ?? [];
-                                                                return !ownerProps
-                                                                    .filter((p) => p.group === v.group)
-                                                                    .some(
-                                                                        (p) => p.count !== 0 && p.count !== undefined,
-                                                                    );
-                                                            })
-                                                            .map((v, i) => (
-                                                                <div
-                                                                    key={i}
-                                                                    className="proprety-nav"
-                                                                    onClick={() => {
-                                                                        const b = JSON.parse(
-                                                                            JSON.stringify(prop.tradeObj),
-                                                                        ) as GameTrading;
-                                                                        b.turnPlayer.prop.push(v);
-                                                                        b.turnPlayer.accepted = false;
-                                                                        b.againstPlayer.accepted = false;
-                                                                        prop.socket.emit("trade-update", b);
-                                                                    }}
-                                                                >
-                                                                    <i
-                                                                        className="box"
-                                                                        style={{
-                                                                            backgroundColor: translateGroup(v.group),
+                                                                    )?.getoutCards ?? 0;
+                                                                const offeredCards =
+                                                                    (prop.tradeObj as GameTrading).turnPlayer
+                                                                        .getoutCards ?? 0;
+                                                                const unofferedCards = totalCards - offeredCards;
+                                                                return Array.from({
+                                                                    length: Math.max(0, unofferedCards),
+                                                                }).map((_, i) => (
+                                                                    <div
+                                                                        key={`unjail-${i}`}
+                                                                        className="proprety-nav"
+                                                                        onClick={() => {
+                                                                            const b = JSON.parse(
+                                                                                JSON.stringify(prop.tradeObj),
+                                                                            ) as GameTrading;
+                                                                            b.turnPlayer.getoutCards =
+                                                                                (b.turnPlayer.getoutCards ?? 0) + 1;
+                                                                            b.turnPlayer.accepted = false;
+                                                                            b.againstPlayer.accepted = false;
+                                                                            prop.socket.emit("trade-update", b);
                                                                         }}
-                                                                    ></i>
-                                                                    <h3
-                                                                        style={
-                                                                            v.morgage !== undefined &&
-                                                                            v.morgage === true
-                                                                                ? {
-                                                                                      textDecoration:
-                                                                                          "line-through white",
-                                                                                  }
-                                                                                : {}
-                                                                        }
                                                                     >
-                                                                        {propretyMap.get(v.position)?.name ?? ""}
-                                                                    </h3>
-                                                                    <div>
-                                                                        {v.count == "h" ? (
-                                                                            <img
-                                                                                src={HotelIcon.replace("public/", "")}
-                                                                                alt=""
-                                                                            />
-                                                                        ) : typeof v.count === "number" &&
-                                                                          v.count > 0 ? (
-                                                                            <>
-                                                                                <p>{v.count}</p>
-                                                                                <img
-                                                                                    src={HouseIcon.replace(
-                                                                                        "public/",
-                                                                                        "",
-                                                                                    )}
-                                                                                    alt=""
-                                                                                />
-                                                                            </>
-                                                                        ) : (
-                                                                            <></>
-                                                                        )}
+                                                                        <i
+                                                                            className="box"
+                                                                            style={{
+                                                                                backgroundColor: "#F59E0B",
+                                                                            }}
+                                                                        ></i>
+                                                                        <h3>Get Out of Jail Free</h3>
                                                                     </div>
-                                                                </div>
-                                                            ))
+                                                                ));
+                                                            })()}
+                                                        </>
                                                     ) : (
                                                         <></>
                                                     )}
@@ -2210,6 +2306,52 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                 ) : (
                                                     <></>
                                                 )}
+                                                {prop.tradeObj.turnPlayer.getoutCards > 0 ? (
+                                                    <tr>
+                                                        <td>Jail Cards</td>
+                                                        <td>
+                                                            {Array.from({
+                                                                length: prop.tradeObj.turnPlayer.getoutCards,
+                                                            }).map((_, i) => (
+                                                                <div
+                                                                    key={`offered-unjail-turn-${i}`}
+                                                                    data-actionable={
+                                                                        prop.socket.id ===
+                                                                        (prop.tradeObj as GameTrading).turnPlayer.id
+                                                                    }
+                                                                    className="proprety-nav"
+                                                                    onClick={() => {
+                                                                        if (
+                                                                            prop.socket.id ===
+                                                                            (prop.tradeObj as GameTrading).turnPlayer.id
+                                                                        ) {
+                                                                            const b = JSON.parse(
+                                                                                JSON.stringify(prop.tradeObj),
+                                                                            ) as GameTrading;
+                                                                            b.turnPlayer.getoutCards = Math.max(
+                                                                                0,
+                                                                                b.turnPlayer.getoutCards - 1,
+                                                                            );
+                                                                            b.turnPlayer.accepted = false;
+                                                                            b.againstPlayer.accepted = false;
+                                                                            prop.socket.emit("trade-update", b);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <i
+                                                                        className="box"
+                                                                        style={{
+                                                                            backgroundColor: "#F59E0B",
+                                                                        }}
+                                                                    ></i>
+                                                                    <h3>Get Out of Jail Free</h3>
+                                                                </div>
+                                                            ))}
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    <></>
+                                                )}
                                             </table>
                                         </div>
                                         <div className="player">
@@ -2329,6 +2471,53 @@ const MonopolyGame = forwardRef<MonopolyGameRef, MonopolyGameProps>((prop, ref) 
                                                                             <></>
                                                                         )}
                                                                     </div>
+                                                                </div>
+                                                            ))}
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    <></>
+                                                )}
+                                                {prop.tradeObj.againstPlayer.getoutCards > 0 ? (
+                                                    <tr>
+                                                        <td>Jail Cards</td>
+                                                        <td>
+                                                            {Array.from({
+                                                                length: prop.tradeObj.againstPlayer.getoutCards,
+                                                            }).map((_, i) => (
+                                                                <div
+                                                                    key={`offered-unjail-against-${i}`}
+                                                                    data-actionable={
+                                                                        prop.socket.id ===
+                                                                        (prop.tradeObj as GameTrading).againstPlayer.id
+                                                                    }
+                                                                    className="proprety-nav"
+                                                                    onClick={() => {
+                                                                        if (
+                                                                            prop.socket.id ===
+                                                                            (prop.tradeObj as GameTrading).againstPlayer
+                                                                                .id
+                                                                        ) {
+                                                                            const b = JSON.parse(
+                                                                                JSON.stringify(prop.tradeObj),
+                                                                            ) as GameTrading;
+                                                                            b.againstPlayer.getoutCards = Math.max(
+                                                                                0,
+                                                                                b.againstPlayer.getoutCards - 1,
+                                                                            );
+                                                                            b.turnPlayer.accepted = false;
+                                                                            b.againstPlayer.accepted = false;
+                                                                            prop.socket.emit("trade-update", b);
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <i
+                                                                        className="box"
+                                                                        style={{
+                                                                            backgroundColor: "#F59E0B",
+                                                                        }}
+                                                                    ></i>
+                                                                    <h3>Get Out of Jail Free</h3>
                                                                 </div>
                                                             ))}
                                                         </td>

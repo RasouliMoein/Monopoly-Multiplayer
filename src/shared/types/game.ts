@@ -143,12 +143,14 @@ export type GameTrading = {
         id: string;
         balance: number;
         prop: PlayerProprety[];
+        getoutCards: number;
         accepted: boolean;
     };
     againstPlayer: {
         id: string;
         balance: number;
         prop: PlayerProprety[];
+        getoutCards: number;
         accepted: boolean;
     };
 };

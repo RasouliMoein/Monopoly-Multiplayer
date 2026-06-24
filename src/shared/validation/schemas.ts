@@ -37,12 +37,14 @@ export const gameTradingSchema = z.object({
         id: z.string(),
         balance: z.number().int().min(0),
         prop: z.array(playerPropertySchema),
+        getoutCards: z.number().int().min(0),
         accepted: z.boolean(),
     }),
     againstPlayer: z.object({
         id: z.string(),
         balance: z.number().int().min(0),
         prop: z.array(playerPropertySchema),
+        getoutCards: z.number().int().min(0),
         accepted: z.boolean(),
     }),
 });
