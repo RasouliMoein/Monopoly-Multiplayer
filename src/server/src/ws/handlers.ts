@@ -548,6 +548,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                                 finalPosition = result.newPosition;
                                 player.position = finalPosition;
                             }
+                            if (player.isInJail && !startedInJail) {
+                                goingToJail = true;
+                            }
                             pendingCard = {
                                 element: card,
                                 is_chance: prop.id === "chance",
@@ -1147,18 +1150,77 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
             });
             socket.on("cancel-trade", () => {
                 if (!state.selectedMode.AllowDeals) return;
+                state.activeTrade = null;
                 state.emitAll("cancel-trade", {});
             });
             socket.on("trade-update", (x: GameTrading) => {
                 if (!state.selectedMode.AllowDeals) return;
-                if (x.turnPlayer.accepted && x.againstPlayer.accepted) {
-                    state.validateAndExecuteTrade(x);
-                } else {
-                    state.emitAll("trade-update", x);
+
+                // 1. Verify the sender is a party in this trade
+                const isTurnPlayer = socket.id === x.turnPlayer.id;
+                const isAgainstPlayer = socket.id === x.againstPlayer.id;
+                if (!isTurnPlayer && !isAgainstPlayer) {
+                    server.logFunction(`[SECURITY] Rejecting trade-update from ${socket.id} (not a party in the trade).`);
+                    return;
                 }
-            });
-            socket.on("submit-trade", (x: GameTrading) => {
-                state.validateAndExecuteTrade(x);
+
+                // 2. Retrieve/initialize the authoritative server trade proposal
+                if (
+                    !state.activeTrade ||
+                    state.activeTrade.turnPlayer.id !== x.turnPlayer.id ||
+                    state.activeTrade.againstPlayer.id !== x.againstPlayer.id
+                ) {
+                    state.activeTrade = {
+                        turnPlayer: {
+                            id: x.turnPlayer.id,
+                            balance: x.turnPlayer.balance,
+                            prop: x.turnPlayer.prop,
+                            accepted: false,
+                        },
+                        againstPlayer: {
+                            id: x.againstPlayer.id,
+                            balance: x.againstPlayer.balance,
+                            prop: x.againstPlayer.prop,
+                            accepted: false,
+                        },
+                    };
+                }
+
+                // 3. Only apply changes to the sender's own side of the proposal
+                const serverTrade = state.activeTrade;
+                if (isTurnPlayer) {
+                    const cashChanged = serverTrade.turnPlayer.balance !== x.turnPlayer.balance;
+                    const propsChanged = JSON.stringify(serverTrade.turnPlayer.prop) !== JSON.stringify(x.turnPlayer.prop);
+
+                    serverTrade.turnPlayer.balance = x.turnPlayer.balance;
+                    serverTrade.turnPlayer.prop = x.turnPlayer.prop;
+                    serverTrade.turnPlayer.accepted = x.turnPlayer.accepted;
+
+                    if (cashChanged || propsChanged) {
+                        serverTrade.againstPlayer.accepted = false;
+                    }
+                } else {
+                    const cashChanged = serverTrade.againstPlayer.balance !== x.againstPlayer.balance;
+                    const propsChanged = JSON.stringify(serverTrade.againstPlayer.prop) !== JSON.stringify(x.againstPlayer.prop);
+
+                    serverTrade.againstPlayer.balance = x.againstPlayer.balance;
+                    serverTrade.againstPlayer.prop = x.againstPlayer.prop;
+                    serverTrade.againstPlayer.accepted = x.againstPlayer.accepted;
+
+                    if (cashChanged || propsChanged) {
+                        serverTrade.turnPlayer.accepted = false;
+                    }
+                }
+
+                // 4. Validate and execute if both players have accepted
+                if (serverTrade.turnPlayer.accepted && serverTrade.againstPlayer.accepted) {
+                    const success = state.validateAndExecuteTrade(serverTrade);
+                    if (success) {
+                        state.activeTrade = null;
+                    }
+                } else {
+                    state.emitAll("trade-update", serverTrade);
+                }
             });
 
             // ── Leave Room ──

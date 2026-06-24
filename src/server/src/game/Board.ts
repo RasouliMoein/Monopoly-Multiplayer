@@ -64,8 +64,7 @@ export function computeRent(
                 const ownedGroup = player.properties.filter((p: any) => p.group === prop.group);
                 const hasMonopoly = groupProps.length > 0 && ownedGroup.length === groupProps.length;
                 const allUnimproved = ownedGroup.every((p: any) => p.count === 0);
-                const noneMortgaged = ownedGroup.every((p: any) => p.morgage !== true && (p.morgage as any) !== "true");
-                amt = (prop.rent ?? 0) * (hasMonopoly && allUnimproved && noneMortgaged ? 2 : 1) * multiplier;
+                amt = (prop.rent ?? 0) * (hasMonopoly && allUnimproved ? 2 : 1) * multiplier;
             } else if (typeof prp.count === "number" && prp.count > 0) {
                 amt = ((prop.multpliedrent ?? [])[prp.count - 1] ?? 0) * multiplier;
             } else if (prp.count === "h") {

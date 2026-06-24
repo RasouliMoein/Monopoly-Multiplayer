@@ -45,6 +45,7 @@ export class GameState {
     public debugDiceOverrideMap = new Map<string, { d1: number; d2: number }>();
     public pendingBankruptMap = new Map<string, string>(); // creditorId → bankruptId
     public pendingTradeMortgages = new Map<string, any[]>();
+    public activeTrade: GameTrading | null = null;
     public debtAmountMap = new Map<string, { creditorId: string; amount: number }>();
 
     // Housing & hotel pool
@@ -255,10 +256,7 @@ export class GameState {
                                 const ownedGroup = owner.properties.filter((p: any) => p.group === prop.group);
                                 const hasMonopoly = groupProps.length > 0 && ownedGroup.length === groupProps.length;
                                 const allUnimproved = ownedGroup.every((p: any) => p.count === 0);
-                                const noneMortgaged = ownedGroup.every(
-                                    (p: any) => p.morgage !== true && (p.morgage as any) !== "true",
-                                );
-                                rentOrTax = (prop.rent ?? 0) * (hasMonopoly && allUnimproved && noneMortgaged ? 2 : 1);
+                                rentOrTax = (prop.rent ?? 0) * (hasMonopoly && allUnimproved ? 2 : 1);
                             } else {
                                 rentOrTax = (prop.multpliedrent ?? [])[houseCount - 1] ?? prop.rent ?? 0;
                             }
@@ -991,6 +989,7 @@ export class GameState {
             pJsons: [tp.to_json(), ap.to_json()],
             action: `${tp.username} done a trade with ${ap.username}`,
         });
+        this.activeTrade = null;
         this.checkAndHandleWinCondition();
         this.emitStateUpdate();
         return true;

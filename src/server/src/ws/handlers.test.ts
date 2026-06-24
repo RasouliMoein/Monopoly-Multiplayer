@@ -95,4 +95,45 @@ describe("WebSocket Handlers & Schemas", () => {
         expect(errorEmit).toBeDefined();
         expect(errorEmit?.args.message).toContain("Invalid input");
     });
+
+    it("should reject trade-update from a non-party socket", async () => {
+        socket.simulate("name", "Player-1");
+        state.selectedMode.AllowDeals = true;
+
+        const tradeObj = {
+            turnPlayer: { id: "socket-other-1", balance: 100, prop: [], accepted: false },
+            againstPlayer: { id: "socket-other-2", balance: 50, prop: [], accepted: false }
+        };
+
+        await socket.simulate("trade-update", tradeObj);
+        expect(state.activeTrade).toBeNull();
+    });
+
+    it("should prevent forging acceptance and reset counter-party acceptance on term changes", async () => {
+        socket.simulate("name", "Player-1");
+        state.selectedMode.AllowDeals = true;
+
+        const tradeObj = {
+            turnPlayer: { id: "socket-1", balance: 100, prop: [], accepted: true },
+            againstPlayer: { id: "socket-2", balance: 50, prop: [], accepted: true }
+        };
+
+        await socket.simulate("trade-update", tradeObj);
+
+        expect(state.activeTrade).not.toBeNull();
+        expect(state.activeTrade?.turnPlayer.accepted).toBe(true);
+        expect(state.activeTrade?.againstPlayer.accepted).toBe(false);
+
+        // Force againstPlayer acceptance manually on server to simulate their response
+        state.activeTrade!.againstPlayer.accepted = true;
+
+        // Turn player updates cash, should reset againstPlayer acceptance to false
+        const tradeObj2 = {
+            turnPlayer: { id: "socket-1", balance: 200, prop: [], accepted: true },
+            againstPlayer: { id: "socket-2", balance: 50, prop: [], accepted: true }
+        };
+
+        await socket.simulate("trade-update", tradeObj2);
+        expect(state.activeTrade?.againstPlayer.accepted).toBe(false);
+    });
 });
