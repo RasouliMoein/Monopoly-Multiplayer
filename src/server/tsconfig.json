@@ -14,5 +14,6 @@
         "skipLibCheck": true,
         "resolveJsonModule": true
     },
-    "include": ["src/**/*", "../shared/**/*"]
+    "include": ["src/**/*", "../shared/**/*"],
+    "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
 }

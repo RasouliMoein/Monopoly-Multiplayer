@@ -30,3 +30,8 @@ config.ts
 *.njsproj
 *.sln
 *.sw?
+
+# Testing artifacts
+coverage/
+playwright-report/
+test-results/
