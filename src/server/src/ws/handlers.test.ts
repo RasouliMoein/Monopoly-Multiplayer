@@ -51,6 +51,7 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
             destroy: jest.fn(),
         };
         state = new GameState();
+        state.skipPlayerShuffle = true;
         s1 = new MockSocket("socket-1");
         s2 = new MockSocket("socket-2");
         s3 = new MockSocket("socket-3");
@@ -132,6 +133,25 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
 
             expect(state.gameStarted).toBe(true);
         });
+
+        it("should randomize player order when game starts", () => {
+            state.skipPlayerShuffle = false;
+            const mathRandomSpy = jest.spyOn(Math, "random").mockReturnValue(0.0);
+
+            setupLobbyPlayers();
+
+
+            s1.simulate("ready", { ready: true });
+            s2.simulate("ready", { ready: true });
+            s3.simulate("ready", { ready: true });
+
+            const finalOrder = Array.from(state.clients.keys());
+            expect(finalOrder).toEqual(["socket-2", "socket-3", "socket-1"]);
+            expect(state.currentId).toBe("socket-2");
+
+            mathRandomSpy.mockRestore();
+        });
+
     });
 
     describe("Dice Rolling & Movement Mechanics", () => {

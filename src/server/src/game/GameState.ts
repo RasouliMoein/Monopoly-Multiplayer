@@ -27,6 +27,7 @@ export class GameState {
     public logs_strings: Array<string> = [];
     public currentId = "";
     public gameStarted = false;
+    public skipPlayerShuffle = false;
     public selectedMode: MonopolyMode = MonopolyModes[0];
     public hostId = "";
     public disconnectGracePeriodTimers = new Map<string, any>();

@@ -1370,6 +1370,22 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
 
             const readys = Array.from(state.clients.values()).map((v) => v.ready);
             if (!readys.includes(false) && state.clients.size >= 2) {
+                if (!state.skipPlayerShuffle) {
+                    const clientEntries = Array.from(state.clients.entries());
+                    for (let i = clientEntries.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        const temp = clientEntries[i];
+                        clientEntries[i] = clientEntries[j];
+                        clientEntries[j] = temp;
+                    }
+                    state.clients.clear();
+                    for (const [k, v] of clientEntries) {
+                        state.clients.set(k, v);
+                    }
+                    state.currentId = clientEntries[0][0];
+                }
+
+
                 for (const c of Array.from(state.clients.values())) {
                     c.player.balance = state.selectedMode.startingCash;
                     c.player.position = 0;
