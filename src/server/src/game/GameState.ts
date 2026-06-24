@@ -229,7 +229,7 @@ export class GameState {
 
             if (prop.id === "incometax") {
                 rentOrTax = 200;
-            } else if (prop.id === "luxerytax") {
+            } else if (prop.id === "luxurytax") {
                 rentOrTax = 100;
             } else if (prop.group && prop.group !== "Special") {
                 const clientOwner = Array.from(this.clients.values()).find(
@@ -330,7 +330,7 @@ export class GameState {
                 pStatsTax.unluckyEvents += 1;
             }
             result = { requiresPurchaseDecision: false, landingNote: "incometax:200" };
-        } else if (prop.id === "luxerytax") {
+        } else if (prop.id === "luxurytax") {
             player.balance -= 100;
             actualPaid = 100;
             const pStatsLux = this.gameStats.playerStats[player.id];
@@ -338,7 +338,7 @@ export class GameState {
                 pStatsLux.taxesPaid += 100;
                 pStatsLux.unluckyEvents += 1;
             }
-            result = { requiresPurchaseDecision: false, landingNote: "luxerytax:100" };
+            result = { requiresPurchaseDecision: false, landingNote: "luxurytax:100" };
         } else {
             const playersList = Array.from(this.clients.values()).map((c) => c.player);
             const { owner, amount } = computeRent(position, rolls, playersList, multiplier);
@@ -834,6 +834,29 @@ export class GameState {
     }
 
     /**
+     * Determines the next active player's ID in the turn order starting from a reference player ID.
+     *
+     * @param referenceId The ID of the player whose turn is ending, or who is leaving/bankrupt
+     * @returns The ID of the next active player, or empty string if no active players remain
+     */
+    public getNextActivePlayerId(referenceId: string): string {
+        const allClients = Array.from(this.clients.values());
+        const refIdx = allClients.findIndex((c) => c.player.id === referenceId);
+        if (refIdx === -1 || allClients.length === 0) {
+            const firstActive = allClients.find((c) => !c.player.isBankrupt);
+            return firstActive ? firstActive.player.id : "";
+        }
+
+        for (let offset = 1; offset <= allClients.length; offset++) {
+            const client = allClients[(refIdx + offset) % allClients.length];
+            if (!client.player.isBankrupt && client.player.id !== referenceId) {
+                return client.player.id;
+            }
+        }
+        return "";
+    }
+
+    /**
      * Finalizes bankruptcy status, clears active tracking lists, and advances the game turn to the next player.
      *
      * @param bankruptSocketId The ID of the bankrupt player
@@ -850,11 +873,7 @@ export class GameState {
         bp.hasRolled = false;
         bp.allowRollAgain = false;
 
-        const active = Array.from(this.clients.values()).filter((v) => !v.player.isBankrupt);
-        const arr = active.map((v) => v.player.id);
-        let i = arr.indexOf(bankruptSocketId);
-        i = arr.length > 0 ? (i + 1) % arr.length : -1;
-        this.currentId = i === -1 ? "" : arr[i];
+        this.currentId = this.getNextActivePlayerId(bankruptSocketId);
 
         this.emitAll("player-bankrupt", {
             bankruptId: bp.id,

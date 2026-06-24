@@ -716,7 +716,7 @@
         },
         {
             "name": "Luxury Tax",
-            "id": "luxerytax",
+            "id": "luxurytax",
             "group": "Special",
             "position": 38,
             "averageProbability": 2.116
@@ -761,7 +761,7 @@
         { "id": "shortlinerailroad" },
         { "id": "chance" },
         { "id": "parkplace" },
-        { "id": "luxerytax" },
+        { "id": "luxurytax" },
         { "id": "boardwalk" }
     ],
     "chance": [

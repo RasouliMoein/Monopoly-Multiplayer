@@ -283,12 +283,10 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                     if (target) {
                         target.socket.emit("kicked");
                         target.socket.disconnect();
+                        const nextId = state.getNextActivePlayerId(targetId);
                         state.clients.delete(targetId);
                         if (state.currentId === targetId) {
-                            const arr = Array.from(state.clients.values())
-                                .filter((v) => v.player.balance > 0)
-                                .map((v) => v.player.id);
-                            state.currentId = arr.length > 0 ? arr[0] : "";
+                            state.currentId = nextId;
                         }
                         state.emitAll("disconnected-player", {
                             id: targetId,
@@ -576,7 +574,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                                 if (landingNote.startsWith("incometax")) {
                                     state.emitServerHistory(`${player.username} paid $200 Income Tax`);
                                     state.creditorMap.set(player.id, "bank");
-                                } else if (landingNote.startsWith("luxerytax")) {
+                                } else if (landingNote.startsWith("luxurytax")) {
                                     state.emitServerHistory(`${player.username} paid $100 Luxury Tax`);
                                     state.creditorMap.set(player.id, "bank");
                                 } else if (landingNote.startsWith("rent:")) {
@@ -594,7 +592,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                             if (landingNote.startsWith("incometax")) {
                                 state.emitServerHistory(`${player.username} paid $200 Income Tax`);
                                 state.creditorMap.set(player.id, "bank");
-                            } else if (landingNote.startsWith("luxerytax")) {
+                            } else if (landingNote.startsWith("luxurytax")) {
                                 state.emitServerHistory(`${player.username} paid $100 Luxury Tax`);
                                 state.creditorMap.set(player.id, "bank");
                             } else if (landingNote.startsWith("rent:")) {
@@ -643,7 +641,9 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
             // ── Player Action (buy / upgrade / skip) ──
             socket.on("player_action", (args: any) => {
                 try {
-                    if (state.currentId !== socket.id) return;
+                    if (args.action === "buy" || args.action === "skip") {
+                        if (state.currentId !== socket.id) return;
+                    }
                     const prop = propertyByPosition.get(player.position) as any;
 
                     if (args.action === "buy") {
@@ -1233,6 +1233,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 const logMsg = `{${getCurrentTime()}} [${socket.id}] Player "${lc.player.username}" has left the room.`;
                 server.logFunction(logMsg);
                 state.logs_strings.push(logMsg);
+                const nextId = state.getNextActivePlayerId(socket.id);
                 state.clients.delete(socket.id);
 
                 if (state.hostId === socket.id) {
@@ -1241,10 +1242,7 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                 }
 
                 if (state.currentId === socket.id) {
-                    const arr = Array.from(state.clients.values())
-                        .filter((v) => v.player.balance > 0)
-                        .map((v) => v.player.id);
-                    state.currentId = arr.length > 0 ? arr[0] : "";
+                    state.currentId = nextId;
                 }
                 state.emitAll("disconnected-player", {
                     id: socket.id,

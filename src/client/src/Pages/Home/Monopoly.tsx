@@ -750,7 +750,7 @@ function App({
                         taxAudio.volume = ((settings?.audio[1] ?? 100) / 100) * ((settings?.audio[0] ?? 100) / 100);
                         taxAudio.play();
                         engineRef.current?.applyAnimation(1);
-                    } else if (note.startsWith("luxerytax")) {
+                    } else if (note.startsWith("luxurytax")) {
                         if (settings?.notifications === true)
                             notifyRef.current?.message(`Paid $100 luxury tax`, "info", 2, () => {}, false);
                         const taxAudio2 = new Audio("./moneyminus.mp3");
