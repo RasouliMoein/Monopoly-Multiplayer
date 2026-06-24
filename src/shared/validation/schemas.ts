@@ -60,7 +60,7 @@ export const websocketSchemas = {
     player_action: z.object({
         action: z.enum(["buy", "buy-advance", "sell-advance", "skip"]),
         propertyPosition: z.number().int().min(0).max(39).optional(),
-        newCount: z.union([z.number().int().min(0).max(4), z.literal("h")]).optional(),
+        newCount: z.union([z.number().int().min(0).max(5), z.literal("h")]).optional(),
         housesAdded: z.number().int().min(0).optional(),
     }),
     mortgage_action: z.object({

@@ -309,6 +309,22 @@ describe("WebSocket Handlers & Authoritative Game Loop", () => {
             expect(p1.properties.find(p => p.position === 1)?.count).toBe(1); // remains 1
         });
 
+        it("should buy hotel upgrades on color groups", () => {
+            const p1 = state.clients.get("socket-1")?.player!;
+            p1.properties.push({ position: 1, count: 4, group: "Purple" });
+            p1.properties.push({ position: 3, count: 4, group: "Purple" });
+
+            state.currentId = "socket-1";
+            p1.position = 1;
+            
+            // Build hotel on Med Ave
+            s1.simulate("player_action", { action: "buy-advance", propertyPosition: 1, newCount: 5, housesAdded: 1 });
+            expect(p1.properties.find(p => p.position === 1)?.count).toBe("h");
+            expect(state.bankHotels).toBe(11);
+            expect(state.bankHouses).toBe(32 + 4);
+        });
+
+
         it("should sell houses/hotels for cash refunds", () => {
             const p1 = state.clients.get("socket-1")?.player!;
             p1.properties.push({ position: 1, count: 2, group: "Purple" });

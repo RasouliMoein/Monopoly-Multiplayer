@@ -693,7 +693,6 @@ export function registerSocketHandlers(socket: Socket, server: Server, state: Ga
                         if (toNum(player.properties[idx].count) > minCount) return;
                         const expectedNext = toNum(player.properties[idx].count) + 1;
                         if (args.newCount !== expectedNext) return;
-
                         if (args.newCount === 5) {
                             if (state.bankHotels < 1) {
                                 socket.emit("pool-shortage", { type: "hotel", message: "No hotels left in the Bank!" });
